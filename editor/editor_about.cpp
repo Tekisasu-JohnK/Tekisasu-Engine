@@ -112,7 +112,7 @@ ScrollContainer *EditorAbout::_populate_list(const String &p_name, const List<St
 }
 
 EditorAbout::EditorAbout() {
-	set_title(TTR("Thanks from the Godot community!"));
+	set_title(TTR("About"));
 	set_hide_on_ok(true);
 	set_resizable(true);
 
@@ -148,8 +148,8 @@ EditorAbout::EditorAbout() {
 
 	Label *about_text = memnew(Label);
 	about_text->set_v_size_flags(Control::SIZE_SHRINK_CENTER);
-	about_text->set_text(String::utf8("\xc2\xa9 2007-2022 Juan Linietsky, Ariel Manzur.\n\xc2\xa9 2014-2022 ") +
-			TTR("Godot Engine contributors") + "\n");
+	about_text->set_text(String::utf8("\xc2\xa9 2021-2022 John Knight, Tekisasu.\n\xc2\xa9 2007-2022 Juan Linietsky, Ariel Manzur.\n\xc2\xa9 2014-2022 ") +
+			TTR("Upstream contributors") + "\n");
 	version_info_vbc->add_child(about_text);
 
 	hbc->add_child(version_info_vbc);
@@ -162,6 +162,7 @@ EditorAbout::EditorAbout() {
 	// Authors
 
 	List<String> dev_sections;
+	dev_sections.push_back(TTR("Fork Maintainer"));
 	dev_sections.push_back(TTR("Project Founders"));
 	dev_sections.push_back(TTR("Lead Developer"));
 	// TRANSLATORS: This refers to a job title.
@@ -169,7 +170,7 @@ EditorAbout::EditorAbout() {
 	// you do not have to keep it in your translation.
 	dev_sections.push_back(TTR("Project Manager "));
 	dev_sections.push_back(TTR("Developers"));
-	const char *const *dev_src[] = { AUTHORS_FOUNDERS, AUTHORS_LEAD_DEVELOPERS,
+	const char *const *dev_src[] = { FORK_ID, AUTHORS_FOUNDERS, AUTHORS_LEAD_DEVELOPERS,
 		AUTHORS_PROJECT_MANAGERS, AUTHORS_DEVELOPERS };
 	tc->add_child(_populate_list(TTR("Authors"), dev_sections, dev_src, 1));
 
@@ -208,7 +209,7 @@ EditorAbout::EditorAbout() {
 	Label *tpl_label = memnew(Label);
 	tpl_label->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	tpl_label->set_autowrap(true);
-	tpl_label->set_text(TTR("Godot Engine relies on a number of third-party free and open source libraries, all compatible with the terms of its MIT license. The following is an exhaustive list of all such third-party components with their respective copyright statements and license terms."));
+	tpl_label->set_text(TTR("Tekisasu Engine relies on a number of third-party free and open source libraries, all compatible with the terms of its MIT license. The following is an exhaustive list of all such third-party components with their respective copyright statements and license terms."));
 	tpl_label->set_size(Size2(630, 1) * EDSCALE);
 	license_thirdparty->add_child(tpl_label);
 

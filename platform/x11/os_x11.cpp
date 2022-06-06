@@ -281,7 +281,7 @@ Error OS_X11::initialize(const VideoMode &p_desired, int p_video_driver, int p_a
 
 		if (use_prime) {
 			print_line("Found discrete GPU, setting DRI_PRIME=1 to use it.");
-			print_line("Note: Set DRI_PRIME=0 in the environment to disable Godot from using the discrete GPU.");
+			print_line("Note: Set DRI_PRIME=0 in the environment to disable Tekisasu Engine from using the discrete GPU.");
 			setenv("DRI_PRIME", "1", 1);
 		}
 	}
@@ -352,7 +352,7 @@ Error OS_X11::initialize(const VideoMode &p_desired, int p_video_driver, int p_a
 		OS::get_singleton()->alert("Your video card driver does not support any of the supported OpenGL versions.\n"
 								   "Please update your drivers or if you have a very old or integrated GPU, upgrade it.\n"
 								   "If you have updated your graphics drivers recently, try rebooting.\n"
-								   "Alternatively, you can force software rendering by running Godot with the `LIBGL_ALWAYS_SOFTWARE=1`\n"
+								   "Alternatively, you can force software rendering by running Tekisasu Engine Godot with the `LIBGL_ALWAYS_SOFTWARE=1`\n"
 								   "environment variable set, but this will be very slow.",
 				"Unable to initialize Video driver");
 		return ERR_UNAVAILABLE;
@@ -469,7 +469,7 @@ Error OS_X11::initialize(const VideoMode &p_desired, int p_video_driver, int p_a
 	XISelectEvents(x11_display, DefaultRootWindow(x11_display), &xi.all_master_event_mask, 1);
 
 	/* set the titlebar name */
-	XStoreName(x11_display, x11_window, "Godot");
+	XStoreName(x11_display, x11_window, "Tekisasu Engine");
 
 	wm_delete = XInternAtom(x11_display, "WM_DELETE_WINDOW", true);
 	XSetWMProtocols(x11_display, x11_window, &wm_delete, 1);
@@ -3705,7 +3705,7 @@ void OS_X11::set_context(int p_context) {
 				class_str = config_name.utf8();
 			}
 		} else {
-			class_str = "Godot";
+			class_str = "Tekisasu Engine";
 		}
 
 		classHint->res_class = class_str.ptrw();

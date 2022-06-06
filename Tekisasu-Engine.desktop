@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Tekisasu Engine
+GenericName=Libre game engine
+Comment=Multi-platform 2D and 3D game engine with a feature-rich editor
+Exec=/home/INSERTUSERNAME/Apps/Tekisasu-Toolchain/bin/Tekisasu-Engine %f
+TryExec=/home/INSERTUSERNAME/Apps/Tekisasu-Toolchain/bin/Tekisasu-Engine
+Icon=/home/INSERTUSERNAME/Apps/Tekisasu-Toolchain/Tekisasu-Engine/icons/Tekisasu-Engine.svg
+Terminal=true
+PrefersNonDefaultGPU=true
+Type=Application
+MimeType=application/x-godot-project;
+Categories=Development;IDE;
+

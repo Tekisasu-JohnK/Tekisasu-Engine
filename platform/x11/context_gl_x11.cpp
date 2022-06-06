@@ -74,7 +74,7 @@ static void set_class_hint(Display *p_display, Window p_window) {
 	classHint = XAllocClassHint();
 	if (classHint) {
 		classHint->res_name = (char *)"Godot_Engine";
-		classHint->res_class = (char *)"Godot";
+		classHint->res_class = (char *)"Tekisasu Engine";
 	}
 	XSetClassHint(p_display, p_window, classHint);
 	XFree(classHint);

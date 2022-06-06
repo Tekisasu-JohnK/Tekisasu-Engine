@@ -61,7 +61,7 @@ def add_module_version_string(self, s):
 
 
 def update_version(module_version_string=""):
-    build_name = "custom_build"
+    build_name = "txbuild"
     if os.getenv("BUILD_NAME") != None:
         build_name = str(os.getenv("BUILD_NAME"))
         print("Using custom build name: " + build_name)
