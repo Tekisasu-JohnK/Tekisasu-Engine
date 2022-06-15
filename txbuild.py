@@ -282,4 +282,4 @@ def add_release_flags(bidding):
 	else:
 		sys.exit("\nadd_release_flags() did not get a valid input.\n")
 
-tekisasu_input(action, target, cpuarc)
+tekisasu_input(action, target, cpuarc, uwp)
