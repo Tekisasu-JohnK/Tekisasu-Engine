@@ -53,6 +53,8 @@
 #include <regstr.h>
 #include <shlobj.h>
 
+#include <dwmapi.h> /* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) */
+
 static const WORD MAX_CONSOLE_LINES = 1500;
 
 extern "C" {
@@ -1484,6 +1486,12 @@ Error OS_Windows::initialize(const VideoMode &p_desired, int p_video_driver, int
 		video_mode.height = rect.bottom;
 		video_mode.fullscreen = false;
 	} else {
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
+		#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+		#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+		#endif
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */
+
 		hWnd = CreateWindowExW(
 				dwExStyle,
 				L"Engine", L"",
@@ -1493,6 +1501,10 @@ Error OS_Windows::initialize(const VideoMode &p_desired, int p_video_driver, int
 				WindowRect.right - WindowRect.left,
 				WindowRect.bottom - WindowRect.top,
 				NULL, NULL, hInstance, NULL);
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
+		BOOL value = TRUE;
+		::DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */
 		if (!hWnd) {
 			MessageBoxW(NULL, L"Window Creation Error.", L"ERROR", MB_OK | MB_ICONEXCLAMATION);
 			return ERR_UNAVAILABLE;
