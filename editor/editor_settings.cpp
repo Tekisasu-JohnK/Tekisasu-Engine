@@ -305,7 +305,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	hints["interface/editor/display_scale"] = PropertyInfo(Variant::INT, "interface/editor/display_scale", PROPERTY_HINT_ENUM, vformat("Auto (%d%%),75%%,100%%,125%%,150%%,175%%,200%%,Custom", Math::round(scale * 100)), PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED);
 	_initial_set("interface/editor/custom_display_scale", 1.0f);
 	hints["interface/editor/custom_display_scale"] = PropertyInfo(Variant::REAL, "interface/editor/custom_display_scale", PROPERTY_HINT_RANGE, "0.5,3,0.01", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED);
-	_initial_set("interface/editor/main_font_size", 12);
+	_initial_set("interface/editor/main_font_size", 13);
 	hints["interface/editor/main_font_size"] = PropertyInfo(Variant::INT, "interface/editor/main_font_size", PROPERTY_HINT_RANGE, "8,48,1", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED);
 	_initial_set("interface/editor/code_font_size", 12);
 	hints["interface/editor/code_font_size"] = PropertyInfo(Variant::INT, "interface/editor/code_font_size", PROPERTY_HINT_RANGE, "8,48,1", PROPERTY_USAGE_DEFAULT);
@@ -335,7 +335,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	hints["interface/editor/unfocused_low_processor_mode_sleep_usec"] = PropertyInfo(Variant::REAL, "interface/editor/unfocused_low_processor_mode_sleep_usec", PROPERTY_HINT_RANGE, "1,1000000,1", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED);
 	_initial_set("interface/editor/separate_distraction_mode", false);
 	_initial_set("interface/editor/automatically_open_screenshots", true);
-	_initial_set("interface/editor/hide_console_window", false);
+	_initial_set("interface/editor/hide_console_window", true);
 	_initial_set("interface/editor/save_each_scene_on_quit", true); // Regression
 	_initial_set("interface/editor/quit_confirmation", true);
 
@@ -348,9 +348,9 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	hints["interface/theme/preset"] = PropertyInfo(Variant::STRING, "interface/theme/preset", PROPERTY_HINT_ENUM, "Default,Alien,Arc,Godot 2,Grey,Light,Solarized (Dark),Solarized (Light),Custom", PROPERTY_USAGE_DEFAULT);
 	_initial_set("interface/theme/icon_and_font_color", 0);
 	hints["interface/theme/icon_and_font_color"] = PropertyInfo(Variant::INT, "interface/theme/icon_and_font_color", PROPERTY_HINT_ENUM, "Auto,Dark,Light", PROPERTY_USAGE_DEFAULT);
-	_initial_set("interface/theme/base_color", Color(0.2, 0.23, 0.31));
+	_initial_set("interface/theme/base_color", Color(0.22, 0.22, 0.25));
 	hints["interface/theme/base_color"] = PropertyInfo(Variant::COLOR, "interface/theme/base_color", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT);
-	_initial_set("interface/theme/accent_color", Color(0.41, 0.61, 0.91));
+	_initial_set("interface/theme/accent_color", Color(0.63, 0.45, 0.97));
 	hints["interface/theme/accent_color"] = PropertyInfo(Variant::COLOR, "interface/theme/accent_color", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT);
 	_initial_set("interface/theme/contrast", 0.25);
 	hints["interface/theme/contrast"] = PropertyInfo(Variant::REAL, "interface/theme/contrast", PROPERTY_HINT_RANGE, "-1, 1, 0.01");

@@ -309,8 +309,8 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	// Please, use alphabet order if you've added new theme here(After "Default" and "Custom")
 
 	if (preset == "Default") {
-		preset_accent_color = Color(0.57, 0.41, 0.91);
-		preset_base_color = Color(0.19, 0.19, 0.2);
+		preset_accent_color = Color(0.62, 0.45, 0.97);
+		preset_base_color = Color(0.21, 0.21, 0.24);
 		preset_contrast = default_contrast;
 	} else if (preset == "Custom") {
 		accent_color = EDITOR_GET("interface/theme/accent_color");
