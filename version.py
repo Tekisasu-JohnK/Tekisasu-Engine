@@ -1,9 +1,10 @@
 short_name = "tekisasu-engine"
 name = "Tekisasu Engine"
 major = 3
-minor = 4
-patch = 5
+minor = 5
+patch = 0
 status = "stable"
 module_config = ""
 year = 2022
 website = "https://dev.tekisasu.com"
+docs = "3.5"
