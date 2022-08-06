@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  quick_open.h                                                         */
+/*  editor_property_name_processor.h                                     */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,45 +28,43 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef EDITOR_QUICK_OPEN_H
-#define EDITOR_QUICK_OPEN_H
+#ifndef EDITOR_PROPERTY_NAME_PROCESSOR_H
+#define EDITOR_PROPERTY_NAME_PROCESSOR_H
 
-#include "core/pair.h"
-#include "editor_file_system.h"
-#include "scene/gui/dialogs.h"
-#include "scene/gui/tree.h"
+#include "scene/main/node.h"
 
-class EditorQuickOpen : public ConfirmationDialog {
-	GDCLASS(EditorQuickOpen, ConfirmationDialog);
+class EditorPropertyNameProcessor : public Node {
+	GDCLASS(EditorPropertyNameProcessor, Node);
 
-	LineEdit *search_box;
-	Tree *search_options;
-	StringName base_type;
-	StringName ei;
-	StringName ot;
+	static EditorPropertyNameProcessor *singleton;
 
-	void _update_search();
+	mutable Map<String, String> capitalize_string_cache;
+	Map<String, String> capitalize_string_remaps;
 
-	void _sbox_input(const Ref<InputEvent> &p_ie);
-	void _parse_fs(EditorFileSystemDirectory *efsd, Vector<Pair<String, Ref<Texture>>> &list);
-	Vector<Pair<String, Ref<Texture>>> _sort_fs(Vector<Pair<String, Ref<Texture>>> &list);
-	float _path_cmp(String search, String path) const;
-
-	void _confirmed();
-	void _text_changed(const String &p_newtext);
-
-protected:
-	void _notification(int p_what);
-	static void _bind_methods();
+	// Capitalizes property path segments.
+	String _capitalize_name(const String &p_name) const;
 
 public:
-	StringName get_base_type() const;
+	// Matches `interface/inspector/capitalize_properties` editor setting.
+	enum Style {
+		STYLE_RAW,
+		STYLE_CAPITALIZED,
+		STYLE_LOCALIZED,
+	};
 
-	String get_selected() const;
-	Vector<String> get_selected_files() const;
+	static EditorPropertyNameProcessor *get_singleton() { return singleton; }
 
-	void popup_dialog(const StringName &p_base, bool p_enable_multi = false, bool p_dontclear = false);
-	EditorQuickOpen();
+	static Style get_default_inspector_style();
+	static Style get_settings_style();
+	static Style get_tooltip_style(Style p_style);
+
+	static bool is_localization_available();
+
+	// Turns property path segment into the given style.
+	String process_name(const String &p_name, Style p_style) const;
+
+	EditorPropertyNameProcessor();
+	~EditorPropertyNameProcessor();
 };
 
-#endif // EDITOR_QUICK_OPEN_H
+#endif // EDITOR_PROPERTY_NAME_PROCESSOR_H
