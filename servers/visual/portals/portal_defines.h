@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  audio_effect_amplify.h                                               */
+/*  portal_defines.h                                                     */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,39 +28,15 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef AUDIO_EFFECT_AMPLIFY_H
-#define AUDIO_EFFECT_AMPLIFY_H
+#ifndef PORTAL_DEFINES_H
+#define PORTAL_DEFINES_H
 
-#include "servers/audio/audio_effect.h"
+// This file is to allow constants etc to be accessible from outside the visual server,
+// while keeping the dependencies to an absolute minimum.
 
-class AudioEffectAmplify;
-
-class AudioEffectAmplifyInstance : public AudioEffectInstance {
-	GDCLASS(AudioEffectAmplifyInstance, AudioEffectInstance);
-	friend class AudioEffectAmplify;
-	Ref<AudioEffectAmplify> base;
-
-	float mix_volume_db;
-
-public:
-	virtual void process(const AudioFrame *p_src_frames, AudioFrame *p_dst_frames, int p_frame_count);
+struct PortalDefines {
+	static const int OCCLUSION_POLY_MAX_VERTS = 8;
+	static const int OCCLUSION_POLY_MAX_HOLES = 4;
 };
 
-class AudioEffectAmplify : public AudioEffect {
-	GDCLASS(AudioEffectAmplify, AudioEffect);
-
-	friend class AudioEffectAmplifyInstance;
-	float volume_db;
-
-protected:
-	static void _bind_methods();
-
-public:
-	Ref<AudioEffectInstance> instance();
-	void set_volume_db(float p_volume);
-	float get_volume_db() const;
-
-	AudioEffectAmplify();
-};
-
-#endif // AUDIO_EFFECT_AMPLIFY_H
+#endif // PORTAL_DEFINES_H

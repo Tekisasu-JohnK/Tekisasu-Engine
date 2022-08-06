@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  eq.h                                                                 */
+/*  portal_resources.h                                                   */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,82 +28,41 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-// Author: reduzio@gmail.com (C) 2006
+#ifndef PORTAL_RESOURCES_H
+#define PORTAL_RESOURCES_H
 
-#ifndef EQ_FILTER_H
-#define EQ_FILTER_H
+#include "core/math/geometry.h"
+#include "portal_types.h"
 
-#include "core/typedefs.h"
-#include "core/vector.h"
+// Although the portal renderer is owned by a scenario,
+// resources are not associated with a scenario and can be shared
+// potentially across multiple scenarios. They must therefore be held in
+// some form of global.
 
-/**
-@author Juan Linietsky
-*/
+class PortalResources {
+	friend class PortalRenderer;
 
-class EQ {
 public:
-	enum Preset {
+	OccluderResourceHandle occluder_resource_create();
+	void occluder_resource_prepare(OccluderResourceHandle p_handle, VSOccluder_Instance::Type p_type);
+	void occluder_resource_update_spheres(OccluderResourceHandle p_handle, const Vector<Plane> &p_spheres);
+	void occluder_resource_update_mesh(OccluderResourceHandle p_handle, const Geometry::OccluderMeshData &p_mesh_data);
+	void occluder_resource_destroy(OccluderResourceHandle p_handle);
 
-		PRESET_6_BANDS,
-		PRESET_8_BANDS,
-		PRESET_10_BANDS,
-		PRESET_21_BANDS,
-		PRESET_31_BANDS
-	};
+	const VSOccluder_Resource &get_pool_occluder_resource(uint32_t p_pool_id) const { return _occluder_resource_pool[p_pool_id]; }
+	VSOccluder_Resource &get_pool_occluder_resource(uint32_t p_pool_id) { return _occluder_resource_pool[p_pool_id]; }
 
-	class BandProcess {
-		friend class EQ;
-		float c1, c2, c3;
-		struct History {
-			float a1, a2, a3;
-			float b1, b2, b3;
-
-		} history;
-
-	public:
-		inline void process_one(float &p_data);
-
-		BandProcess();
-	};
+	// Local space is shared resources
+	const VSOccluder_Sphere &get_pool_occluder_local_sphere(uint32_t p_pool_id) const { return _occluder_local_sphere_pool[p_pool_id]; }
+	const VSOccluder_Poly &get_pool_occluder_local_poly(uint32_t p_pool_id) const { return _occluder_local_poly_pool[p_pool_id]; }
+	const VSOccluder_Hole &get_pool_occluder_local_hole(uint32_t p_pool_id) const { return _occluder_local_hole_pool[p_pool_id]; }
+	VSOccluder_Hole &get_pool_occluder_local_hole(uint32_t p_pool_id) { return _occluder_local_hole_pool[p_pool_id]; }
 
 private:
-	struct Band {
-		float freq;
-		float c1, c2, c3;
-	};
-
-	Vector<Band> band;
-
-	float mix_rate;
-
-	void recalculate_band_coefficients();
-
-public:
-	void set_mix_rate(float p_mix_rate);
-
-	int get_band_count() const;
-	void set_preset_band_mode(Preset p_preset);
-	void set_bands(const Vector<float> &p_bands);
-	BandProcess get_band_processor(int p_band) const;
-	float get_band_frequency(int p_band);
-
-	EQ();
-	~EQ();
+	TrackedPooledList<VSOccluder_Resource> _occluder_resource_pool;
+	TrackedPooledList<VSOccluder_Sphere, uint32_t, true> _occluder_local_sphere_pool;
+	TrackedPooledList<VSOccluder_Poly, uint32_t, true> _occluder_local_poly_pool;
+	TrackedPooledList<VSOccluder_Hole, uint32_t, true> _occluder_local_hole_pool;
 };
 
-/* Inline Function */
-
-inline void EQ::BandProcess::process_one(float &p_data) {
-	history.a1 = p_data;
-
-	history.b1 = c1 * (history.a1 - history.a3) + c3 * history.b2 - c2 * history.b3;
-
-	p_data = history.b1;
-
-	history.a3 = history.a2;
-	history.a2 = history.a1;
-	history.b3 = history.b2;
-	history.b2 = history.b1;
-}
-
-#endif
+#endif // PORTAL_RESOURCES_H

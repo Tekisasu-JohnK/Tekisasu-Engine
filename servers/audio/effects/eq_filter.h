@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  audio_effect_amplify.h                                               */
+/*  eq_filter.h                                                          */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,39 +28,82 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef AUDIO_EFFECT_AMPLIFY_H
-#define AUDIO_EFFECT_AMPLIFY_H
+// Author: reduzio@gmail.com (C) 2006
 
-#include "servers/audio/audio_effect.h"
+#ifndef EQ_FILTER_H
+#define EQ_FILTER_H
 
-class AudioEffectAmplify;
+#include "core/typedefs.h"
+#include "core/vector.h"
 
-class AudioEffectAmplifyInstance : public AudioEffectInstance {
-	GDCLASS(AudioEffectAmplifyInstance, AudioEffectInstance);
-	friend class AudioEffectAmplify;
-	Ref<AudioEffectAmplify> base;
+/**
+@author Juan Linietsky
+*/
 
-	float mix_volume_db;
+class EQ {
+public:
+	enum Preset {
+
+		PRESET_6_BANDS,
+		PRESET_8_BANDS,
+		PRESET_10_BANDS,
+		PRESET_21_BANDS,
+		PRESET_31_BANDS
+	};
+
+	class BandProcess {
+		friend class EQ;
+		float c1, c2, c3;
+		struct History {
+			float a1, a2, a3;
+			float b1, b2, b3;
+
+		} history;
+
+	public:
+		inline void process_one(float &p_data);
+
+		BandProcess();
+	};
+
+private:
+	struct Band {
+		float freq;
+		float c1, c2, c3;
+	};
+
+	Vector<Band> band;
+
+	float mix_rate;
+
+	void recalculate_band_coefficients();
 
 public:
-	virtual void process(const AudioFrame *p_src_frames, AudioFrame *p_dst_frames, int p_frame_count);
+	void set_mix_rate(float p_mix_rate);
+
+	int get_band_count() const;
+	void set_preset_band_mode(Preset p_preset);
+	void set_bands(const Vector<float> &p_bands);
+	BandProcess get_band_processor(int p_band) const;
+	float get_band_frequency(int p_band);
+
+	EQ();
+	~EQ();
 };
 
-class AudioEffectAmplify : public AudioEffect {
-	GDCLASS(AudioEffectAmplify, AudioEffect);
+/* Inline Function */
 
-	friend class AudioEffectAmplifyInstance;
-	float volume_db;
+inline void EQ::BandProcess::process_one(float &p_data) {
+	history.a1 = p_data;
 
-protected:
-	static void _bind_methods();
+	history.b1 = c1 * (history.a1 - history.a3) + c3 * history.b2 - c2 * history.b3;
 
-public:
-	Ref<AudioEffectInstance> instance();
-	void set_volume_db(float p_volume);
-	float get_volume_db() const;
+	p_data = history.b1;
 
-	AudioEffectAmplify();
-};
+	history.a3 = history.a2;
+	history.a2 = history.a1;
+	history.b3 = history.b2;
+	history.b2 = history.b1;
+}
 
-#endif // AUDIO_EFFECT_AMPLIFY_H
+#endif // EQ_FILTER_H
