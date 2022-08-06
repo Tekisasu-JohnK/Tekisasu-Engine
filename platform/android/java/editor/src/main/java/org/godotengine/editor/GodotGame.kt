@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  GodotInstrumentation.java                                            */
+/*  GodotGame.kt                                                         */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,23 +28,11 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-package org.godotengine.godot;
+package org.godotengine.editor
 
-import android.app.Instrumentation;
-import android.content.Intent;
-import android.os.Bundle;
-
-public class GodotInstrumentation extends Instrumentation {
-	private Intent intent;
-
-	@Override
-	public void onCreate(Bundle arguments) {
-		intent = arguments.getParcelable("intent");
-		start();
-	}
-
-	@Override
-	public void onStart() {
-		startActivitySync(intent);
-	}
+/**
+ * Drives the 'run project' window of the Godot Editor.
+ */
+class GodotGame : GodotEditor() {
+	override fun overrideOrientationRequest() = false
 }

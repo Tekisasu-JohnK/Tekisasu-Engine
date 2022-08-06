@@ -1,12 +1,12 @@
 /*************************************************************************/
-/*  audio_driver_jandroid.h                                              */
+/*  FileData.kt                                                          */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2021 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2021 Godot Engine contributors (cf. AUTHORS.md).   */
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -28,52 +28,66 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef AUDIO_DRIVER_ANDROID_H
-#define AUDIO_DRIVER_ANDROID_H
+package org.godotengine.godot.io.file
 
-#include "servers/audio_server.h"
+import java.io.File
+import java.io.FileOutputStream
+import java.io.RandomAccessFile
+import java.nio.channels.FileChannel
 
-#include "java_godot_lib_jni.h"
+/**
+ * Implementation of [DataAccess] which handles regular (not scoped) file access and interactions.
+ */
+internal class FileData(filePath: String, accessFlag: FileAccessFlags) : DataAccess(filePath) {
 
-class AudioDriverAndroid : public AudioDriver {
+	companion object {
+		private val TAG = FileData::class.java.simpleName
 
-	static Mutex mutex;
-	static AudioDriverAndroid *s_ad;
-	static jobject io;
-	static jmethodID _init_audio;
-	static jmethodID _write_buffer;
-	static jmethodID _quit;
-	static jmethodID _pause;
-	static bool active;
-	static bool quit;
+		fun fileExists(path: String): Boolean {
+			return try {
+				File(path).isFile
+			} catch (e: SecurityException) {
+				false
+			}
+		}
 
-	static jclass cls;
+		fun fileLastModified(filepath: String): Long {
+			return try {
+				File(filepath).lastModified()
+			} catch (e: SecurityException) {
+				0L
+			}
+		}
 
-	static jobject audioBuffer;
-	static void *audioBufferPinned;
-	static int32_t *audioBuffer32;
-	static int audioBufferFrames;
-	static int mix_rate;
+		fun delete(filepath: String): Boolean {
+			return try {
+				File(filepath).delete()
+			} catch (e: Exception) {
+				false
+			}
+		}
 
-public:
-	void set_singleton();
+		fun rename(from: String, to: String): Boolean {
+			return try {
+				val fromFile = File(from)
+				fromFile.renameTo(File(to))
+			} catch (e: Exception) {
+				false
+			}
+		}
+	}
 
-	virtual const char *get_name() const;
+	override val fileChannel: FileChannel
 
-	virtual Error init();
-	virtual void start();
-	virtual int get_mix_rate() const;
-	virtual SpeakerMode get_speaker_mode() const;
-	virtual void lock();
-	virtual void unlock();
-	virtual void finish();
+	init {
+		if (accessFlag == FileAccessFlags.WRITE) {
+			fileChannel = FileOutputStream(filePath, !accessFlag.shouldTruncate()).channel
+		} else {
+			fileChannel = RandomAccessFile(filePath, accessFlag.getMode()).channel
+		}
 
-	virtual void set_pause(bool p_pause);
-
-	static void setup(jobject p_io);
-	static void thread_func(JNIEnv *env);
-
-	AudioDriverAndroid();
-};
-
-#endif // AUDIO_DRIVER_ANDROID_H
+		if (accessFlag.shouldTruncate()) {
+			fileChannel.truncate(0)
+		}
+	}
+}

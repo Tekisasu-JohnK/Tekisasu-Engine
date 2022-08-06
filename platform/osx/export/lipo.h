@@ -1,12 +1,12 @@
 /*************************************************************************/
-/*  javascript_eval.h                                                    */
+/*  lipo.h                                                               */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2021 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2021 Godot Engine contributors (cf. AUTHORS.md).   */
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -28,26 +28,49 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef JAVASCRIPT_EVAL_H
-#define JAVASCRIPT_EVAL_H
+// Universal / Universal 2 fat binary file creator and extractor.
 
-#include "core/object.h"
+#ifndef OSX_LIPO_H
+#define OSX_LIPO_H
 
-class JavaScript : public Object {
-private:
-	GDCLASS(JavaScript, Object);
+#include "core/os/file_access.h"
+#include "core/reference.h"
+#include "modules/modules_enabled.gen.h" // For regex.
 
-	static JavaScript *singleton;
+#include "macho.h"
 
-protected:
-	static void _bind_methods();
+#ifdef MODULE_REGEX_ENABLED
+
+class LipO : public Reference {
+	struct FatArch {
+		uint32_t cputype;
+		uint32_t cpusubtype;
+		uint64_t offset;
+		uint64_t size;
+		uint32_t align;
+	};
+
+	FileAccess *fa = nullptr;
+	Vector<FatArch> archs;
+
+	static inline size_t PAD(size_t s, size_t a) {
+		return (a - s % a);
+	}
 
 public:
-	Variant eval(const String &p_code, bool p_use_global_exec_context = false);
+	static bool is_lipo(const String &p_path);
 
-	static JavaScript *get_singleton();
-	JavaScript();
-	~JavaScript();
+	bool create_file(const String &p_output_path, const PoolStringArray &p_files);
+
+	bool open_file(const String &p_path);
+	int get_arch_count() const;
+	bool extract_arch(int p_index, const String &p_path);
+
+	void close();
+
+	~LipO();
 };
 
-#endif // JAVASCRIPT_EVAL_H
+#endif // MODULE_REGEX_ENABLED
+
+#endif // OSX_LIPO_H

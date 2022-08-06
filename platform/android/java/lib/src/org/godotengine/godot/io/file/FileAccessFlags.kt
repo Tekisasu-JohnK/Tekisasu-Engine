@@ -1,12 +1,12 @@
 /*************************************************************************/
-/*  library_godot_eval.js                                                */
+/*  FileAccessFlags.kt                                                   */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2021 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2021 Godot Engine contributors (cf. AUTHORS.md).   */
+/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -28,59 +28,60 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-const GodotEval = {
-	godot_js_eval__deps: ['$GodotRuntime'],
-	godot_js_eval__sig: 'iiiiiii',
-	godot_js_eval: function (p_js, p_use_global_ctx, p_union_ptr, p_byte_arr, p_byte_arr_write, p_callback) {
-		const js_code = GodotRuntime.parseString(p_js);
-		let eval_ret = null;
-		try {
-			if (p_use_global_ctx) {
-				// indirect eval call grants global execution context
-				const global_eval = eval; // eslint-disable-line no-eval
-				eval_ret = global_eval(js_code);
-			} else {
-				eval_ret = eval(js_code); // eslint-disable-line no-eval
-			}
-		} catch (e) {
-			GodotRuntime.error(e);
-		}
+package org.godotengine.godot.io.file
 
-		switch (typeof eval_ret) {
-		case 'boolean':
-			GodotRuntime.setHeapValue(p_union_ptr, eval_ret, 'i32');
-			return 1; // BOOL
+/**
+ * Android representation of Godot native access flags.
+ */
+internal enum class FileAccessFlags(val nativeValue: Int) {
+    /**
+     * Opens the file for read operations.
+     * The cursor is positioned at the beginning of the file.
+     */
+    READ(1),
 
-		case 'number':
-			GodotRuntime.setHeapValue(p_union_ptr, eval_ret, 'double');
-			return 3; // REAL
+    /**
+     * Opens the file for write operations.
+     * The file is created if it does not exist, and truncated if it does.
+     */
+    WRITE(2),
 
-		case 'string':
-			GodotRuntime.setHeapValue(p_union_ptr, GodotRuntime.allocString(eval_ret), '*');
-			return 4; // STRING
+    /**
+     * Opens the file for read and write operations.
+     * Does not truncate the file. The cursor is positioned at the beginning of the file.
+     */
+    READ_WRITE(3),
 
-		case 'object':
-			if (eval_ret === null) {
-				break;
-			}
+    /**
+     * Opens the file for read and write operations.
+     * The file is created if it does not exist, and truncated if it does.
+     * The cursor is positioned at the beginning of the file.
+     */
+    WRITE_READ(7);
 
-			if (ArrayBuffer.isView(eval_ret) && !(eval_ret instanceof Uint8Array)) {
-				eval_ret = new Uint8Array(eval_ret.buffer);
-			} else if (eval_ret instanceof ArrayBuffer) {
-				eval_ret = new Uint8Array(eval_ret);
-			}
-			if (eval_ret instanceof Uint8Array) {
-				const func = GodotRuntime.get_func(p_callback);
-				const bytes_ptr = func(p_byte_arr, p_byte_arr_write, eval_ret.length);
-				HEAPU8.set(eval_ret, bytes_ptr);
-				return 20; // POOL_BYTE_ARRAY
-			}
-			break;
+    fun getMode(): String {
+        return when (this) {
+            READ -> "r"
+            WRITE -> "w"
+            READ_WRITE, WRITE_READ -> "rw"
+        }
+    }
 
-			// no default
-		}
-		return 0; // NIL
-	},
-};
+    fun shouldTruncate(): Boolean {
+        return when (this) {
+            READ, READ_WRITE -> false
+            WRITE, WRITE_READ -> true
+        }
+    }
 
-mergeInto(LibraryManager.library, GodotEval);
+    companion object {
+        fun fromNativeModeFlags(modeFlag: Int): FileAccessFlags? {
+            for (flag in values()) {
+                if (flag.nativeValue == modeFlag) {
+                    return flag
+                }
+            }
+            return null
+        }
+    }
+}
