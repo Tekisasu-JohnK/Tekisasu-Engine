@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  test_physics.h                                                       */
+/*  test_theme.h                                                         */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,14 +28,15 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef TEST_PHYSICS_H
-#define TEST_PHYSICS_H
+#ifndef TEST_THEME_H
+#define TEST_THEME_H
 
 #include "core/os/main_loop.h"
 
-namespace TestPhysics {
+namespace TestTheme {
 
 MainLoop *test();
+
 }
 
-#endif // TEST_PHYSICS_H
+#endif // TEST_THEME_H
