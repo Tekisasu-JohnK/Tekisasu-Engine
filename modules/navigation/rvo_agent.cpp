@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  navigation_mesh_generator.h                                          */
+/*  rvo_agent.cpp                                                        */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,40 +28,53 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef NAVIGATION_MESH_GENERATOR_H
-#define NAVIGATION_MESH_GENERATOR_H
+#include "rvo_agent.h"
 
-#include "editor/editor_node.h"
-#include "scene/3d/navigation_mesh.h"
+#include "nav_map.h"
 
-#include <Recast.h>
+RvoAgent::RvoAgent() {
+	callback.id = ObjectID(0);
+}
 
-class EditorNavigationMeshGenerator : public Object {
-	GDCLASS(EditorNavigationMeshGenerator, Object);
+void RvoAgent::set_map(NavMap *p_map) {
+	map = p_map;
+}
 
-	static EditorNavigationMeshGenerator *singleton;
+bool RvoAgent::is_map_changed() {
+	if (map) {
+		bool is_changed = map->get_map_update_id() != map_update_id;
+		map_update_id = map->get_map_update_id();
+		return is_changed;
+	} else {
+		return false;
+	}
+}
 
-protected:
-	static void _bind_methods();
+void RvoAgent::set_callback(ObjectID p_id, const StringName p_method, const Variant p_udata) {
+	callback.id = p_id;
+	callback.method = p_method;
+	callback.udata = p_udata;
+}
 
-	static void _add_vertex(const Vector3 &p_vec3, Vector<float> &p_verticies);
-	static void _add_mesh(const Ref<Mesh> &p_mesh, const Transform &p_xform, Vector<float> &p_verticies, Vector<int> &p_indices);
-	static void _add_faces(const PoolVector3Array &p_faces, const Transform &p_xform, Vector<float> &p_verticies, Vector<int> &p_indices);
-	static void _parse_geometry(Transform p_accumulated_transform, Node *p_node, Vector<float> &p_verticies, Vector<int> &p_indices, NavigationMesh::ParsedGeometryType p_generate_from, uint32_t p_collision_mask, bool p_recurse_children);
+bool RvoAgent::has_callback() const {
+	return callback.id != 0;
+}
 
-	static void _convert_detail_mesh_to_native_navigation_mesh(const rcPolyMeshDetail *p_detail_mesh, Ref<NavigationMesh> p_nav_mesh);
-	static void _build_recast_navigation_mesh(Ref<NavigationMesh> p_nav_mesh, EditorProgress *ep,
-			rcHeightfield *hf, rcCompactHeightfield *chf, rcContourSet *cset, rcPolyMesh *poly_mesh,
-			rcPolyMeshDetail *detail_mesh, Vector<float> &vertices, Vector<int> &indices);
+void RvoAgent::dispatch_callback() {
+	if (callback.id == 0) {
+		return;
+	}
+	Object *obj = ObjectDB::get_instance(callback.id);
+	if (!obj) {
+		callback.id = ObjectID(0);
+		return;
+	}
 
-public:
-	static EditorNavigationMeshGenerator *get_singleton();
+	Variant::CallError responseCallError;
 
-	EditorNavigationMeshGenerator();
-	~EditorNavigationMeshGenerator();
+	callback.new_velocity = Vector3(agent.newVelocity_.x(), agent.newVelocity_.y(), agent.newVelocity_.z());
 
-	void bake(Ref<NavigationMesh> p_nav_mesh, Node *p_node);
-	void clear(Ref<NavigationMesh> p_nav_mesh);
-};
-
-#endif // NAVIGATION_MESH_GENERATOR_H
+	const Variant *vp[2] = { &callback.new_velocity, &callback.udata };
+	int argc = (callback.udata.get_type() == Variant::NIL) ? 1 : 2;
+	obj->call(callback.method, vp, argc, responseCallError);
+}

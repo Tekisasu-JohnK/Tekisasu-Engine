@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  navigation_mesh_editor_plugin.h                                      */
+/*  packed_scene_gltf.h                                                  */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,56 +28,39 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef NAVIGATION_MESH_GENERATOR_PLUGIN_H
-#define NAVIGATION_MESH_GENERATOR_PLUGIN_H
+#ifndef PACKED_SCENE_GLTF_H
+#define PACKED_SCENE_GLTF_H
 
-#include "editor/editor_node.h"
-#include "editor/editor_plugin.h"
-#include "navigation_mesh_generator.h"
+#ifdef TOOLS_ENABLED
 
-class NavigationMeshEditor : public Control {
-	friend class NavigationMeshEditorPlugin;
+#include "scene/main/node.h"
+#include "scene/resources/packed_scene.h"
 
-	GDCLASS(NavigationMeshEditor, Control);
+#include "gltf_state.h"
 
-	AcceptDialog *err_dialog;
-
-	HBoxContainer *bake_hbox;
-	ToolButton *button_bake;
-	ToolButton *button_reset;
-	Label *bake_info;
-
-	NavigationMeshInstance *node;
-
-	void _bake_pressed();
-	void _clear_pressed();
+class PackedSceneGLTF : public PackedScene {
+	GDCLASS(PackedSceneGLTF, PackedScene);
 
 protected:
-	void _node_removed(Node *p_node);
 	static void _bind_methods();
-	void _notification(int p_option);
 
 public:
-	void edit(NavigationMeshInstance *p_nav_mesh_instance);
-	NavigationMeshEditor();
-	~NavigationMeshEditor();
+	virtual void save_scene(Node *p_node, const String &p_path, const String &p_src_path,
+			uint32_t p_flags, int p_bake_fps,
+			List<String> *r_missing_deps, Error *r_err = nullptr);
+	virtual void _build_parent_hierachy(Ref<GLTFState> state);
+	virtual Error export_gltf(Node *p_root, String p_path, int32_t p_flags = 0,
+			real_t p_bake_fps = 1000.0f);
+	virtual Node *import_scene(const String &p_path, uint32_t p_flags,
+			int p_bake_fps, uint32_t p_compress_flags,
+			List<String> *r_missing_deps,
+			Error *r_err,
+			Ref<GLTFState> r_state);
+	virtual Node *import_gltf_scene(const String &p_path, uint32_t p_flags, float p_bake_fps, uint32_t p_compress_flags, Ref<GLTFState> r_state = Ref<GLTFState>());
+	virtual void pack_gltf(String p_path, int32_t p_flags = 0,
+			real_t p_bake_fps = 1000.0f, uint32_t p_compress_flags = Mesh::ARRAY_COMPRESS_DEFAULT, Ref<GLTFState> r_state = Ref<GLTFState>());
 };
 
-class NavigationMeshEditorPlugin : public EditorPlugin {
-	GDCLASS(NavigationMeshEditorPlugin, EditorPlugin);
+#endif // TOOLS_ENABLED
 
-	NavigationMeshEditor *navigation_mesh_editor;
-	EditorNode *editor;
-
-public:
-	virtual String get_name() const { return "NavigationMesh"; }
-	bool has_main_screen() const { return false; }
-	virtual void edit(Object *p_object);
-	virtual bool handles(Object *p_object) const;
-	virtual void make_visible(bool p_visible);
-
-	NavigationMeshEditorPlugin(EditorNode *p_node);
-	~NavigationMeshEditorPlugin();
-};
-
-#endif // NAVIGATION_MESH_GENERATOR_PLUGIN_H
+#endif // PACKED_SCENE_GLTF_H
