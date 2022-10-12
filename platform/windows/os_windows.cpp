@@ -1484,7 +1484,7 @@ Error OS_Windows::initialize(const VideoMode &p_desired, int p_video_driver, int
 		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
 		BOOL value = TRUE;
 		::DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
-		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */				
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */
 		if (!hWnd) {
 			MessageBoxW(NULL, L"Window Creation Error.", L"ERROR", MB_OK | MB_ICONEXCLAMATION);
 			return ERR_UNAVAILABLE;
@@ -2545,6 +2545,23 @@ uint64_t OS_Windows::get_system_time_msecs() const {
 	ret |= ft.dwLowDateTime;
 
 	return (uint64_t)(ret / WINDOWS_TICK - MSEC_TO_UNIX_EPOCH);
+}
+
+double OS_Windows::get_subsecond_unix_time() const {
+	// 1 Windows tick is 100ns
+	const uint64_t WINDOWS_TICKS_PER_SECOND = 10000000;
+	const uint64_t TICKS_TO_UNIX_EPOCH = 116444736000000000LL;
+
+	SYSTEMTIME st;
+	GetSystemTime(&st);
+	FILETIME ft;
+	SystemTimeToFileTime(&st, &ft);
+	uint64_t ticks_time;
+	ticks_time = ft.dwHighDateTime;
+	ticks_time <<= 32;
+	ticks_time |= ft.dwLowDateTime;
+
+	return (double)(ticks_time - TICKS_TO_UNIX_EPOCH) / WINDOWS_TICKS_PER_SECOND;
 }
 
 void OS_Windows::delay_usec(uint32_t p_usec) const {

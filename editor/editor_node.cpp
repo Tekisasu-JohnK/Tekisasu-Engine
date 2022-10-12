@@ -623,7 +623,6 @@ void EditorNode::_notification(int p_what) {
 			p->set_item_icon(p->get_item_index(HELP_SEARCH), gui_base->get_icon("HelpSearch", "EditorIcons"));
 			p->set_item_icon(p->get_item_index(HELP_DOCS), gui_base->get_icon("ExternalLink", "EditorIcons"));
 			p->set_item_icon(p->get_item_index(HELP_ABOUT), gui_base->get_icon("Godot", "EditorIcons"));
-			
 			_update_update_spinner();
 		} break;
 
