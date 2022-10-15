@@ -5,9 +5,9 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>Godot</string>
+	<string>Tekisasu-Engine</string>
 	<key>CFBundleName</key>
-	<string>Tekisasu Engine</string>
+	<string>Tekisasu-Engine</string>
 	<key>CFBundleGetInfoString</key>
 	<string>(c) 2007-2022 Juan Linietsky, Ariel Manzur &amp; Godot Engine contributors</string>
 	<key>CFBundleIconFile</key>
