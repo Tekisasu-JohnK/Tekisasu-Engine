@@ -935,6 +935,16 @@ void RasterizerCanvasGLES2::render_batches(Item *p_current_clip, bool &r_reclip,
 								break;
 							}
 
+							int amount = MIN(multi_mesh->size, multi_mesh->visible_instances);
+
+							if (amount == -1) {
+								amount = multi_mesh->size;
+							}
+
+							if (!amount) {
+								break;
+							}
+
 							state.canvas_shader.set_conditional(CanvasShaderGLES2::USE_INSTANCE_CUSTOM, multi_mesh->custom_data_format != VS::MULTIMESH_CUSTOM_DATA_NONE);
 							state.canvas_shader.set_conditional(CanvasShaderGLES2::USE_INSTANCING, true);
 							_set_texture_rect_mode(false);
@@ -952,12 +962,6 @@ void RasterizerCanvasGLES2::render_batches(Item *p_current_clip, bool &r_reclip,
 							}
 
 							//reset shader and force rebind
-
-							int amount = MIN(multi_mesh->size, multi_mesh->visible_instances);
-
-							if (amount == -1) {
-								amount = multi_mesh->size;
-							}
 
 							int stride = multi_mesh->color_floats + multi_mesh->custom_data_floats + multi_mesh->xform_floats;
 
@@ -1659,7 +1663,7 @@ void RasterizerCanvasGLES2::_legacy_canvas_render_item(Item *p_ci, RenderItemSta
 
 			if (shader_ptr != r_ris.shader_cache) {
 				if (shader_ptr->canvas_item.uses_time) {
-					VisualServerRaster::redraw_request();
+					VisualServerRaster::redraw_request(false);
 				}
 
 				state.canvas_shader.set_custom_shader(shader_ptr->custom_code_id);
@@ -1697,7 +1701,7 @@ void RasterizerCanvasGLES2::_legacy_canvas_render_item(Item *p_ci, RenderItemSta
 				}
 
 				if (t->redraw_if_visible) {
-					VisualServerRaster::redraw_request();
+					VisualServerRaster::redraw_request(false);
 				}
 
 				t = t->get_ptr();
@@ -2021,7 +2025,7 @@ void RasterizerCanvasGLES2::render_joined_item(const BItemJoined &p_bij, RenderI
 
 			if (shader_ptr != r_ris.shader_cache) {
 				if (shader_ptr->canvas_item.uses_time) {
-					VisualServerRaster::redraw_request();
+					VisualServerRaster::redraw_request(false);
 				}
 
 				state.canvas_shader.set_custom_shader(shader_ptr->custom_code_id);
@@ -2059,7 +2063,7 @@ void RasterizerCanvasGLES2::render_joined_item(const BItemJoined &p_bij, RenderI
 				}
 
 				if (t->redraw_if_visible) {
-					VisualServerRaster::redraw_request();
+					VisualServerRaster::redraw_request(false);
 				}
 
 				t = t->get_ptr();

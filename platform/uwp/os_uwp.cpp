@@ -137,12 +137,8 @@ void OS_UWP::initialize_core() {
 	NetSocketPosix::make_default();
 
 	// We need to know how often the clock is updated
-	if (!QueryPerformanceFrequency((LARGE_INTEGER *)&ticks_per_second))
-		ticks_per_second = 1000;
-	// If timeAtGameStart is 0 then we get the time since
-	// the start of the computer when we call GetGameTime()
-	ticks_start = 0;
-	ticks_start = get_ticks_usec();
+	QueryPerformanceFrequency((LARGE_INTEGER *)&ticks_per_second);
+	QueryPerformanceCounter((LARGE_INTEGER *)&ticks_start);
 
 	IP_Unix::make_default();
 
@@ -553,6 +549,23 @@ uint64_t OS_UWP::get_unix_time() const {
 	return (*(uint64_t *)&ft - *(uint64_t *)&fep) / 10000000;
 };
 
+double OS_UWP::get_subsecond_unix_time() const {
+	// 1 Windows tick is 100ns
+	const uint64_t WINDOWS_TICKS_PER_SECOND = 10000000;
+	const uint64_t TICKS_TO_UNIX_EPOCH = 116444736000000000LL;
+
+	SYSTEMTIME st;
+	GetSystemTime(&st);
+	FILETIME ft;
+	SystemTimeToFileTime(&st, &ft);
+	uint64_t ticks_time;
+	ticks_time = ft.dwHighDateTime;
+	ticks_time <<= 32;
+	ticks_time |= ft.dwLowDateTime;
+
+	return (double)(ticks_time - TICKS_TO_UNIX_EPOCH) / WINDOWS_TICKS_PER_SECOND;
+}
+
 void OS_UWP::delay_usec(uint32_t p_usec) const {
 	int msec = p_usec < 1000 ? 1 : p_usec / 1000;
 
@@ -564,6 +577,9 @@ uint64_t OS_UWP::get_ticks_usec() const {
 
 	// This is the number of clock ticks since start
 	QueryPerformanceCounter((LARGE_INTEGER *)&ticks);
+	// Subtract the ticks at game start to get
+	// the ticks since the game started
+	ticks -= ticks_start;
 
 	// Divide by frequency to get the time in seconds
 	// original calculation shown below is subject to overflow
@@ -583,15 +599,13 @@ uint64_t OS_UWP::get_ticks_usec() const {
 	// seconds
 	time += seconds * 1000000L;
 
-	// Subtract the time at game start to get
-	// the time since the game started
-	time -= ticks_start;
 	return time;
 }
 
 void OS_UWP::process_events() {
 	joypad->process_controllers();
 	process_key_events();
+	input->flush_buffered_events();
 }
 
 void OS_UWP::process_key_events() {
@@ -669,13 +683,17 @@ void OS_UWP::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shape, c
 	// TODO
 }
 
-Error OS_UWP::execute(const String &p_path, const List<String> &p_arguments, bool p_blocking, ProcessID *r_child_id, String *r_pipe, int *r_exitcode, bool read_stderr, Mutex *p_pipe_mutex) {
+Error OS_UWP::execute(const String &p_path, const List<String> &p_arguments, bool p_blocking, ProcessID *r_child_id, String *r_pipe, int *r_exitcode, bool read_stderr, Mutex *p_pipe_mutex, bool p_open_console) {
 	return FAILED;
 };
 
 Error OS_UWP::kill(const ProcessID &p_pid) {
 	return FAILED;
 };
+
+bool OS_UWP::is_process_running(const ProcessID &p_pid) const {
+	return false;
+}
 
 Error OS_UWP::set_cwd(const String &p_cwd) {
 	return FAILED;

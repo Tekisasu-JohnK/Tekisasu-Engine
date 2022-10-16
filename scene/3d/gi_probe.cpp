@@ -175,11 +175,13 @@ void GIProbeData::_bind_methods() {
 }
 
 GIProbeData::GIProbeData() {
-	probe = VS::get_singleton()->gi_probe_create();
+	probe = RID_PRIME(VS::get_singleton()->gi_probe_create());
 }
 
 GIProbeData::~GIProbeData() {
-	VS::get_singleton()->free(probe);
+	if (probe.is_valid()) {
+		VS::get_singleton()->free(probe);
+	}
 }
 
 //////////////////////
@@ -522,10 +524,12 @@ GIProbe::GIProbe() {
 	interior = false;
 	compress = false;
 
-	gi_probe = VS::get_singleton()->gi_probe_create();
+	gi_probe = RID_PRIME(VS::get_singleton()->gi_probe_create());
 	set_disable_scale(true);
 }
 
 GIProbe::~GIProbe() {
-	VS::get_singleton()->free(gi_probe);
+	if (gi_probe.is_valid()) {
+		VS::get_singleton()->free(gi_probe);
+	}
 }

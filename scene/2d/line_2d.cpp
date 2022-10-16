@@ -255,10 +255,7 @@ float Line2D::get_sharp_limit() const {
 }
 
 void Line2D::set_round_precision(int p_precision) {
-	if (p_precision < 1) {
-		p_precision = 1;
-	}
-	_round_precision = p_precision;
+	_round_precision = MAX(1, p_precision);
 	update();
 }
 
@@ -358,13 +355,13 @@ void Line2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_points", "points"), &Line2D::set_points);
 	ClassDB::bind_method(D_METHOD("get_points"), &Line2D::get_points);
 
-	ClassDB::bind_method(D_METHOD("set_point_position", "i", "position"), &Line2D::set_point_position);
-	ClassDB::bind_method(D_METHOD("get_point_position", "i"), &Line2D::get_point_position);
+	ClassDB::bind_method(D_METHOD("set_point_position", "index", "position"), &Line2D::set_point_position);
+	ClassDB::bind_method(D_METHOD("get_point_position", "index"), &Line2D::get_point_position);
 
 	ClassDB::bind_method(D_METHOD("get_point_count"), &Line2D::get_point_count);
 
-	ClassDB::bind_method(D_METHOD("add_point", "position", "at_position"), &Line2D::add_point, DEFVAL(-1));
-	ClassDB::bind_method(D_METHOD("remove_point", "i"), &Line2D::remove_point);
+	ClassDB::bind_method(D_METHOD("add_point", "position", "index"), &Line2D::add_point, DEFVAL(-1));
+	ClassDB::bind_method(D_METHOD("remove_point", "index"), &Line2D::remove_point);
 
 	ClassDB::bind_method(D_METHOD("clear_points"), &Line2D::clear_points);
 
@@ -418,7 +415,7 @@ void Line2D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "end_cap_mode", PROPERTY_HINT_ENUM, "None,Box,Round"), "set_end_cap_mode", "get_end_cap_mode");
 	ADD_GROUP("Border", "");
 	ADD_PROPERTY(PropertyInfo(Variant::REAL, "sharp_limit"), "set_sharp_limit", "get_sharp_limit");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "round_precision"), "set_round_precision", "get_round_precision");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "round_precision", PROPERTY_HINT_RANGE, "1,32,1"), "set_round_precision", "get_round_precision");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "antialiased"), "set_antialiased", "get_antialiased");
 
 	BIND_ENUM_CONSTANT(LINE_JOINT_SHARP);

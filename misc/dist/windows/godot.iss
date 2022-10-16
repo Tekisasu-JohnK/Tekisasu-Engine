@@ -1,6 +1,6 @@
 #define MyAppName "Tekisasu Engine"
-#define MyAppVersion "3.4.5"
-#define MyAppPublisher "Tekisasu Toolchain"
+#define MyAppVersion "3.5.1"
+#define MyAppPublisher "Tekisasu"
 #define MyAppURL "https://dev.tekisasu.com/"
 #define MyAppExeName "Tekisasu-Engine.exe"
 

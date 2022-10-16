@@ -18,6 +18,9 @@ if os.name == "nt":
 else:
 	F_SLASH = "/"
 
+# Set Tekisasu encryption key
+os.system("set SCRIPT_AES256_ENCRYPTION_KEY=7352cb11b57dc27b9dc5cef18c7076c39d54cf9302ac7a6d9a2ef8d450a63bb6")
+
 # Set some common globals
 fail_exist_tools = 0
 fail_exist_win64debug = 0

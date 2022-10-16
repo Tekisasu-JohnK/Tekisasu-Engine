@@ -157,6 +157,12 @@ void gd_mono_debug_init() {
 	}
 
 #ifdef TOOLS_ENABLED
+	// Define debugger_agent settings even if we end up ignoring the current values. This makes sure
+	// they show up in Editor Settings.
+	int da_port = GLOBAL_DEF("mono/debugger_agent/port", 23685);
+	bool da_suspend = GLOBAL_DEF("mono/debugger_agent/wait_for_debugger", false);
+	int da_timeout = GLOBAL_DEF("mono/debugger_agent/wait_timeout", 3000);
+
 	if (Engine::get_singleton()->is_editor_hint() ||
 			ProjectSettings::get_singleton()->get_resource_path().empty() ||
 			Main::is_project_manager()) {
@@ -166,10 +172,6 @@ void gd_mono_debug_init() {
 
 	if (da_args.length() == 0) {
 		// Use project settings defaults for the editor player
-
-		int da_port = GLOBAL_DEF("mono/debugger_agent/port", 23685);
-		bool da_suspend = GLOBAL_DEF("mono/debugger_agent/wait_for_debugger", false);
-		int da_timeout = GLOBAL_DEF("mono/debugger_agent/wait_timeout", 3000);
 
 		da_args = String("--debugger-agent=transport=dt_socket,address=127.0.0.1:" + itos(da_port) +
 				",embedding=1,server=y,suspend=" + (da_suspend ? "y,timeout=" + itos(da_timeout) : "n"))
@@ -522,7 +524,7 @@ void GDMono::_init_godot_api_hashes() {
 }
 
 void GDMono::_init_exception_policy() {
-	PropertyInfo exc_policy_prop = PropertyInfo(Variant::INT, "mono/unhandled_exception_policy", PROPERTY_HINT_ENUM,
+	PropertyInfo exc_policy_prop = PropertyInfo(Variant::INT, "mono/runtime/unhandled_exception_policy", PROPERTY_HINT_ENUM,
 			vformat("Terminate Application:%s,Log Error:%s", (int)POLICY_TERMINATE_APP, (int)POLICY_LOG_ERROR));
 	unhandled_exception_policy = (UnhandledExceptionPolicy)(int)GLOBAL_DEF(exc_policy_prop.name, (int)POLICY_TERMINATE_APP);
 	ProjectSettings::get_singleton()->set_custom_property_info(exc_policy_prop.name, exc_policy_prop);
@@ -985,13 +987,15 @@ bool GDMono::_load_project_assembly() {
 	if (project_assembly)
 		return true;
 
-	String appname = ProjectSettings::get_singleton()->get("application/config/name");
-	String appname_safe = OS::get_singleton()->get_safe_dir_name(appname);
-	if (appname_safe.empty()) {
-		appname_safe = "UnnamedProject";
+	String assembly_name = ProjectSettings::get_singleton()->get("mono/project/assembly_name");
+
+	if (assembly_name.empty()) {
+		String appname = ProjectSettings::get_singleton()->get("application/config/name");
+		String appname_safe = OS::get_singleton()->get_safe_dir_name(appname);
+		assembly_name = appname_safe;
 	}
 
-	bool success = load_assembly(appname_safe, &project_assembly);
+	bool success = load_assembly(assembly_name, &project_assembly);
 
 	if (success) {
 		mono_assembly_set_main(project_assembly->get_assembly());
