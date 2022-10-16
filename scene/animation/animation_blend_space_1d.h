@@ -43,34 +43,36 @@ class AnimationNodeBlendSpace1D : public AnimationRootNode {
 	struct BlendPoint {
 		StringName name;
 		Ref<AnimationRootNode> node;
-		float position;
+		float position = 0.0;
 	};
 
 	BlendPoint blend_points[MAX_BLEND_POINTS];
-	int blend_points_used;
+	int blend_points_used = 0;
 
-	float max_space;
-	float min_space;
+	float max_space = 1.0;
+	float min_space = -1.0;
 
-	float snap;
+	float snap = 0.1;
 
-	String value_label;
+	String value_label = "value";
 
 	void _add_blend_point(int p_index, const Ref<AnimationRootNode> &p_node);
 
 	void _tree_changed();
 
-	StringName blend_position;
+	StringName blend_position = "blend_position";
 
 protected:
-	virtual void _validate_property(PropertyInfo &property) const;
+	bool sync = false;
+
+	void _validate_property(PropertyInfo &p_property) const;
 	static void _bind_methods();
 
 public:
-	virtual void get_parameter_list(List<PropertyInfo> *r_list) const;
-	virtual Variant get_parameter_default_value(const StringName &p_parameter) const;
+	virtual void get_parameter_list(List<PropertyInfo> *r_list) const override;
+	virtual Variant get_parameter_default_value(const StringName &p_parameter) const override;
 
-	virtual void get_child_nodes(List<ChildNode> *r_child_nodes);
+	virtual void get_child_nodes(List<ChildNode> *r_child_nodes) override;
 
 	void add_blend_point(const Ref<AnimationRootNode> &p_node, float p_position, int p_at_index = -1);
 	void set_blend_point_position(int p_point, float p_position);
@@ -93,10 +95,13 @@ public:
 	void set_value_label(const String &p_label);
 	String get_value_label() const;
 
-	float process(float p_time, bool p_seek);
-	String get_caption() const;
+	void set_use_sync(bool p_sync);
+	bool is_using_sync() const;
 
-	Ref<AnimationNode> get_child_by_name(const StringName &p_name);
+	double process(double p_time, bool p_seek, bool p_seek_root) override;
+	String get_caption() const override;
+
+	Ref<AnimationNode> get_child_by_name(const StringName &p_name) override;
 
 	AnimationNodeBlendSpace1D();
 	~AnimationNodeBlendSpace1D();

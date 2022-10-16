@@ -33,8 +33,8 @@
 
 #include "scene/main/node.h"
 
-class ArrayPropertyEdit : public Reference {
-	GDCLASS(ArrayPropertyEdit, Reference);
+class ArrayPropertyEdit : public RefCounted {
+	GDCLASS(ArrayPropertyEdit, RefCounted);
 
 	int page;
 	ObjectID obj;
@@ -47,7 +47,6 @@ class ArrayPropertyEdit : public Reference {
 	Variant::Type default_type;
 
 	void _notif_change();
-	void _notif_changev(const String &p_v);
 	void _set_size(int p_size);
 	void _set_value(int p_idx, const Variant &p_value);
 

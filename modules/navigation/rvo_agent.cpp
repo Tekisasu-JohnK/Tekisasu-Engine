@@ -33,7 +33,7 @@
 #include "nav_map.h"
 
 RvoAgent::RvoAgent() {
-	callback.id = ObjectID(0);
+	callback.id = ObjectID();
 }
 
 void RvoAgent::set_map(NavMap *p_map) {
@@ -57,24 +57,24 @@ void RvoAgent::set_callback(ObjectID p_id, const StringName p_method, const Vari
 }
 
 bool RvoAgent::has_callback() const {
-	return callback.id != 0;
+	return callback.id.is_valid();
 }
 
 void RvoAgent::dispatch_callback() {
-	if (callback.id == 0) {
+	if (callback.id.is_null()) {
 		return;
 	}
 	Object *obj = ObjectDB::get_instance(callback.id);
 	if (!obj) {
-		callback.id = ObjectID(0);
+		callback.id = ObjectID();
 		return;
 	}
 
-	Variant::CallError responseCallError;
+	Callable::CallError responseCallError;
 
 	callback.new_velocity = Vector3(agent.newVelocity_.x(), agent.newVelocity_.y(), agent.newVelocity_.z());
 
 	const Variant *vp[2] = { &callback.new_velocity, &callback.udata };
 	int argc = (callback.udata.get_type() == Variant::NIL) ? 1 : 2;
-	obj->call(callback.method, vp, argc, responseCallError);
+	obj->callp(callback.method, vp, argc, responseCallError);
 }

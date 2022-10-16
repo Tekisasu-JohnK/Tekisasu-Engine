@@ -1,20 +1,26 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="AnimationNodeStateMachineTransition" inherits="Resource" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="AnimationNodeStateMachineTransition" inherits="Resource" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 	</brief_description>
 	<description>
 	</description>
 	<tutorials>
-		<link>$DOCS_URL/tutorials/animation/animation_tree.html</link>
+		<link title="AnimationTree">$DOCS_URL/tutorials/animation/animation_tree.html</link>
 	</tutorials>
-	<methods>
-	</methods>
 	<members>
-		<member name="advance_condition" type="String" setter="set_advance_condition" getter="get_advance_condition" default="&quot;&quot;">
+		<member name="advance_condition" type="StringName" setter="set_advance_condition" getter="get_advance_condition" default="&amp;&quot;&quot;">
 			Turn on auto advance when this condition is set. The provided name will become a boolean parameter on the [AnimationTree] that can be controlled from code (see [url=$DOCS_URL/tutorials/animation/animation_tree.html#controlling-from-code]Using AnimationTree[/url]). For example, if [member AnimationTree.tree_root] is an [AnimationNodeStateMachine] and [member advance_condition] is set to [code]"idle"[/code]:
-			[codeblock]
-			$animation_tree["parameters/conditions/idle"] = is_on_floor and (linear_velocity.x == 0)
-			[/codeblock]
+			[codeblocks]
+			[gdscript]
+			$animation_tree.set("parameters/conditions/idle", is_on_floor and (linear_velocity.x == 0))
+			[/gdscript]
+			[csharp]
+			GetNode&lt;AnimationTree&gt;("animation_tree").Set("parameters/conditions/idle", IsOnFloor &amp;&amp; (LinearVelocity.x == 0));
+			[/csharp]
+			[/codeblocks]
+		</member>
+		<member name="advance_expression" type="String" setter="set_advance_expression" getter="get_advance_expression" default="&quot;&quot;">
+			Use an expression as a condition for state machine transitions. It is possible to create complex animation advance conditions for switching between states and gives much greater flexibility for creating complex state machines by directly interfacing with the script code.
 		</member>
 		<member name="auto_advance" type="bool" setter="set_auto_advance" getter="has_auto_advance" default="false">
 			Turn on the transition automatically when this state is reached. This works best with [constant SWITCH_MODE_AT_END].
@@ -27,6 +33,9 @@
 		</member>
 		<member name="switch_mode" type="int" setter="set_switch_mode" getter="get_switch_mode" enum="AnimationNodeStateMachineTransition.SwitchMode" default="0">
 			The transition type.
+		</member>
+		<member name="xfade_curve" type="Curve" setter="set_xfade_curve" getter="get_xfade_curve">
+			Ease curve for better control over cross-fade between this state and the next.
 		</member>
 		<member name="xfade_time" type="float" setter="set_xfade_time" getter="get_xfade_time" default="0.0">
 			The time to cross-fade between this state and the next.

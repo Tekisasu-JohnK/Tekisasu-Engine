@@ -28,53 +28,112 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-/**
-@author Juan Linietsky <reduzio@gmail.com>
-*/
-
 #ifndef CONNECTIONS_DIALOG_H
 #define CONNECTIONS_DIALOG_H
 
-#include "core/undo_redo.h"
 #include "editor/editor_inspector.h"
 #include "editor/scene_tree_editor.h"
 #include "scene/gui/button.h"
+#include "scene/gui/check_box.h"
 #include "scene/gui/check_button.h"
 #include "scene/gui/dialogs.h"
+#include "scene/gui/label.h"
 #include "scene/gui/line_edit.h"
 #include "scene/gui/menu_button.h"
+#include "scene/gui/option_button.h"
 #include "scene/gui/popup.h"
+#include "scene/gui/popup_menu.h"
+#include "scene/gui/spin_box.h"
 #include "scene/gui/tree.h"
 
-class PopupMenu;
 class ConnectDialogBinds;
+class EditorUndoRedoManager;
 
 class ConnectDialog : public ConfirmationDialog {
 	GDCLASS(ConnectDialog, ConfirmationDialog);
 
-	Label *connect_to_label;
-	LineEdit *from_signal;
-	Node *source;
+public:
+	struct ConnectionData {
+		Node *source = nullptr;
+		Node *target = nullptr;
+		StringName signal;
+		StringName method;
+		uint32_t flags = 0;
+		int unbinds = 0;
+		Vector<Variant> binds;
+
+		ConnectionData() {}
+
+		ConnectionData(const Connection &p_connection) {
+			source = Object::cast_to<Node>(p_connection.signal.get_object());
+			signal = p_connection.signal.get_name();
+			target = Object::cast_to<Node>(p_connection.callable.get_object());
+			flags = p_connection.flags;
+
+			Callable base_callable;
+			if (p_connection.callable.is_custom()) {
+				CallableCustomBind *ccb = dynamic_cast<CallableCustomBind *>(p_connection.callable.get_custom());
+				if (ccb) {
+					binds = ccb->get_binds();
+					base_callable = ccb->get_callable();
+				}
+
+				CallableCustomUnbind *ccu = dynamic_cast<CallableCustomUnbind *>(p_connection.callable.get_custom());
+				if (ccu) {
+					unbinds = ccu->get_unbinds();
+					base_callable = ccu->get_callable();
+				}
+			} else {
+				base_callable = p_connection.callable;
+			}
+			method = base_callable.get_method();
+		}
+
+		Callable get_callable() {
+			if (unbinds > 0) {
+				return Callable(target, method).unbind(unbinds);
+			} else if (!binds.is_empty()) {
+				const Variant **argptrs = (const Variant **)alloca(sizeof(Variant *) * binds.size());
+				for (int i = 0; i < binds.size(); i++) {
+					argptrs[i] = &binds[i];
+				}
+				return Callable(target, method).bindp(argptrs, binds.size());
+			} else {
+				return Callable(target, method);
+			}
+		}
+	};
+
+private:
+	Label *connect_to_label = nullptr;
+	LineEdit *from_signal = nullptr;
+	Node *source = nullptr;
 	StringName signal;
-	LineEdit *dst_method;
-	ConnectDialogBinds *cdbinds;
-	bool bEditMode;
+	LineEdit *dst_method = nullptr;
+	ConnectDialogBinds *cdbinds = nullptr;
+	bool edit_mode = false;
+	bool first_popup = true;
 	NodePath dst_path;
-	VBoxContainer *vbc_right;
+	VBoxContainer *vbc_right = nullptr;
 
-	SceneTreeEditor *tree;
-	AcceptDialog *error;
-	EditorInspector *bind_editor;
-	OptionButton *type_list;
-	CheckBox *deferred;
-	CheckBox *oneshot;
-	CheckButton *advanced;
+	SceneTreeEditor *tree = nullptr;
+	AcceptDialog *error = nullptr;
+	SpinBox *unbind_count = nullptr;
+	EditorInspector *bind_editor = nullptr;
+	OptionButton *type_list = nullptr;
+	CheckBox *deferred = nullptr;
+	CheckBox *one_shot = nullptr;
+	CheckButton *advanced = nullptr;
+	Vector<Control *> bind_controls;
 
-	Label *error_label;
+	Label *error_label = nullptr;
 
-	void ok_pressed();
+	void ok_pressed() override;
 	void _cancel_pressed();
+	void _item_activated();
+	void _text_submitted(const String &p_text);
 	void _tree_node_selected();
+	void _unbind_count_changed(double p_count);
 	void _add_bind();
 	void _remove_bind();
 	void _advanced_pressed();
@@ -85,19 +144,21 @@ protected:
 	static void _bind_methods();
 
 public:
+	static StringName generate_method_callback_name(Node *p_source, String p_signal_name, Node *p_target);
 	Node *get_source() const;
 	StringName get_signal_name() const;
 	NodePath get_dst_path() const;
 	void set_dst_node(Node *p_node);
 	StringName get_dst_method_name() const;
 	void set_dst_method(const StringName &p_method);
+	int get_unbinds() const;
 	Vector<Variant> get_binds() const;
 
 	bool get_deferred() const;
-	bool get_oneshot() const;
+	bool get_one_shot() const;
 	bool is_editing() const;
 
-	void init(Connection c, bool bEdit = false);
+	void init(ConnectionData p_cd, bool p_edit = false);
 
 	void popup_dialog(const String &p_for_signal);
 	ConnectDialog();
@@ -118,47 +179,47 @@ class ConnectionsDock : public VBoxContainer {
 	//Right-click Pop-up Menu Options.
 	enum SignalMenuOption {
 		CONNECT,
-		DISCONNECT_ALL
+		DISCONNECT_ALL,
+		COPY_NAME,
 	};
 
 	enum SlotMenuOption {
 		EDIT,
 		GO_TO_SCRIPT,
-		DISCONNECT
+		DISCONNECT,
 	};
 
-	Node *selectedNode;
-	ConnectionsDockTree *tree;
-	EditorNode *editor;
+	Node *selected_node = nullptr;
+	ConnectionsDockTree *tree = nullptr;
 
-	ConfirmationDialog *disconnect_all_dialog;
-	ConnectDialog *connect_dialog;
-	Button *connect_button;
-	PopupMenu *signal_menu;
-	PopupMenu *slot_menu;
-	UndoRedo *undo_redo;
-	LineEdit *search_box;
+	ConfirmationDialog *disconnect_all_dialog = nullptr;
+	ConnectDialog *connect_dialog = nullptr;
+	Button *connect_button = nullptr;
+	PopupMenu *signal_menu = nullptr;
+	PopupMenu *slot_menu = nullptr;
+	Ref<EditorUndoRedoManager> undo_redo;
+	LineEdit *search_box = nullptr;
 
-	Map<StringName, Map<StringName, String>> descr_cache;
+	HashMap<StringName, HashMap<StringName, String>> descr_cache;
 
 	void _filter_changed(const String &p_text);
 
 	void _make_or_edit_connection();
-	void _connect(Connection cToMake);
-	void _disconnect(TreeItem &item);
+	void _connect(ConnectDialog::ConnectionData p_cd);
+	void _disconnect(TreeItem &p_item);
 	void _disconnect_all();
 
 	void _tree_item_selected();
 	void _tree_item_activated();
-	bool _is_item_signal(TreeItem &item);
+	bool _is_item_signal(TreeItem &p_item);
 
-	void _open_connection_dialog(TreeItem &item);
-	void _open_connection_dialog(Connection cToEdit);
-	void _go_to_script(TreeItem &item);
+	void _open_connection_dialog(TreeItem &p_item);
+	void _open_connection_dialog(ConnectDialog::ConnectionData p_cd);
+	void _go_to_script(TreeItem &p_item);
 
-	void _handle_signal_menu_option(int option);
-	void _handle_slot_menu_option(int option);
-	void _rmb_pressed(Vector2 position);
+	void _handle_signal_menu_option(int p_option);
+	void _handle_slot_menu_option(int p_option);
+	void _rmb_pressed(Vector2 p_position, MouseButton p_button);
 	void _close();
 
 protected:
@@ -167,11 +228,11 @@ protected:
 	static void _bind_methods();
 
 public:
-	void set_undoredo(UndoRedo *p_undo_redo) { undo_redo = p_undo_redo; }
+	void set_undo_redo(Ref<EditorUndoRedoManager> p_undo_redo);
 	void set_node(Node *p_node);
 	void update_tree();
 
-	ConnectionsDock(EditorNode *p_editor = nullptr);
+	ConnectionsDock();
 	~ConnectionsDock();
 };
 

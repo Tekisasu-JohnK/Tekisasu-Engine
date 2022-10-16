@@ -34,8 +34,8 @@
 #include "core/io/net_socket.h"
 #include "core/io/packet_peer_dtls.h"
 
-class DTLSServer : public Reference {
-	GDCLASS(DTLSServer, Reference);
+class DTLSServer : public RefCounted {
+	GDCLASS(DTLSServer, RefCounted);
 
 protected:
 	static DTLSServer *(*_create)();
@@ -51,7 +51,7 @@ public:
 	virtual void stop() = 0;
 	virtual Ref<PacketPeerDTLS> take_connection(Ref<PacketPeerUDP> p_peer) = 0;
 
-	DTLSServer();
+	DTLSServer() {}
 };
 
 #endif // DTLS_SERVER_H

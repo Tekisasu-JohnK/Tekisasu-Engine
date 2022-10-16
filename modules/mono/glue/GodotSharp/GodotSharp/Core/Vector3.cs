@@ -1,8 +1,3 @@
-#if REAL_T_IS_DOUBLE
-using real_t = System.Double;
-#else
-using real_t = System.Single;
-#endif
 using System;
 using System.Runtime.InteropServices;
 
@@ -17,7 +12,7 @@ namespace Godot
     {
         /// <summary>
         /// Enumerated index values for the axes.
-        /// Returned by <see cref="MaxAxis"/> and <see cref="MinAxis"/>.
+        /// Returned by <see cref="MaxAxisIndex"/> and <see cref="MinAxisIndex"/>.
         /// </summary>
         public enum Axis
         {
@@ -53,8 +48,8 @@ namespace Godot
         /// <summary>
         /// Access vector components using their index.
         /// </summary>
-        /// <exception cref="IndexOutOfRangeException">
-        /// Thrown when the given the <paramref name="index"/> is not 0, 1 or 2.
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// <paramref name="index"/> is not 0, 1 or 2.
         /// </exception>
         /// <value>
         /// <c>[0]</c> is equivalent to <see cref="x"/>,
@@ -74,7 +69,7 @@ namespace Godot
                     case 2:
                         return z;
                     default:
-                        throw new IndexOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(nameof(index));
                 }
             }
             set
@@ -91,9 +86,19 @@ namespace Godot
                         z = value;
                         return;
                     default:
-                        throw new IndexOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(nameof(index));
                 }
             }
+        }
+
+        /// <summary>
+        /// Helper method for deconstruction into a tuple.
+        /// </summary>
+        public void Deconstruct(out real_t x, out real_t y, out real_t z)
+        {
+            x = this.x;
+            y = this.y;
+            z = this.z;
         }
 
         internal void Normalize()
@@ -152,17 +157,35 @@ namespace Godot
         }
 
         /// <summary>
-        /// Returns the cross product of this vector and <paramref name="b"/>.
+        /// Returns a new vector with all components clamped between the
+        /// components of <paramref name="min"/> and <paramref name="max"/> using
+        /// <see cref="Mathf.Clamp(real_t, real_t, real_t)"/>.
         /// </summary>
-        /// <param name="b">The other vector.</param>
-        /// <returns>The cross product vector.</returns>
-        public Vector3 Cross(Vector3 b)
+        /// <param name="min">The vector with minimum allowed values.</param>
+        /// <param name="max">The vector with maximum allowed values.</param>
+        /// <returns>The vector with all components clamped.</returns>
+        public Vector3 Clamp(Vector3 min, Vector3 max)
         {
             return new Vector3
             (
-                (y * b.z) - (z * b.y),
-                (z * b.x) - (x * b.z),
-                (x * b.y) - (y * b.x)
+                Mathf.Clamp(x, min.x, max.x),
+                Mathf.Clamp(y, min.y, max.y),
+                Mathf.Clamp(z, min.z, max.z)
+            );
+        }
+
+        /// <summary>
+        /// Returns the cross product of this vector and <paramref name="with"/>.
+        /// </summary>
+        /// <param name="with">The other vector.</param>
+        /// <returns>The cross product vector.</returns>
+        public Vector3 Cross(Vector3 with)
+        {
+            return new Vector3
+            (
+                (y * with.z) - (z * with.y),
+                (z * with.x) - (x * with.z),
+                (x * with.y) - (y * with.x)
             );
         }
 
@@ -177,63 +200,100 @@ namespace Godot
         /// <returns>The interpolated vector.</returns>
         public Vector3 CubicInterpolate(Vector3 b, Vector3 preA, Vector3 postB, real_t weight)
         {
-            Vector3 p0 = preA;
-            Vector3 p1 = this;
-            Vector3 p2 = b;
-            Vector3 p3 = postB;
-
-            real_t t = weight;
-            real_t t2 = t * t;
-            real_t t3 = t2 * t;
-
-            return 0.5f * (
-                (p1 * 2.0f) + ((-p0 + p2) * t) +
-                (((2.0f * p0) - (5.0f * p1) + (4f * p2) - p3) * t2) +
-                ((-p0 + (3.0f * p1) - (3.0f * p2) + p3) * t3)
+            return new Vector3
+            (
+                Mathf.CubicInterpolate(x, b.x, preA.x, postB.x, weight),
+                Mathf.CubicInterpolate(y, b.y, preA.y, postB.y, weight),
+                Mathf.CubicInterpolate(z, b.z, preA.z, postB.z, weight)
             );
         }
 
         /// <summary>
-        /// Returns the normalized vector pointing from this vector to <paramref name="b"/>.
+        /// Performs a cubic interpolation between vectors <paramref name="preA"/>, this vector,
+        /// <paramref name="b"/>, and <paramref name="postB"/>, by the given amount <paramref name="weight"/>.
+        /// It can perform smoother interpolation than <see cref="CubicInterpolate"/>
+        /// by the time values.
         /// </summary>
-        /// <param name="b">The other vector to point towards.</param>
-        /// <returns>The direction from this vector to <paramref name="b"/>.</returns>
-        public Vector3 DirectionTo(Vector3 b)
+        /// <param name="b">The destination vector.</param>
+        /// <param name="preA">A vector before this vector.</param>
+        /// <param name="postB">A vector after <paramref name="b"/>.</param>
+        /// <param name="weight">A value on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
+        /// <param name="t"></param>
+        /// <param name="preAT"></param>
+        /// <param name="postBT"></param>
+        /// <returns>The interpolated vector.</returns>
+        public Vector3 CubicInterpolateInTime(Vector3 b, Vector3 preA, Vector3 postB, real_t weight, real_t t, real_t preAT, real_t postBT)
         {
-            return new Vector3(b.x - x, b.y - y, b.z - z).Normalized();
+            return new Vector3
+            (
+                Mathf.CubicInterpolateInTime(x, b.x, preA.x, postB.x, weight, t, preAT, postBT),
+                Mathf.CubicInterpolateInTime(y, b.y, preA.y, postB.y, weight, t, preAT, postBT),
+                Mathf.CubicInterpolateInTime(z, b.z, preA.z, postB.z, weight, t, preAT, postBT)
+            );
         }
 
         /// <summary>
-        /// Returns the squared distance between this vector and <paramref name="b"/>.
+        /// Returns the point at the given <paramref name="t"/> on a one-dimensional Bezier curve defined by this vector
+        /// and the given <paramref name="control1"/>, <paramref name="control2"/> and <paramref name="end"/> points.
+        /// </summary>
+        /// <param name="control1">Control point that defines the bezier curve.</param>
+        /// <param name="control2">Control point that defines the bezier curve.</param>
+        /// <param name="end">The destination vector.</param>
+        /// <param name="t">A value on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
+        /// <returns>The interpolated vector.</returns>
+        public Vector3 BezierInterpolate(Vector3 control1, Vector3 control2, Vector3 end, real_t t)
+        {
+            // Formula from Wikipedia article on Bezier curves
+            real_t omt = 1 - t;
+            real_t omt2 = omt * omt;
+            real_t omt3 = omt2 * omt;
+            real_t t2 = t * t;
+            real_t t3 = t2 * t;
+
+            return this * omt3 + control1 * omt2 * t * 3 + control2 * omt * t2 * 3 + end * t3;
+        }
+
+        /// <summary>
+        /// Returns the normalized vector pointing from this vector to <paramref name="to"/>.
+        /// </summary>
+        /// <param name="to">The other vector to point towards.</param>
+        /// <returns>The direction from this vector to <paramref name="to"/>.</returns>
+        public Vector3 DirectionTo(Vector3 to)
+        {
+            return new Vector3(to.x - x, to.y - y, to.z - z).Normalized();
+        }
+
+        /// <summary>
+        /// Returns the squared distance between this vector and <paramref name="to"/>.
         /// This method runs faster than <see cref="DistanceTo"/>, so prefer it if
         /// you need to compare vectors or need the squared distance for some formula.
         /// </summary>
-        /// <param name="b">The other vector to use.</param>
+        /// <param name="to">The other vector to use.</param>
         /// <returns>The squared distance between the two vectors.</returns>
-        public real_t DistanceSquaredTo(Vector3 b)
+        public real_t DistanceSquaredTo(Vector3 to)
         {
-            return (b - this).LengthSquared();
+            return (to - this).LengthSquared();
         }
 
         /// <summary>
-        /// Returns the distance between this vector and <paramref name="b"/>.
+        /// Returns the distance between this vector and <paramref name="to"/>.
         /// </summary>
         /// <seealso cref="DistanceSquaredTo(Vector3)"/>
-        /// <param name="b">The other vector to use.</param>
+        /// <param name="to">The other vector to use.</param>
         /// <returns>The distance between the two vectors.</returns>
-        public real_t DistanceTo(Vector3 b)
+        public real_t DistanceTo(Vector3 to)
         {
-            return (b - this).Length();
+            return (to - this).Length();
         }
 
         /// <summary>
-        /// Returns the dot product of this vector and <paramref name="b"/>.
+        /// Returns the dot product of this vector and <paramref name="with"/>.
         /// </summary>
-        /// <param name="b">The other vector to use.</param>
+        /// <param name="with">The other vector to use.</param>
         /// <returns>The dot product of the two vectors.</returns>
-        public real_t Dot(Vector3 b)
+        public real_t Dot(Vector3 with)
         {
-            return (x * b.x) + (y * b.y) + (z * b.z);
+            return (x * with.x) + (y * with.y) + (z * with.z);
         }
 
         /// <summary>
@@ -299,7 +359,7 @@ namespace Godot
         /// <param name="to">The destination vector for interpolation.</param>
         /// <param name="weight">A value on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
         /// <returns>The resulting vector of the interpolation.</returns>
-        public Vector3 LinearInterpolate(Vector3 to, real_t weight)
+        public Vector3 Lerp(Vector3 to, real_t weight)
         {
             return new Vector3
             (
@@ -316,7 +376,7 @@ namespace Godot
         /// <param name="to">The destination vector for interpolation.</param>
         /// <param name="weight">A vector with components on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
         /// <returns>The resulting vector of the interpolation.</returns>
-        public Vector3 LinearInterpolate(Vector3 to, Vector3 weight)
+        public Vector3 Lerp(Vector3 to, Vector3 weight)
         {
             return new Vector3
             (
@@ -346,21 +406,21 @@ namespace Godot
         }
 
         /// <summary>
-        /// Returns the axis of the vector's largest value. See <see cref="Axis"/>.
+        /// Returns the axis of the vector's highest value. See <see cref="Axis"/>.
         /// If all components are equal, this method returns <see cref="Axis.X"/>.
         /// </summary>
-        /// <returns>The index of the largest axis.</returns>
-        public Axis MaxAxis()
+        /// <returns>The index of the highest axis.</returns>
+        public Axis MaxAxisIndex()
         {
             return x < y ? (y < z ? Axis.Z : Axis.Y) : (x < z ? Axis.Z : Axis.X);
         }
 
         /// <summary>
-        /// Returns the axis of the vector's smallest value. See <see cref="Axis"/>.
+        /// Returns the axis of the vector's lowest value. See <see cref="Axis"/>.
         /// If all components are equal, this method returns <see cref="Axis.Z"/>.
         /// </summary>
-        /// <returns>The index of the smallest axis.</returns>
-        public Axis MinAxis()
+        /// <returns>The index of the lowest axis.</returns>
+        public Axis MinAxisIndex()
         {
             return x < y ? (x < z ? Axis.X : Axis.Z) : (y < z ? Axis.Y : Axis.Z);
         }
@@ -394,16 +454,16 @@ namespace Godot
         }
 
         /// <summary>
-        /// Returns the outer product with <paramref name="b"/>.
+        /// Returns the outer product with <paramref name="with"/>.
         /// </summary>
-        /// <param name="b">The other vector.</param>
+        /// <param name="with">The other vector.</param>
         /// <returns>A <see cref="Basis"/> representing the outer product matrix.</returns>
-        public Basis Outer(Vector3 b)
+        public Basis Outer(Vector3 with)
         {
             return new Basis(
-                x * b.x, x * b.y, x * b.z,
-                y * b.x, y * b.y, y * b.z,
-                z * b.x, z * b.y, z * b.z
+                x * with.x, x * with.y, x * with.z,
+                y * with.x, y * with.y, y * with.z,
+                z * with.x, z * with.y, z * with.z
             );
         }
 
@@ -461,7 +521,7 @@ namespace Godot
 #if DEBUG
             if (!normal.IsNormalized())
             {
-                throw new ArgumentException("Argument is not normalized", nameof(normal));
+                throw new ArgumentException("Argument is not normalized.", nameof(normal));
             }
 #endif
             return (2.0f * Dot(normal) * normal) - this;
@@ -479,10 +539,10 @@ namespace Godot
 #if DEBUG
             if (!axis.IsNormalized())
             {
-                throw new ArgumentException("Argument is not normalized", nameof(axis));
+                throw new ArgumentException("Argument is not normalized.", nameof(axis));
             }
 #endif
-            return new Basis(axis, angle).Xform(this);
+            return new Basis(axis, angle) * this;
         }
 
         /// <summary>
@@ -493,21 +553,6 @@ namespace Godot
         public Vector3 Round()
         {
             return new Vector3(Mathf.Round(x), Mathf.Round(y), Mathf.Round(z));
-        }
-
-        [Obsolete("Set is deprecated. Use the Vector3(" + nameof(real_t) + ", " + nameof(real_t) + ", " + nameof(real_t) + ") constructor instead.", error: true)]
-        public void Set(real_t x, real_t y, real_t z)
-        {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-        }
-        [Obsolete("Set is deprecated. Use the Vector3(" + nameof(Vector3) + ") constructor instead.", error: true)]
-        public void Set(Vector3 v)
-        {
-            x = v.x;
-            y = v.y;
-            z = v.z;
         }
 
         /// <summary>
@@ -546,25 +591,26 @@ namespace Godot
         /// Returns the result of the spherical linear interpolation between
         /// this vector and <paramref name="to"/> by amount <paramref name="weight"/>.
         ///
-        /// Note: Both vectors must be normalized.
+        /// This method also handles interpolating the lengths if the input vectors
+        /// have different lengths. For the special case of one or both input vectors
+        /// having zero length, this method behaves like <see cref="Lerp(Vector3, real_t)"/>.
         /// </summary>
-        /// <param name="to">The destination vector for interpolation. Must be normalized.</param>
+        /// <param name="to">The destination vector for interpolation.</param>
         /// <param name="weight">A value on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
         /// <returns>The resulting vector of the interpolation.</returns>
         public Vector3 Slerp(Vector3 to, real_t weight)
         {
-#if DEBUG
-            if (!IsNormalized())
+            real_t startLengthSquared = LengthSquared();
+            real_t endLengthSquared = to.LengthSquared();
+            if (startLengthSquared == 0.0 || endLengthSquared == 0.0)
             {
-                throw new InvalidOperationException("Vector3.Slerp: From vector is not normalized.");
+                // Zero length vectors have no angle, so the best we can do is either lerp or throw an error.
+                return Lerp(to, weight);
             }
-            if (!to.IsNormalized())
-            {
-                throw new InvalidOperationException($"Vector3.Slerp: `{nameof(to)}` is not normalized.");
-            }
-#endif
-            real_t theta = AngleTo(to);
-            return Rotated(Cross(to), theta * weight);
+            real_t startLength = Mathf.Sqrt(startLengthSquared);
+            real_t resultLength = Mathf.Lerp(startLength, Mathf.Sqrt(endLengthSquared), weight);
+            real_t angle = AngleTo(to);
+            return Rotated(Cross(to).Normalized(), angle * weight) * (resultLength / startLength);
         }
 
         /// <summary>
@@ -587,32 +633,15 @@ namespace Godot
         {
             return new Vector3
             (
-                Mathf.Stepify(x, step.x),
-                Mathf.Stepify(y, step.y),
-                Mathf.Stepify(z, step.z)
-            );
-        }
-
-        /// <summary>
-        /// Returns a diagonal matrix with the vector as main diagonal.
-        ///
-        /// This is equivalent to a <see cref="Basis"/> with no rotation or shearing and
-        /// this vector's components set as the scale.
-        /// </summary>
-        /// <returns>A <see cref="Basis"/> with the vector as its main diagonal.</returns>
-        public Basis ToDiagonalMatrix()
-        {
-            return new Basis(
-                x, 0, 0,
-                0, y, 0,
-                0, 0, z
+                Mathf.Snapped(x, step.x),
+                Mathf.Snapped(y, step.y),
+                Mathf.Snapped(z, step.z)
             );
         }
 
         // Constants
         private static readonly Vector3 _zero = new Vector3(0, 0, 0);
         private static readonly Vector3 _one = new Vector3(1, 1, 1);
-        private static readonly Vector3 _negOne = new Vector3(-1, -1, -1);
         private static readonly Vector3 _inf = new Vector3(Mathf.Inf, Mathf.Inf, Mathf.Inf);
 
         private static readonly Vector3 _up = new Vector3(0, 1, 0);
@@ -632,12 +661,6 @@ namespace Godot
         /// </summary>
         /// <value>Equivalent to <c>new Vector3(1, 1, 1)</c>.</value>
         public static Vector3 One { get { return _one; } }
-        /// <summary>
-        /// Deprecated, please use a negative sign with <see cref="One"/> instead.
-        /// </summary>
-        /// <value>Equivalent to <c>new Vector3(-1, -1, -1)</c>.</value>
-        [Obsolete("Use a negative sign with Vector3.One instead.")]
-        public static Vector3 NegOne { get { return _negOne; } }
         /// <summary>
         /// Infinity vector, a vector with all components set to <see cref="Mathf.Inf"/>.
         /// </summary>
@@ -690,17 +713,6 @@ namespace Godot
             this.x = x;
             this.y = y;
             this.z = z;
-        }
-
-        /// <summary>
-        /// Constructs a new <see cref="Vector3"/> from an existing <see cref="Vector3"/>.
-        /// </summary>
-        /// <param name="v">The existing <see cref="Vector3"/>.</param>
-        public Vector3(Vector3 v)
-        {
-            x = v.x;
-            y = v.y;
-            z = v.z;
         }
 
         /// <summary>
@@ -1005,12 +1017,7 @@ namespace Godot
         /// <returns>Whether or not the vector and the object are equal.</returns>
         public override bool Equals(object obj)
         {
-            if (obj is Vector3)
-            {
-                return Equals((Vector3)obj);
-            }
-
-            return false;
+            return obj is Vector3 other && Equals(other);
         }
 
         /// <summary>

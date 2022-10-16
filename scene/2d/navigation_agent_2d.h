@@ -31,17 +31,16 @@
 #ifndef NAVIGATION_AGENT_2D_H
 #define NAVIGATION_AGENT_2D_H
 
-#include "core/vector.h"
 #include "scene/main/node.h"
 
 class Node2D;
-class Navigation2D;
+class NavigationPathQueryParameters2D;
+class NavigationPathQueryResult2D;
 
 class NavigationAgent2D : public Node {
 	GDCLASS(NavigationAgent2D, Node);
 
 	Node2D *agent_parent = nullptr;
-	Navigation2D *navigation = nullptr;
 
 	RID agent;
 	RID map_before_pause;
@@ -53,7 +52,7 @@ class NavigationAgent2D : public Node {
 	real_t path_desired_distance = 1.0;
 	real_t target_desired_distance = 1.0;
 	real_t radius = 0.0;
-	real_t neighbor_dist = 0.0;
+	real_t neighbor_distance = 0.0;
 	int max_neighbors = 0;
 	real_t time_horizon = 0.0;
 	real_t max_speed = 0.0;
@@ -61,7 +60,8 @@ class NavigationAgent2D : public Node {
 	real_t path_max_distance = 3.0;
 
 	Vector2 target_location;
-	Vector<Vector2> navigation_path;
+	Ref<NavigationPathQueryParameters2D> navigation_query;
+	Ref<NavigationPathQueryResult2D> navigation_result;
 	int nav_path_index = 0;
 	bool velocity_submitted = false;
 	Vector2 prev_safe_velocity;
@@ -80,14 +80,6 @@ public:
 	NavigationAgent2D();
 	virtual ~NavigationAgent2D();
 
-	void set_navigation(Navigation2D *p_nav);
-	const Navigation2D *get_navigation() const {
-		return navigation;
-	}
-
-	void set_navigation_node(Node *p_nav);
-	Node *get_navigation_node() const;
-
 	RID get_rid() const {
 		return agent;
 	}
@@ -99,6 +91,9 @@ public:
 
 	void set_navigation_layers(uint32_t p_navigation_layers);
 	uint32_t get_navigation_layers() const;
+
+	void set_navigation_layer_value(int p_layer_number, bool p_value);
+	bool get_navigation_layer_value(int p_layer_number) const;
 
 	void set_navigation_map(RID p_navigation_map);
 	RID get_navigation_map() const;
@@ -118,9 +113,9 @@ public:
 		return radius;
 	}
 
-	void set_neighbor_dist(real_t p_dist);
-	real_t get_neighbor_dist() const {
-		return neighbor_dist;
+	void set_neighbor_distance(real_t p_distance);
+	real_t get_neighbor_distance() const {
+		return neighbor_distance;
 	}
 
 	void set_max_neighbors(int p_count);
@@ -146,9 +141,7 @@ public:
 
 	Vector2 get_next_location();
 
-	Vector<Vector2> get_nav_path() const {
-		return navigation_path;
-	}
+	const Vector<Vector2> &get_nav_path() const;
 
 	int get_nav_path_index() const {
 		return nav_path_index;
@@ -163,7 +156,7 @@ public:
 	void set_velocity(Vector2 p_velocity);
 	void _avoidance_done(Vector3 p_new_velocity);
 
-	virtual String get_configuration_warning() const;
+	PackedStringArray get_configuration_warnings() const override;
 
 private:
 	void update_navigation();

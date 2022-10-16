@@ -36,8 +36,8 @@
 #include "core/os/midi_driver.h"
 #include "core/os/mutex.h"
 #include "core/os/thread.h"
-#include "core/safe_refcount.h"
-#include "core/vector.h"
+#include "core/templates/safe_refcount.h"
+#include "core/templates/vector.h"
 
 #include "../alsa/asound-so_wrap.h"
 #include <stdio.h>
@@ -59,7 +59,7 @@ public:
 	virtual Error open();
 	virtual void close();
 
-	virtual PoolStringArray get_connected_inputs();
+	virtual PackedStringArray get_connected_inputs();
 
 	MIDIDriverALSAMidi();
 	virtual ~MIDIDriverALSAMidi();

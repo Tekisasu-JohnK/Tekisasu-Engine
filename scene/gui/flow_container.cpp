@@ -28,8 +28,6 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#include "scene/gui/container.h"
-
 #include "flow_container.h"
 
 struct _LineData {
@@ -46,10 +44,9 @@ void FlowContainer::_resort() {
 		return;
 	}
 
-	int separation_horizontal = get_constant("hseparation");
-	int separation_vertical = get_constant("vseparation");
+	bool rtl = is_layout_rtl();
 
-	Map<Control *, Size2i> children_minsize_cache;
+	HashMap<Control *, Size2i> children_minsize_cache;
 
 	Vector<_LineData> lines_data;
 
@@ -66,7 +63,7 @@ void FlowContainer::_resort() {
 		if (!child || !child->is_visible()) {
 			continue;
 		}
-		if (child->is_set_as_toplevel()) {
+		if (child->is_set_as_top_level()) {
 			continue;
 		}
 
@@ -74,14 +71,14 @@ void FlowContainer::_resort() {
 
 		if (vertical) { /* VERTICAL */
 			if (children_in_current_line > 0) {
-				ofs.y += separation_vertical;
+				ofs.y += theme_cache.v_separation;
 			}
 			if (ofs.y + child_msc.y > current_container_size) {
-				line_length = ofs.y - separation_vertical;
+				line_length = ofs.y - theme_cache.v_separation;
 				lines_data.push_back(_LineData{ children_in_current_line, line_height, line_length, current_container_size - line_length, line_stretch_ratio_total });
 
 				// Move in new column (vertical line).
-				ofs.x += line_height + separation_horizontal;
+				ofs.x += line_height + theme_cache.h_separation;
 				ofs.y = 0;
 				line_height = 0;
 				line_stretch_ratio_total = 0;
@@ -96,14 +93,14 @@ void FlowContainer::_resort() {
 
 		} else { /* HORIZONTAL */
 			if (children_in_current_line > 0) {
-				ofs.x += separation_horizontal;
+				ofs.x += theme_cache.h_separation;
 			}
 			if (ofs.x + child_msc.x > current_container_size) {
-				line_length = ofs.x - separation_horizontal;
+				line_length = ofs.x - theme_cache.h_separation;
 				lines_data.push_back(_LineData{ children_in_current_line, line_height, line_length, current_container_size - line_length, line_stretch_ratio_total });
 
 				// Move in new line.
-				ofs.y += line_height + separation_vertical;
+				ofs.y += line_height + theme_cache.v_separation;
 				ofs.x = 0;
 				line_height = 0;
 				line_stretch_ratio_total = 0;
@@ -136,7 +133,7 @@ void FlowContainer::_resort() {
 		if (!child || !child->is_visible()) {
 			continue;
 		}
-		if (child->is_set_as_toplevel()) {
+		if (child->is_set_as_top_level()) {
 			continue;
 		}
 		Size2i child_size = children_minsize_cache[child];
@@ -146,11 +143,11 @@ void FlowContainer::_resort() {
 			current_line_idx++;
 			child_idx_in_line = 0;
 			if (vertical) {
-				ofs.x += line_data.min_line_height + separation_horizontal;
+				ofs.x += line_data.min_line_height + theme_cache.h_separation;
 				ofs.y = 0;
 			} else {
 				ofs.x = 0;
-				ofs.y += line_data.min_line_height + separation_vertical;
+				ofs.y += line_data.min_line_height + theme_cache.v_separation;
 			}
 			line_data = lines_data[current_line_idx];
 		}
@@ -177,12 +174,16 @@ void FlowContainer::_resort() {
 		}
 
 		Rect2 child_rect = Rect2(ofs, child_size);
+		if (rtl) {
+			child_rect.position.x = get_rect().size.x - child_rect.position.x - child_rect.size.width;
+		}
+
 		fit_child_in_rect(child, child_rect);
 
 		if (vertical) { /* VERTICAL */
-			ofs.y += child_size.height + separation_vertical;
+			ofs.y += child_size.height + theme_cache.v_separation;
 		} else { /* HORIZONTAL */
-			ofs.x += child_size.width + separation_horizontal;
+			ofs.x += child_size.width + theme_cache.h_separation;
 		}
 
 		child_idx_in_line++;
@@ -199,7 +200,7 @@ Size2 FlowContainer::get_minimum_size() const {
 		if (!c) {
 			continue;
 		}
-		if (c->is_set_as_toplevel()) {
+		if (c->is_set_as_top_level()) {
 			continue;
 		}
 
@@ -222,18 +223,58 @@ Size2 FlowContainer::get_minimum_size() const {
 	return minimum;
 }
 
+Vector<int> FlowContainer::get_allowed_size_flags_horizontal() const {
+	Vector<int> flags;
+	flags.append(SIZE_FILL);
+	if (!vertical) {
+		flags.append(SIZE_EXPAND);
+	}
+	flags.append(SIZE_SHRINK_BEGIN);
+	flags.append(SIZE_SHRINK_CENTER);
+	flags.append(SIZE_SHRINK_END);
+	return flags;
+}
+
+Vector<int> FlowContainer::get_allowed_size_flags_vertical() const {
+	Vector<int> flags;
+	flags.append(SIZE_FILL);
+	if (vertical) {
+		flags.append(SIZE_EXPAND);
+	}
+	flags.append(SIZE_SHRINK_BEGIN);
+	flags.append(SIZE_SHRINK_CENTER);
+	flags.append(SIZE_SHRINK_END);
+	return flags;
+}
+
+void FlowContainer::_update_theme_item_cache() {
+	Container::_update_theme_item_cache();
+
+	theme_cache.h_separation = get_theme_constant(SNAME("h_separation"));
+	theme_cache.v_separation = get_theme_constant(SNAME("v_separation"));
+}
+
 void FlowContainer::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_SORT_CHILDREN: {
 			_resort();
-			minimum_size_changed();
+			update_minimum_size();
 		} break;
+
 		case NOTIFICATION_THEME_CHANGED: {
-			minimum_size_changed();
+			update_minimum_size();
 		} break;
-		case NOTIFICATION_TRANSLATION_CHANGED: {
+
+		case NOTIFICATION_TRANSLATION_CHANGED:
+		case NOTIFICATION_LAYOUT_DIRECTION_CHANGED: {
 			queue_sort();
 		} break;
+	}
+}
+
+void FlowContainer::_validate_property(PropertyInfo &p_property) const {
+	if (is_fixed && p_property.name == "vertical") {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 }
 
@@ -241,12 +282,26 @@ int FlowContainer::get_line_count() const {
 	return cached_line_count;
 }
 
+void FlowContainer::set_vertical(bool p_vertical) {
+	ERR_FAIL_COND_MSG(is_fixed, "Can't change orientation of " + get_class() + ".");
+	vertical = p_vertical;
+	update_minimum_size();
+	_resort();
+}
+
+bool FlowContainer::is_vertical() const {
+	return vertical;
+}
+
 FlowContainer::FlowContainer(bool p_vertical) {
 	vertical = p_vertical;
-	cached_size = 0;
-	cached_line_count = 0;
 }
 
 void FlowContainer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_line_count"), &FlowContainer::get_line_count);
+
+	ClassDB::bind_method(D_METHOD("set_vertical", "vertical"), &FlowContainer::set_vertical);
+	ClassDB::bind_method(D_METHOD("is_vertical"), &FlowContainer::is_vertical);
+
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "vertical"), "set_vertical", "is_vertical");
 }

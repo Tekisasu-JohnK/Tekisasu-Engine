@@ -57,16 +57,16 @@ bool EditorPropertyNameProcessor::is_localization_available() {
 }
 
 String EditorPropertyNameProcessor::_capitalize_name(const String &p_name) const {
-	const Map<String, String>::Element *cached = capitalize_string_cache.find(p_name);
+	HashMap<String, String>::ConstIterator cached = capitalize_string_cache.find(p_name);
 	if (cached) {
-		return cached->value();
+		return cached->value;
 	}
 
 	Vector<String> parts = p_name.split("_", false);
 	for (int i = 0; i < parts.size(); i++) {
-		const Map<String, String>::Element *remap = capitalize_string_remaps.find(parts[i]);
+		HashMap<String, String>::ConstIterator remap = capitalize_string_remaps.find(parts[i]);
 		if (remap) {
-			parts.write[i] = remap->get();
+			parts.write[i] = remap->value;
 		} else {
 			parts.write[i] = parts[i].capitalize();
 		}
@@ -106,6 +106,7 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	capitalize_string_remaps["aabb"] = "AABB";
 	capitalize_string_remaps["adb"] = "ADB";
 	capitalize_string_remaps["ao"] = "AO";
+	capitalize_string_remaps["api"] = "API";
 	capitalize_string_remaps["apk"] = "APK";
 	capitalize_string_remaps["arm64-v8a"] = "arm64-v8a";
 	capitalize_string_remaps["armeabi-v7a"] = "armeabi-v7a";
@@ -114,23 +115,23 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	capitalize_string_remaps["bidi"] = "BiDi";
 	capitalize_string_remaps["bp"] = "BP";
 	capitalize_string_remaps["bpc"] = "BPC";
+	capitalize_string_remaps["bpm"] = "BPM";
 	capitalize_string_remaps["bptc"] = "BPTC";
 	capitalize_string_remaps["bvh"] = "BVH";
 	capitalize_string_remaps["ca"] = "CA";
 	capitalize_string_remaps["cd"] = "CD";
-	capitalize_string_remaps["commentfocus"] = "Comment Focus";
 	capitalize_string_remaps["cpu"] = "CPU";
 	capitalize_string_remaps["csg"] = "CSG";
 	capitalize_string_remaps["db"] = "dB";
-	capitalize_string_remaps["defaultfocus"] = "Default Focus";
-	capitalize_string_remaps["defaultframe"] = "Default Frame";
 	capitalize_string_remaps["dof"] = "DoF";
 	capitalize_string_remaps["dpi"] = "DPI";
 	capitalize_string_remaps["dtls"] = "DTLS";
+	capitalize_string_remaps["eol"] = "EOL";
 	capitalize_string_remaps["erp"] = "ERP";
 	capitalize_string_remaps["etc"] = "ETC";
 	capitalize_string_remaps["etc2"] = "ETC2";
 	capitalize_string_remaps["fbx"] = "FBX";
+	capitalize_string_remaps["fbx2gltf"] = "FBX2glTF";
 	capitalize_string_remaps["fft"] = "FFT";
 	capitalize_string_remaps["fg"] = "FG";
 	capitalize_string_remaps["filesystem"] = "FileSystem";
@@ -151,7 +152,7 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	capitalize_string_remaps["hdr"] = "HDR";
 	capitalize_string_remaps["hidpi"] = "hiDPI";
 	capitalize_string_remaps["hipass"] = "High-pass";
-	capitalize_string_remaps["hseparation"] = "H Separation";
+	capitalize_string_remaps["hl"] = "HL";
 	capitalize_string_remaps["hsv"] = "HSV";
 	capitalize_string_remaps["html"] = "HTML";
 	capitalize_string_remaps["http"] = "HTTP";
@@ -172,11 +173,13 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	capitalize_string_remaps["k1"] = "K1";
 	capitalize_string_remaps["k2"] = "K2";
 	capitalize_string_remaps["kb"] = "(KB)"; // Unit.
+	capitalize_string_remaps["lcd"] = "LCD";
 	capitalize_string_remaps["ldr"] = "LDR";
 	capitalize_string_remaps["lod"] = "LOD";
 	capitalize_string_remaps["lowpass"] = "Low-pass";
 	capitalize_string_remaps["macos"] = "macOS";
 	capitalize_string_remaps["mb"] = "(MB)"; // Unit.
+	capitalize_string_remaps["mjpeg"] = "MJPEG";
 	capitalize_string_remaps["mms"] = "MMS";
 	capitalize_string_remaps["ms"] = "(ms)"; // Unit
 	capitalize_string_remaps["msaa"] = "MSAA";
@@ -185,17 +188,18 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	//capitalize_string_remaps["msec"] = "(msec)"; // Unit.
 	capitalize_string_remaps["navmesh"] = "NavMesh";
 	capitalize_string_remaps["nfc"] = "NFC";
-	capitalize_string_remaps["normalmap"] = "Normal Map";
-	capitalize_string_remaps["ofs"] = "Offset";
 	capitalize_string_remaps["ok"] = "OK";
 	capitalize_string_remaps["opengl"] = "OpenGL";
 	capitalize_string_remaps["opentype"] = "OpenType";
 	capitalize_string_remaps["openxr"] = "OpenXR";
+	capitalize_string_remaps["osslsigncode"] = "osslsigncode";
 	capitalize_string_remaps["pck"] = "PCK";
 	capitalize_string_remaps["png"] = "PNG";
 	capitalize_string_remaps["po2"] = "(Power of 2)"; // Unit.
 	capitalize_string_remaps["pvrtc"] = "PVRTC";
 	capitalize_string_remaps["pvs"] = "PVS";
+	capitalize_string_remaps["rcedit"] = "rcedit";
+	capitalize_string_remaps["rcodesign"] = "rcodesign";
 	capitalize_string_remaps["rgb"] = "RGB";
 	capitalize_string_remaps["rid"] = "RID";
 	capitalize_string_remaps["rmb"] = "RMB";
@@ -205,17 +209,19 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	capitalize_string_remaps["sdfgi"] = "SDFGI";
 	capitalize_string_remaps["sdk"] = "SDK";
 	capitalize_string_remaps["sec"] = "(sec)"; // Unit.
-	capitalize_string_remaps["selectedframe"] = "Selected Frame";
+	capitalize_string_remaps["signtool"] = "signtool";
 	capitalize_string_remaps["sms"] = "SMS";
 	capitalize_string_remaps["srgb"] = "sRGB";
 	capitalize_string_remaps["ssao"] = "SSAO";
 	capitalize_string_remaps["ssh"] = "SSH";
 	capitalize_string_remaps["ssil"] = "SSIL";
 	capitalize_string_remaps["ssl"] = "SSL";
+	capitalize_string_remaps["sss"] = "SSS";
 	capitalize_string_remaps["stderr"] = "stderr";
 	capitalize_string_remaps["stdout"] = "stdout";
 	capitalize_string_remaps["sv"] = "SV";
 	capitalize_string_remaps["svg"] = "SVG";
+	capitalize_string_remaps["taa"] = "TAA";
 	capitalize_string_remaps["tcp"] = "TCP";
 	capitalize_string_remaps["ui"] = "UI";
 	capitalize_string_remaps["url"] = "URL";
@@ -228,17 +234,15 @@ EditorPropertyNameProcessor::EditorPropertyNameProcessor() {
 	capitalize_string_remaps["uv1"] = "UV1";
 	capitalize_string_remaps["uv2"] = "UV2";
 	capitalize_string_remaps["uwp"] = "UWP";
-	capitalize_string_remaps["vadjust"] = "V Adjust";
-	capitalize_string_remaps["valign"] = "V Align";
 	capitalize_string_remaps["vector2"] = "Vector2";
 	capitalize_string_remaps["vpn"] = "VPN";
 	capitalize_string_remaps["vram"] = "VRAM";
-	capitalize_string_remaps["vseparation"] = "V Separation";
 	capitalize_string_remaps["vsync"] = "V-Sync";
 	capitalize_string_remaps["wap"] = "WAP";
 	capitalize_string_remaps["webp"] = "WebP";
 	capitalize_string_remaps["webrtc"] = "WebRTC";
 	capitalize_string_remaps["websocket"] = "WebSocket";
+	capitalize_string_remaps["wine"] = "wine";
 	capitalize_string_remaps["wifi"] = "Wi-Fi";
 	capitalize_string_remaps["x86"] = "x86";
 	capitalize_string_remaps["xr"] = "XR";

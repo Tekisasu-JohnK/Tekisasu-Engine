@@ -31,29 +31,20 @@
 #ifndef WEBXR_INTERFACE_H
 #define WEBXR_INTERFACE_H
 
-#include "servers/arvr/arvr_interface.h"
-#include "servers/arvr/arvr_positional_tracker.h"
+#include "servers/xr/xr_interface.h"
+#include "servers/xr/xr_positional_tracker.h"
 
 /**
-	@author David Snopek <david.snopek@snopekgames.com>
-
 	The WebXR interface is a VR/AR interface that can be used on the web.
 */
 
-class WebXRInterface : public ARVRInterface {
-	GDCLASS(WebXRInterface, ARVRInterface);
+class WebXRInterface : public XRInterface {
+	GDCLASS(WebXRInterface, XRInterface);
 
 protected:
 	static void _bind_methods();
 
 public:
-	enum TargetRayMode {
-		TARGET_RAY_MODE_UNKNOWN,
-		TARGET_RAY_MODE_GAZE,
-		TARGET_RAY_MODE_TRACKED_POINTER,
-		TARGET_RAY_MODE_SCREEN,
-	};
-
 	virtual void is_session_supported(const String &p_session_mode) = 0;
 	virtual void set_session_mode(String p_session_mode) = 0;
 	virtual String get_session_mode() const = 0;
@@ -64,14 +55,9 @@ public:
 	virtual void set_requested_reference_space_types(String p_requested_reference_space_types) = 0;
 	virtual String get_requested_reference_space_types() const = 0;
 	virtual String get_reference_space_type() const = 0;
-	virtual Ref<ARVRPositionalTracker> get_controller(int p_controller_id) const = 0;
-	virtual TargetRayMode get_controller_target_ray_mode(int p_controller_id) const = 0;
+	virtual Ref<XRPositionalTracker> get_controller(int p_controller_id) const = 0;
 	virtual String get_visibility_state() const = 0;
-	virtual PoolVector3Array get_bounds_geometry() const = 0;
-	virtual void set_xr_standard_mapping(bool p_xr_standard_mapping) = 0;
-	virtual bool get_xr_standard_mapping() const = 0;
+	virtual PackedVector3Array get_bounds_geometry() const = 0;
 };
-
-VARIANT_ENUM_CAST(WebXRInterface::TargetRayMode);
 
 #endif // WEBXR_INTERFACE_H

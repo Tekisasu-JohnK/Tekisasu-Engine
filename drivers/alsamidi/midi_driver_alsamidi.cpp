@@ -33,7 +33,7 @@
 #include "midi_driver_alsamidi.h"
 
 #include "core/os/os.h"
-#include "core/print_string.h"
+#include "core/string/print_string.h"
 
 #include <errno.h>
 
@@ -73,7 +73,7 @@ static int get_message_size(uint8_t message) {
 }
 
 void MIDIDriverALSAMidi::thread_func(void *p_udata) {
-	MIDIDriverALSAMidi *md = (MIDIDriverALSAMidi *)p_udata;
+	MIDIDriverALSAMidi *md = static_cast<MIDIDriverALSAMidi *>(p_udata);
 	uint64_t timestamp = 0;
 	uint8_t buffer[256];
 	int expected_size = 255;
@@ -174,8 +174,8 @@ void MIDIDriverALSAMidi::unlock() const {
 	mutex.unlock();
 }
 
-PoolStringArray MIDIDriverALSAMidi::get_connected_inputs() {
-	PoolStringArray list;
+PackedStringArray MIDIDriverALSAMidi::get_connected_inputs() {
+	PackedStringArray list;
 
 	lock();
 	for (int i = 0; i < connected_inputs.size(); i++) {

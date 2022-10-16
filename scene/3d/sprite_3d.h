@@ -31,11 +31,11 @@
 #ifndef SPRITE_3D_H
 #define SPRITE_3D_H
 
-#include "scene/2d/animated_sprite.h"
-#include "scene/3d/visual_instance.h"
+#include "scene/3d/visual_instance_3d.h"
+#include "scene/resources/sprite_frames.h"
 
-class SpriteBase3D : public GeometryInstance {
-	GDCLASS(SpriteBase3D, GeometryInstance);
+class SpriteBase3D : public GeometryInstance3D {
+	GDCLASS(SpriteBase3D, GeometryInstance3D);
 
 	mutable Ref<TriangleMesh> triangle_mesh; //cached
 
@@ -57,34 +57,37 @@ public:
 	};
 
 private:
-	bool color_dirty;
+	bool color_dirty = true;
 	Color color_accum;
 
-	SpriteBase3D *parent_sprite;
+	SpriteBase3D *parent_sprite = nullptr;
 	List<SpriteBase3D *> children;
-	List<SpriteBase3D *>::Element *pI;
+	List<SpriteBase3D *>::Element *pI = nullptr;
 
-	bool centered;
+	bool centered = true;
 	Point2 offset;
 
-	bool hflip;
-	bool vflip;
+	bool hflip = false;
+	bool vflip = false;
 
-	Color modulate;
+	Color modulate = Color(1, 1, 1, 1);
 	int render_priority = 0;
-	float opacity;
 
-	Vector3::Axis axis;
-	float pixel_size;
+	Vector3::Axis axis = Vector3::AXIS_Z;
+	real_t pixel_size = 0.01;
 	AABB aabb;
 
 	RID mesh;
 	RID material;
 
-	bool flags[FLAG_MAX];
-	AlphaCutMode alpha_cut;
-	SpatialMaterial::BillboardMode billboard_mode;
-	bool pending_update;
+	RID last_shader;
+	RID last_texture;
+
+	bool flags[FLAG_MAX] = {};
+	AlphaCutMode alpha_cut = ALPHA_CUT_DISABLED;
+	StandardMaterial3D::BillboardMode billboard_mode = StandardMaterial3D::BILLBOARD_DISABLED;
+	StandardMaterial3D::TextureFilter texture_filter = StandardMaterial3D::TEXTURE_FILTER_LINEAR_WITH_MIPMAPS;
+	bool pending_update = false;
 	void _im_update();
 
 	void _propagate_color_changed();
@@ -94,16 +97,20 @@ protected:
 	void _notification(int p_what);
 	static void _bind_methods();
 	virtual void _draw() = 0;
+	void draw_texture_rect(Ref<Texture2D> p_texture, Rect2 p_dst_rect, Rect2 p_src_rect);
 	_FORCE_INLINE_ void set_aabb(const AABB &p_aabb) { aabb = p_aabb; }
 	_FORCE_INLINE_ RID &get_mesh() { return mesh; }
 	_FORCE_INLINE_ RID &get_material() { return material; }
 
-	uint32_t mesh_surface_offsets[VS::ARRAY_MAX];
-	PoolByteArray mesh_buffer;
-	uint32_t mesh_stride[VS::ARRAY_MAX];
-	uint32_t mesh_surface_format;
+	uint32_t mesh_surface_offsets[RS::ARRAY_MAX];
+	PackedByteArray vertex_buffer;
+	PackedByteArray attribute_buffer;
+	uint32_t vertex_stride = 0;
+	uint32_t attrib_stride = 0;
+	uint32_t skin_stride = 0;
+	uint32_t mesh_surface_format = 0;
 
-	void _queue_update();
+	void _queue_redraw();
 
 public:
 	void set_centered(bool p_center);
@@ -118,17 +125,14 @@ public:
 	void set_flip_v(bool p_flip);
 	bool is_flipped_v() const;
 
-	void set_modulate(const Color &p_color);
-	Color get_modulate() const;
-
-	void set_opacity(float p_amount);
-	float get_opacity() const;
-
 	void set_render_priority(int p_priority);
 	int get_render_priority() const;
 
-	void set_pixel_size(float p_amount);
-	float get_pixel_size() const;
+	void set_modulate(const Color &p_color);
+	Color get_modulate() const;
+
+	void set_pixel_size(real_t p_amount);
+	real_t get_pixel_size() const;
 
 	void set_axis(Vector3::Axis p_axis);
 	Vector3::Axis get_axis() const;
@@ -138,13 +142,17 @@ public:
 
 	void set_alpha_cut_mode(AlphaCutMode p_mode);
 	AlphaCutMode get_alpha_cut_mode() const;
-	void set_billboard_mode(SpatialMaterial::BillboardMode p_mode);
-	SpatialMaterial::BillboardMode get_billboard_mode() const;
+
+	void set_billboard_mode(StandardMaterial3D::BillboardMode p_mode);
+	StandardMaterial3D::BillboardMode get_billboard_mode() const;
+
+	void set_texture_filter(StandardMaterial3D::TextureFilter p_filter);
+	StandardMaterial3D::TextureFilter get_texture_filter() const;
 
 	virtual Rect2 get_item_rect() const = 0;
 
-	virtual AABB get_aabb() const;
-	virtual PoolVector<Face3> get_faces(uint32_t p_usage_flags) const;
+	virtual AABB get_aabb() const override;
+
 	Ref<TriangleMesh> generate_triangle_mesh() const;
 
 	SpriteBase3D();
@@ -153,28 +161,28 @@ public:
 
 class Sprite3D : public SpriteBase3D {
 	GDCLASS(Sprite3D, SpriteBase3D);
-	Ref<Texture> texture;
+	Ref<Texture2D> texture;
 
-	bool region;
+	bool region = false;
 	Rect2 region_rect;
 
-	int frame;
+	int frame = 0;
 
-	int vframes;
-	int hframes;
+	int vframes = 1;
+	int hframes = 1;
 
 protected:
-	virtual void _draw();
+	virtual void _draw() override;
 	static void _bind_methods();
 
-	virtual void _validate_property(PropertyInfo &property) const;
+	void _validate_property(PropertyInfo &p_property) const;
 
 public:
-	void set_texture(const Ref<Texture> &p_texture);
-	Ref<Texture> get_texture() const;
+	void set_texture(const Ref<Texture2D> &p_texture);
+	Ref<Texture2D> get_texture() const;
 
-	void set_region(bool p_region);
-	bool is_region() const;
+	void set_region_enabled(bool p_region);
+	bool is_region_enabled() const;
 
 	void set_region_rect(const Rect2 &p_region_rect);
 	Rect2 get_region_rect() const;
@@ -182,8 +190,8 @@ public:
 	void set_frame(int p_frame);
 	int get_frame() const;
 
-	void set_frame_coords(const Vector2 &p_coord);
-	Vector2 get_frame_coords() const;
+	void set_frame_coords(const Vector2i &p_coord);
+	Vector2i get_frame_coords() const;
 
 	void set_vframes(int p_amount);
 	int get_vframes() const;
@@ -191,7 +199,7 @@ public:
 	void set_hframes(int p_amount);
 	int get_hframes() const;
 
-	virtual Rect2 get_item_rect() const;
+	virtual Rect2 get_item_rect() const override;
 
 	Sprite3D();
 	//~Sprite3D();
@@ -201,37 +209,37 @@ class AnimatedSprite3D : public SpriteBase3D {
 	GDCLASS(AnimatedSprite3D, SpriteBase3D);
 
 	Ref<SpriteFrames> frames;
-	bool playing;
-	StringName animation;
-	int frame;
+	bool playing = false;
+	bool playing_backwards = false;
+	bool backwards = false;
+	StringName animation = "default";
+	int frame = 0;
+	float speed_scale = 1.0f;
 
-	bool centered;
+	bool centered = false;
 
-	float timeout;
-
-	bool hflip;
-	bool vflip;
-
-	Color modulate;
+	bool is_over = false;
+	double timeout = 0.0;
 
 	void _res_changed();
 
+	double _get_frame_duration();
 	void _reset_timeout();
-	void _set_playing(bool p_playing);
-	bool _is_playing() const;
 
 protected:
-	virtual void _draw();
+	virtual void _draw() override;
 	static void _bind_methods();
 	void _notification(int p_what);
-	virtual void _validate_property(PropertyInfo &property) const;
+	void _validate_property(PropertyInfo &p_property) const;
 
 public:
 	void set_sprite_frames(const Ref<SpriteFrames> &p_frames);
 	Ref<SpriteFrames> get_sprite_frames() const;
 
-	void play(const StringName &p_animation = StringName());
+	void play(const StringName &p_animation = StringName(), bool p_backwards = false);
 	void stop();
+
+	void set_playing(bool p_playing);
 	bool is_playing() const;
 
 	void set_animation(const StringName &p_animation);
@@ -240,10 +248,13 @@ public:
 	void set_frame(int p_frame);
 	int get_frame() const;
 
-	virtual Rect2 get_item_rect() const;
+	void set_speed_scale(double p_speed_scale);
+	double get_speed_scale() const;
 
-	virtual String get_configuration_warning() const;
-	virtual void get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const;
+	virtual Rect2 get_item_rect() const override;
+
+	virtual PackedStringArray get_configuration_warnings() const override;
+	virtual void get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const override;
 
 	AnimatedSprite3D();
 };

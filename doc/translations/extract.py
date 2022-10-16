@@ -30,13 +30,17 @@ BASE_STRINGS = [
     "Description",
     "Tutorials",
     "Properties",
+    "Constructors",
     "Methods",
+    "Operators",
     "Theme Properties",
     "Signals",
     "Enumerations",
     "Constants",
     "Property Descriptions",
+    "Constructor Descriptions",
     "Method Descriptions",
+    "Operator Descriptions",
     "Theme Property Descriptions",
     "Inherits:",
     "Inherited By:",
@@ -56,7 +60,7 @@ BASE_STRINGS = [
 ## <xml-line-number-hack from="https://stackoverflow.com/a/36430270/10846399">
 import sys
 
-sys.modules["_elementtree"] = None
+sys.modules["_elementtree"] = None  # type: ignore
 import xml.etree.ElementTree as ET
 
 ## override the parser to get the line number

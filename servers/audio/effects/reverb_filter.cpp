@@ -28,8 +28,6 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-// Author: Juan Linietsky <reduzio@gmail.com>, (C) 2006
-
 #include "reverb_filter.h"
 
 #include "core/math/math_funcs.h"
@@ -91,7 +89,7 @@ void Reverb::process(float *p_src, float *p_dst, int p_frames) {
 	}
 
 	if (params.hpf > 0) {
-		float hpaux = expf(-2.0 * Math_PI * params.hpf * 6000 / params.mix_rate);
+		float hpaux = expf(-Math_TAU * params.hpf * 6000 / params.mix_rate);
 		float hp_a1 = (1.0 + hpaux) / 2.0;
 		float hp_a2 = -(1.0 + hpaux) / 2.0;
 		float hp_b1 = hpaux;
@@ -127,13 +125,11 @@ void Reverb::process(float *p_src, float *p_dst, int p_frames) {
 	int ap_size_limit[MAX_ALLPASS];
 
 	for (int i=0;i<MAX_ALLPASS;i++) {
-
 		AllPass &a=allpass[i];
 		ap_size_limit[i]=a.size-lrintf((float)a.extra_spread_frames*(1.0-params.extra_spread));
 	}
 
 	for (int i=0;i<p_frames;i++) {
-
 		float sample=p_dst[i];
 		float aux,in;
 		float AllPass*ap;
@@ -184,10 +180,12 @@ void Reverb::set_room_size(float p_size) {
 	params.room_size = p_size;
 	update_parameters();
 }
+
 void Reverb::set_damp(float p_damp) {
 	params.damp = p_damp;
 	update_parameters();
 }
+
 void Reverb::set_wet(float p_wet) {
 	params.wet = p_wet;
 }
@@ -199,6 +197,7 @@ void Reverb::set_dry(float p_dry) {
 void Reverb::set_predelay(float p_predelay) {
 	params.predelay = p_predelay;
 }
+
 void Reverb::set_predelay_feedback(float p_predelay_fb) {
 	params.predelay_fb = p_predelay_fb;
 }
@@ -292,7 +291,7 @@ void Reverb::update_parameters() {
 		float auxdmp = params.damp / 2.0 + 0.5; //only half the range (0.5 .. 1.0 is enough)
 		auxdmp *= auxdmp;
 
-		c.damp = expf(-2.0 * Math_PI * auxdmp * 10000 / params.mix_rate); // 0 .. 10khz
+		c.damp = expf(-Math_TAU * auxdmp * 10000 / params.mix_rate); // 0 .. 10khz
 	}
 }
 
@@ -329,11 +328,8 @@ Reverb::Reverb() {
 	params.predelay = 150;
 	params.predelay_fb = 0.4;
 	params.hpf = 0;
-	hpf_h1 = 0;
-	hpf_h2 = 0;
 
 	input_buffer = memnew_arr(float, INPUT_BUFFER_MAX_SIZE);
-	echo_buffer = nullptr;
 
 	configure_buffers();
 	update_parameters();

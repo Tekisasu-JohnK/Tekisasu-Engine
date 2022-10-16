@@ -37,7 +37,7 @@ Godot runs on a large variety of platforms and operating systems and devices.
 
 For bugs that are likely OS-specific and/or graphics-related, please also specify:
 
-- Device (CPU model including architecture, e.g. x86, x86_64, ARM, etc.)
+- Device (CPU model including architecture, e.g. x86_64, arm64, etc.)
 - GPU model (and the driver version in use if you know it)
 
 **Bug reports not including the required information may be closed at the
@@ -73,6 +73,11 @@ if your ZIP file isn't accepted by GitHub because it's too large.
 
 We recommend always attaching a minimal reproduction project, even if the issue
 may seem simple to reproduce manually.
+
+**Note for C# users:** If your issue is not .NET-specific, please upload a
+minimal reproduction project written in GDScript.
+This will make it easier for contributors to reproduce the issue
+locally as not everyone has a .NET setup available.
 
 **If you've been asked by a maintainer to upload a minimal reproduction project,
 you *must* do so within 7 days.** Otherwise, your bug report will be closed as
@@ -136,6 +141,29 @@ Follow the style guide described in the
 If your pull request modifies parts of the code in a non-obvious way, make sure
 to add comments in the code as well. This helps other people understand the
 change without having to look at `git blame`.
+
+### Write unit tests
+
+When fixing a bug or contributing a new feature, we recommend including unit
+tests in the same commit as the rest of the pull request. Unit tests are pieces
+of code that compare the output to a predetermined *expected result* to detect
+regressions. Tests are compiled and run on GitHub Actions for every commit and
+pull request.
+
+Pull requests that include tests are more likely to be merged, since we can have
+greater confidence in them not being the target of regressions in the future.
+
+For bugs, the unit tests should cover the functionality that was previously
+broken. If done well, this ensures regressions won't appear in the future
+again. For new features, the unit tests should cover the newly added
+functionality, testing both the "success" and "expected failure" cases if
+applicable.
+
+Feel free to contribute standalone pull requests to add new tests or improve
+existing tests as well.
+
+See [Unit testing](https://docs.godotengine.org/en/latest/development/cpp/unit_testing.html)
+for information on writing tests in Godot's C++ codebase.
 
 ### Be nice to the Git history
 

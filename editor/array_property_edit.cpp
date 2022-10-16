@@ -31,7 +31,8 @@
 #include "array_property_edit.h"
 
 #include "core/io/marshalls.h"
-#include "editor_node.h"
+#include "editor/editor_node.h"
+#include "editor/editor_undo_redo_manager.h"
 
 #define ITEMS_PER_PAGE 100
 
@@ -42,17 +43,14 @@ Variant ArrayPropertyEdit::get_array() const {
 	}
 	Variant arr = o->get(property);
 	if (!arr.is_array()) {
-		Variant::CallError ce;
-		arr = Variant::construct(default_type, nullptr, 0, ce);
+		Callable::CallError ce;
+		Variant::construct(default_type, arr, nullptr, 0, ce);
 	}
 	return arr;
 }
 
 void ArrayPropertyEdit::_notif_change() {
-	_change_notify();
-}
-void ArrayPropertyEdit::_notif_changev(const String &p_v) {
-	_change_notify(p_v.utf8().get_data());
+	notify_property_list_changed();
 }
 
 void ArrayPropertyEdit::_set_size(int p_size) {
@@ -90,7 +88,7 @@ bool ArrayPropertyEdit::_set(const StringName &p_name, const Variant &p_value) {
 				return true;
 			}
 
-			UndoRedo *ur = EditorNode::get_undo_redo();
+			Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
 			ur->create_action(TTR("Resize Array"));
 			ur->add_do_method(this, "_set_size", newsize);
 			ur->add_undo_method(this, "_set_size", size);
@@ -100,13 +98,13 @@ bool ArrayPropertyEdit::_set(const StringName &p_name, const Variant &p_value) {
 				}
 			} else if (newsize > size) {
 				Variant init;
-				Variant::CallError ce;
+				Callable::CallError ce;
 				Variant::Type new_type = subtype;
 				if (new_type == Variant::NIL && size) {
 					new_type = arr.get(size - 1).get_type();
 				}
 				if (new_type != Variant::NIL) {
-					init = Variant::construct(new_type, nullptr, 0, ce);
+					Variant::construct(new_type, init, nullptr, 0, ce);
 					for (int i = size; i < newsize; i++) {
 						ur->add_do_method(this, "_set_value", i, init);
 					}
@@ -119,12 +117,12 @@ bool ArrayPropertyEdit::_set(const StringName &p_name, const Variant &p_value) {
 		}
 		if (pn == "array/page") {
 			page = p_value;
-			_change_notify();
+			notify_property_list_changed();
 			return true;
 		}
 
 	} else if (pn.begins_with("indices")) {
-		if (pn.find("_") != -1) {
+		if (pn.contains("_")) {
 			//type
 			int idx = pn.get_slicec('/', 1).get_slicec('_', 0).to_int();
 
@@ -134,9 +132,10 @@ bool ArrayPropertyEdit::_set(const StringName &p_name, const Variant &p_value) {
 
 			Variant value = arr.get(idx);
 			if (value.get_type() != type && type >= 0 && type < Variant::VARIANT_MAX) {
-				Variant::CallError ce;
-				Variant new_value = Variant::construct(Variant::Type(type), nullptr, 0, ce);
-				UndoRedo *ur = EditorNode::get_undo_redo();
+				Callable::CallError ce;
+				Variant new_value;
+				Variant::construct(Variant::Type(type), new_value, nullptr, 0, ce);
+				Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
 
 				ur->create_action(TTR("Change Array Value Type"));
 				ur->add_do_method(this, "_set_value", idx, new_value);
@@ -152,13 +151,11 @@ bool ArrayPropertyEdit::_set(const StringName &p_name, const Variant &p_value) {
 			Variant arr = get_array();
 
 			Variant value = arr.get(idx);
-			UndoRedo *ur = EditorNode::get_undo_redo();
+			Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
 
 			ur->create_action(TTR("Change Array Value"));
 			ur->add_do_method(this, "_set_value", idx, p_value);
 			ur->add_undo_method(this, "_set_value", idx, value);
-			ur->add_do_method(this, "_notif_changev", p_name);
-			ur->add_undo_method(this, "_notif_changev", p_name);
 			ur->commit_action();
 			return true;
 		}
@@ -182,7 +179,7 @@ bool ArrayPropertyEdit::_get(const StringName &p_name, Variant &r_ret) const {
 			return true;
 		}
 	} else if (pn.begins_with("indices")) {
-		if (pn.find("_") != -1) {
+		if (pn.contains("_")) {
 			//type
 			int idx = pn.get_slicec('/', 1).get_slicec('_', 0).to_int();
 			bool valid;
@@ -257,7 +254,7 @@ void ArrayPropertyEdit::edit(Object *p_obj, const StringName &p_prop, const Stri
 	obj = p_obj->get_instance_id();
 	default_type = p_deftype;
 
-	if (!p_hint_string.empty()) {
+	if (!p_hint_string.is_empty()) {
 		int hint_subtype_separator = p_hint_string.find(":");
 		if (hint_subtype_separator >= 0) {
 			String subtype_string = p_hint_string.substr(0, hint_subtype_separator);
@@ -286,7 +283,6 @@ void ArrayPropertyEdit::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_set_size"), &ArrayPropertyEdit::_set_size);
 	ClassDB::bind_method(D_METHOD("_set_value"), &ArrayPropertyEdit::_set_value);
 	ClassDB::bind_method(D_METHOD("_notif_change"), &ArrayPropertyEdit::_notif_change);
-	ClassDB::bind_method(D_METHOD("_notif_changev"), &ArrayPropertyEdit::_notif_changev);
 	ClassDB::bind_method(D_METHOD("_dont_undo_redo"), &ArrayPropertyEdit::_dont_undo_redo);
 }
 

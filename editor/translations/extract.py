@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/bin/python
 
 import enum
 import fnmatch
@@ -8,10 +8,11 @@ import re
 import shutil
 import subprocess
 import sys
+from typing import Dict, Tuple
 
 
 class Message:
-    __slots__ = ("msgid", "msgctxt", "comments", "locations")
+    __slots__ = ("msgid", "msgid_plural", "msgctxt", "comments", "locations")
 
     def format(self):
         lines = []
@@ -26,15 +27,23 @@ class Message:
         if self.msgctxt:
             lines.append('msgctxt "{}"'.format(self.msgctxt))
 
-        lines += [
-            'msgid "{}"'.format(self.msgid),
-            'msgstr ""',
-        ]
+        if self.msgid_plural:
+            lines += [
+                'msgid "{}"'.format(self.msgid),
+                'msgid_plural "{}"'.format(self.msgid_plural),
+                'msgstr[0] ""',
+                'msgstr[1] ""',
+            ]
+        else:
+            lines += [
+                'msgid "{}"'.format(self.msgid),
+                'msgstr ""',
+            ]
 
         return "\n".join(lines)
 
 
-messages_map = {}  # (id, context) -> Message.
+messages_map: Dict[Tuple[str, str], Message] = {}  # (id, context) -> Message.
 
 line_nb = False
 
@@ -43,11 +52,11 @@ for arg in sys.argv[1:]:
         print("Enabling line numbers in the context locations.")
         line_nb = True
     else:
-        os.sys.exit("Non supported argument '" + arg + "'. Aborting.")
+        sys.exit("Non supported argument '" + arg + "'. Aborting.")
 
 
 if not os.path.exists("editor"):
-    os.sys.exit("ERROR: This script should be started from the root of the git repo.")
+    sys.exit("ERROR: This script should be started from the root of the git repo.")
 
 
 matches = []
@@ -92,34 +101,46 @@ class ExtractType(enum.IntEnum):
     TEXT = 1
     PROPERTY_PATH = 2
     GROUP = 3
+    SUBGROUP = 4
 
 
 # Regex "(?P<name>([^"\\]|\\.)*)" creates a group named `name` that matches a string.
 message_patterns = {
-    re.compile(r'RTR\("(?P<message>([^"\\]|\\.)*)"\)'): ExtractType.TEXT,
+    re.compile(r'RTR\("(?P<message>([^"\\]|\\.)*)"(, "(?P<context>([^"\\]|\\.)*)")?\)'): ExtractType.TEXT,
     re.compile(r'TTR\("(?P<message>([^"\\]|\\.)*)"(, "(?P<context>([^"\\]|\\.)*)")?\)'): ExtractType.TEXT,
     re.compile(r'TTRC\("(?P<message>([^"\\]|\\.)*)"\)'): ExtractType.TEXT,
+    re.compile(
+        r'TTRN\("(?P<message>([^"\\]|\\.)*)", "(?P<plural_message>([^"\\]|\\.)*)",[^,)]+?(, "(?P<context>([^"\\]|\\.)*)")?\)'
+    ): ExtractType.TEXT,
+    re.compile(
+        r'RTRN\("(?P<message>([^"\\]|\\.)*)", "(?P<plural_message>([^"\\]|\\.)*)",[^,)]+?(, "(?P<context>([^"\\]|\\.)*)")?\)'
+    ): ExtractType.TEXT,
     re.compile(r'_initial_set\("(?P<message>[^"]+?)",'): ExtractType.PROPERTY_PATH,
-    re.compile(r'GLOBAL_DEF(_RST)?(_NOVAL)?\("(?P<message>[^"]+?)",'): ExtractType.PROPERTY_PATH,
+    re.compile(r'GLOBAL_DEF(_RST)?(_NOVAL)?(_BASIC)?\("(?P<message>[^"]+?)",'): ExtractType.PROPERTY_PATH,
     re.compile(r'EDITOR_DEF(_RST)?\("(?P<message>[^"]+?)",'): ExtractType.PROPERTY_PATH,
+    re.compile(
+        r'EDITOR_SETTING(_USAGE)?\(Variant::[_A-Z0-9]+, [_A-Z0-9]+, "(?P<message>[^"]+?)",'
+    ): ExtractType.PROPERTY_PATH,
     re.compile(
         r"(ADD_PROPERTYI?|ImportOption|ExportOption)\(PropertyInfo\("
         + r"Variant::[_A-Z0-9]+"  # Name
         + r', "(?P<message>[^"]+)"'  # Type
         + r'(, [_A-Z0-9]+(, "([^"\\]|\\.)*"(, (?P<usage>[_A-Z0-9]+))?)?|\))'  # [, hint[, hint string[, usage]]].
     ): ExtractType.PROPERTY_PATH,
-    re.compile(
-        r"(?!#define )LIMPL_PROPERTY(_RANGE)?\(Variant::[_A-Z0-9]+, (?P<message>[^,]+?),"
-    ): ExtractType.PROPERTY_PATH,
+    re.compile(r'ADD_ARRAY\("(?P<message>[^"]+)", '): ExtractType.PROPERTY_PATH,
+    re.compile(r'ADD_ARRAY_COUNT(_WITH_USAGE_FLAGS)?\("(?P<message>[^"]+)", '): ExtractType.TEXT,
     re.compile(r'(ADD_GROUP|GNAME)\("(?P<message>[^"]+)", "(?P<prefix>[^"]*)"\)'): ExtractType.GROUP,
+    re.compile(r'ADD_GROUP_INDENT\("(?P<message>[^"]+)", "(?P<prefix>[^"]*)", '): ExtractType.GROUP,
+    re.compile(r'ADD_SUBGROUP\("(?P<message>[^"]+)", "(?P<prefix>[^"]*)"\)'): ExtractType.SUBGROUP,
+    re.compile(r'ADD_SUBGROUP_INDENT\("(?P<message>[^"]+)", "(?P<prefix>[^"]*)", '): ExtractType.GROUP,
     re.compile(r'PNAME\("(?P<message>[^"]+)"\)'): ExtractType.PROPERTY_PATH,
 }
 theme_property_patterns = {
-    re.compile(r'set_(constant|font|stylebox|color|icon)\("(?P<message>[^"]+)", '): ExtractType.PROPERTY_PATH,
+    re.compile(r'set_(constant|font|font_size|stylebox|color|icon)\("(?P<message>[^"]+)", '): ExtractType.PROPERTY_PATH,
 }
 
 
-# See String::camelcase_to_underscore().
+# See String::_camelcase_to_underscore().
 capitalize_re = re.compile(r"(?<=\D)(?=\d)|(?<=\d)(?=\D([a-z]|\d))")
 
 
@@ -188,6 +209,7 @@ def process_file(f, fname):
     is_block_translator_comment = False
     translator_comment = ""
     current_group = ""
+    current_subgroup = ""
 
     patterns = message_patterns
     if os.path.basename(fname) == "default_theme.cpp":
@@ -218,41 +240,55 @@ def process_file(f, fname):
 
                     captures = m.groupdict("")
                     msg = captures.get("message", "")
+                    msg_plural = captures.get("plural_message", "")
                     msgctx = captures.get("context", "")
 
                     if extract_type == ExtractType.TEXT:
-                        _add_message(msg, msgctx, location, translator_comment)
+                        _add_message(msg, msg_plural, msgctx, location, translator_comment)
                     elif extract_type == ExtractType.PROPERTY_PATH:
-                        if captures.get("usage") == "PROPERTY_USAGE_NOEDITOR":
+                        if captures.get("usage") == "PROPERTY_USAGE_NO_EDITOR":
                             continue
 
-                        if current_group:
+                        if current_subgroup:
+                            if msg.startswith(current_subgroup):
+                                msg = msg[len(current_subgroup) :]
+                            elif current_subgroup.startswith(msg):
+                                pass  # Keep this as-is. See EditorInspector::update_tree().
+                            else:
+                                current_subgroup = ""
+                        elif current_group:
                             if msg.startswith(current_group):
                                 msg = msg[len(current_group) :]
                             elif current_group.startswith(msg):
                                 pass  # Keep this as-is. See EditorInspector::update_tree().
                             else:
                                 current_group = ""
+                                current_subgroup = ""
 
                         if "." in msg:  # Strip feature tag.
                             msg = msg.split(".", 1)[0]
                         for part in msg.split("/"):
-                            _add_message(_process_editor_string(part), msgctx, location, translator_comment)
+                            _add_message(_process_editor_string(part), msg_plural, msgctx, location, translator_comment)
                     elif extract_type == ExtractType.GROUP:
-                        _add_message(msg, msgctx, location, translator_comment)
+                        _add_message(msg, msg_plural, msgctx, location, translator_comment)
                         current_group = captures["prefix"]
+                        current_subgroup = ""
+                    elif extract_type == ExtractType.SUBGROUP:
+                        _add_message(msg, msg_plural, msgctx, location, translator_comment)
+                        current_subgroup = captures["prefix"]
             translator_comment = ""
 
         l = f.readline()
         lc += 1
 
 
-def _add_message(msg, msgctx, location, translator_comment):
+def _add_message(msg, msg_plural, msgctx, location, translator_comment):
     key = (msg, msgctx)
     message = messages_map.get(key)
     if not message:
         message = Message()
         message.msgid = msg
+        message.msgid_plural = msg_plural
         message.msgctxt = msgctx
         message.locations = []
         message.comments = []

@@ -35,7 +35,7 @@
 
 #include "core/os/mutex.h"
 #include "core/os/thread.h"
-#include "core/safe_refcount.h"
+#include "core/templates/safe_refcount.h"
 #include "servers/audio_server.h"
 
 #include "asound-so_wrap.h"
@@ -44,10 +44,10 @@ class AudioDriverALSA : public AudioDriver {
 	Thread thread;
 	Mutex mutex;
 
-	snd_pcm_t *pcm_handle;
+	snd_pcm_t *pcm_handle = nullptr;
 
-	String device_name;
-	String new_device;
+	String device_name = "Default";
+	String new_device = "Default";
 
 	Vector<int32_t> samples_in;
 	Vector<int16_t> samples_out;
@@ -57,13 +57,13 @@ class AudioDriverALSA : public AudioDriver {
 
 	static void thread_func(void *p_udata);
 
-	unsigned int mix_rate;
+	unsigned int mix_rate = 0;
 	SpeakerMode speaker_mode;
 
 	snd_pcm_uframes_t buffer_frames;
 	snd_pcm_uframes_t buffer_size;
 	snd_pcm_uframes_t period_size;
-	int channels;
+	int channels = 0;
 
 	SafeFlag active;
 	SafeFlag exit_thread;
@@ -77,15 +77,15 @@ public:
 	virtual void start();
 	virtual int get_mix_rate() const;
 	virtual SpeakerMode get_speaker_mode() const;
-	virtual Array get_device_list();
+	virtual PackedStringArray get_device_list();
 	virtual String get_device();
 	virtual void set_device(String device);
 	virtual void lock();
 	virtual void unlock();
 	virtual void finish();
 
-	AudioDriverALSA();
-	~AudioDriverALSA();
+	AudioDriverALSA() {}
+	~AudioDriverALSA() {}
 };
 
 #endif // ALSA_ENABLED

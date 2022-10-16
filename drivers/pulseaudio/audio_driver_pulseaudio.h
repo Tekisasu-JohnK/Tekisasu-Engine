@@ -35,7 +35,7 @@
 
 #include "core/os/mutex.h"
 #include "core/os/thread.h"
-#include "core/safe_refcount.h"
+#include "core/templates/safe_refcount.h"
 #include "servers/audio_server.h"
 
 #include "pulse-so_wrap.h"
@@ -44,15 +44,15 @@ class AudioDriverPulseAudio : public AudioDriver {
 	Thread thread;
 	Mutex mutex;
 
-	pa_mainloop *pa_ml;
-	pa_context *pa_ctx;
-	pa_stream *pa_str;
-	pa_stream *pa_rec_str;
-	pa_channel_map pa_map;
-	pa_channel_map pa_rec_map;
+	pa_mainloop *pa_ml = nullptr;
+	pa_context *pa_ctx = nullptr;
+	pa_stream *pa_str = nullptr;
+	pa_stream *pa_rec_str = nullptr;
+	pa_channel_map pa_map = {};
+	pa_channel_map pa_rec_map = {};
 
-	String device_name;
-	String new_device;
+	String device_name = "Default";
+	String new_device = "Default";
 	String default_device;
 
 	String capture_device_name;
@@ -62,19 +62,19 @@ class AudioDriverPulseAudio : public AudioDriver {
 	Vector<int32_t> samples_in;
 	Vector<int16_t> samples_out;
 
-	unsigned int mix_rate;
-	unsigned int buffer_frames;
-	unsigned int pa_buffer_size;
-	int channels;
-	int pa_ready;
-	int pa_status;
-	Array pa_devices;
-	Array pa_rec_devices;
+	unsigned int mix_rate = 0;
+	unsigned int buffer_frames = 0;
+	unsigned int pa_buffer_size = 0;
+	int channels = 0;
+	int pa_ready = 0;
+	int pa_status = 0;
+	PackedStringArray pa_devices;
+	PackedStringArray pa_rec_devices;
 
 	SafeFlag active;
 	SafeFlag exit_thread;
 
-	float latency;
+	float latency = 0;
 
 	static void pa_state_cb(pa_context *c, void *userdata);
 	static void pa_sink_info_cb(pa_context *c, const pa_sink_info *l, int eol, void *userdata);
@@ -103,11 +103,11 @@ public:
 	virtual int get_mix_rate() const;
 	virtual SpeakerMode get_speaker_mode() const;
 
-	virtual Array get_device_list();
+	virtual PackedStringArray get_device_list();
 	virtual String get_device();
 	virtual void set_device(String device);
 
-	virtual Array capture_get_device_list();
+	virtual PackedStringArray capture_get_device_list();
 	virtual void capture_set_device(const String &p_name);
 	virtual String capture_get_device();
 
@@ -121,7 +121,7 @@ public:
 	virtual Error capture_stop();
 
 	AudioDriverPulseAudio();
-	~AudioDriverPulseAudio();
+	~AudioDriverPulseAudio() {}
 };
 
 #endif // PULSEAUDIO_ENABLED

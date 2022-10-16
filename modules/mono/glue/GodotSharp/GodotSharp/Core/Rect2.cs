@@ -1,8 +1,3 @@
-#if REAL_T_IS_DOUBLE
-using real_t = System.Double;
-#else
-using real_t = System.Single;
-#endif
 using System;
 using System.Runtime.InteropServices;
 
@@ -80,8 +75,11 @@ namespace Godot
         /// If the rectangles do not intersect, an empty <see cref="Rect2"/> is returned.
         /// </summary>
         /// <param name="b">The other <see cref="Rect2"/>.</param>
-        /// <returns>The clipped <see cref="Rect2"/>.</returns>
-        public Rect2 Clip(Rect2 b)
+        /// <returns>
+        /// The intersection of this <see cref="Rect2"/> and <paramref name="b"/>,
+        /// or an empty <see cref="Rect2"/> if they do not intersect.
+        /// </returns>
+        public Rect2 Intersection(Rect2 b)
         {
             Rect2 newRect = b;
 
@@ -172,11 +170,11 @@ namespace Godot
         }
 
         /// <summary>
-        /// Returns a copy of the <see cref="Rect2"/> grown a given amount of units towards
-        /// all the sides.
+        /// Returns a copy of the <see cref="Rect2"/> grown by the specified amount
+        /// on all sides.
         /// </summary>
         /// <seealso cref="GrowIndividual(real_t, real_t, real_t, real_t)"/>
-        /// <seealso cref="GrowMargin(Margin, real_t)"/>
+        /// <seealso cref="GrowSide(Side, real_t)"/>
         /// <param name="by">The amount to grow by.</param>
         /// <returns>The grown <see cref="Rect2"/>.</returns>
         public Rect2 Grow(real_t by)
@@ -192,15 +190,15 @@ namespace Godot
         }
 
         /// <summary>
-        /// Returns a copy of the <see cref="Rect2"/> grown a given amount of units towards
-        /// each direction individually.
+        /// Returns a copy of the <see cref="Rect2"/> grown by the specified amount
+        /// on each side individually.
         /// </summary>
         /// <seealso cref="Grow(real_t)"/>
-        /// <seealso cref="GrowMargin(Margin, real_t)"/>
-        /// <param name="left">The amount to grow by on the left.</param>
-        /// <param name="top">The amount to grow by on the top.</param>
-        /// <param name="right">The amount to grow by on the right.</param>
-        /// <param name="bottom">The amount to grow by on the bottom.</param>
+        /// <seealso cref="GrowSide(Side, real_t)"/>
+        /// <param name="left">The amount to grow by on the left side.</param>
+        /// <param name="top">The amount to grow by on the top side.</param>
+        /// <param name="right">The amount to grow by on the right side.</param>
+        /// <param name="bottom">The amount to grow by on the bottom side.</param>
         /// <returns>The grown <see cref="Rect2"/>.</returns>
         public Rect2 GrowIndividual(real_t left, real_t top, real_t right, real_t bottom)
         {
@@ -215,36 +213,38 @@ namespace Godot
         }
 
         /// <summary>
-        /// Returns a copy of the <see cref="Rect2"/> grown a given amount of units towards
-        /// the <see cref="Margin"/> direction.
+        /// Returns a copy of the <see cref="Rect2"/> grown by the specified amount
+        /// on the specified <see cref="Side"/>.
         /// </summary>
         /// <seealso cref="Grow(real_t)"/>
         /// <seealso cref="GrowIndividual(real_t, real_t, real_t, real_t)"/>
-        /// <param name="margin">The direction to grow in.</param>
+        /// <param name="side">The side to grow.</param>
         /// <param name="by">The amount to grow by.</param>
         /// <returns>The grown <see cref="Rect2"/>.</returns>
-        public Rect2 GrowMargin(Margin margin, real_t by)
+        public Rect2 GrowSide(Side side, real_t by)
         {
             Rect2 g = this;
 
-            g = g.GrowIndividual(Margin.Left == margin ? by : 0,
-                    Margin.Top == margin ? by : 0,
-                    Margin.Right == margin ? by : 0,
-                    Margin.Bottom == margin ? by : 0);
+            g = g.GrowIndividual(Side.Left == side ? by : 0,
+                    Side.Top == side ? by : 0,
+                    Side.Right == side ? by : 0,
+                    Side.Bottom == side ? by : 0);
 
             return g;
         }
 
         /// <summary>
-        /// Returns <see langword="true"/> if the <see cref="Rect2"/> is flat or empty,
-        /// or <see langword="false"/> otherwise.
+        /// Returns <see langword="true"/> if the <see cref="Rect2"/> has
+        /// area, and <see langword="false"/> if the <see cref="Rect2"/>
+        /// is linear, empty, or has a negative <see cref="Size"/>.
+        /// See also <see cref="GetArea"/>.
         /// </summary>
         /// <returns>
         /// A <see langword="bool"/> for whether or not the <see cref="Rect2"/> has area.
         /// </returns>
-        public bool HasNoArea()
+        public bool HasArea()
         {
-            return _size.x <= 0 || _size.y <= 0;
+            return _size.x > 0.0f && _size.y > 0.0f;
         }
 
         /// <summary>
@@ -428,12 +428,7 @@ namespace Godot
         /// <returns>Whether or not the rect and the other object are exactly equal.</returns>
         public override bool Equals(object obj)
         {
-            if (obj is Rect2)
-            {
-                return Equals((Rect2)obj);
-            }
-
-            return false;
+            return obj is Rect2 other && Equals(other);
         }
 
         /// <summary>
@@ -472,11 +467,7 @@ namespace Godot
         /// <returns>A string representation of this rect.</returns>
         public override string ToString()
         {
-            return String.Format("({0}, {1})", new object[]
-            {
-                _position.ToString(),
-                _size.ToString()
-            });
+            return $"{_position}, {_size}";
         }
 
         /// <summary>
@@ -485,11 +476,7 @@ namespace Godot
         /// <returns>A string representation of this rect.</returns>
         public string ToString(string format)
         {
-            return String.Format("({0}, {1})", new object[]
-            {
-                _position.ToString(format),
-                _size.ToString(format)
-            });
+            return $"{_position.ToString(format)}, {_size.ToString(format)}";
         }
     }
 }

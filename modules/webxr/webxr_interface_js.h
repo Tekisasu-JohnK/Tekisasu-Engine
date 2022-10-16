@@ -31,13 +31,11 @@
 #ifndef WEBXR_INTERFACE_JS_H
 #define WEBXR_INTERFACE_JS_H
 
-#ifdef JAVASCRIPT_ENABLED
+#ifdef WEB_ENABLED
 
 #include "webxr_interface.h"
 
 /**
-	@author David Snopek <david.snopek@snopekgames.com>
-
 	The WebXR interface is a VR/AR interface that can be used on the web.
 */
 
@@ -46,7 +44,8 @@ class WebXRInterfaceJS : public WebXRInterface {
 
 private:
 	bool initialized;
-	bool xr_standard_mapping;
+	Ref<XRPositionalTracker> head_tracker;
+	Transform3D head_transform;
 
 	String session_mode;
 	String required_features;
@@ -54,59 +53,52 @@ private:
 	String requested_reference_space_types;
 	String reference_space_type;
 
+	// TODO maybe turn into a vector to support more then 2 controllers...
 	bool controllers_state[2];
-	bool touching[5];
+	Ref<XRPositionalTracker> controllers[2];
 	Size2 render_targetsize;
 
-	Transform _js_matrix_to_transform(float *p_js_matrix);
+	Transform3D _js_matrix_to_transform(float *p_js_matrix);
 	void _update_tracker(int p_controller_id);
 
-	Vector2 _get_joy_vector_from_axes(int *p_axes);
-	int _get_touch_index(int p_input_source);
-	Vector2 _get_screen_position_from_joy_vector(const Vector2 &p_joy_vector);
-
 public:
-	virtual void is_session_supported(const String &p_session_mode);
-	virtual void set_session_mode(String p_session_mode);
-	virtual String get_session_mode() const;
-	virtual void set_required_features(String p_required_features);
-	virtual String get_required_features() const;
-	virtual void set_optional_features(String p_optional_features);
-	virtual String get_optional_features() const;
-	virtual void set_requested_reference_space_types(String p_requested_reference_space_types);
-	virtual String get_requested_reference_space_types() const;
+	virtual void is_session_supported(const String &p_session_mode) override;
+	virtual void set_session_mode(String p_session_mode) override;
+	virtual String get_session_mode() const override;
+	virtual void set_required_features(String p_required_features) override;
+	virtual String get_required_features() const override;
+	virtual void set_optional_features(String p_optional_features) override;
+	virtual String get_optional_features() const override;
+	virtual void set_requested_reference_space_types(String p_requested_reference_space_types) override;
+	virtual String get_requested_reference_space_types() const override;
 	void _set_reference_space_type(String p_reference_space_type);
-	virtual String get_reference_space_type() const;
-	virtual Ref<ARVRPositionalTracker> get_controller(int p_controller_id) const;
-	virtual TargetRayMode get_controller_target_ray_mode(int p_controller_id) const;
-	virtual String get_visibility_state() const;
-	virtual PoolVector3Array get_bounds_geometry() const;
-	virtual void set_xr_standard_mapping(bool p_xr_standard_mapping);
-	virtual bool get_xr_standard_mapping() const;
+	virtual String get_reference_space_type() const override;
+	virtual Ref<XRPositionalTracker> get_controller(int p_controller_id) const override;
+	virtual String get_visibility_state() const override;
+	virtual PackedVector3Array get_bounds_geometry() const override;
 
-	virtual StringName get_name() const;
-	virtual int get_capabilities() const;
+	virtual StringName get_name() const override;
+	virtual uint32_t get_capabilities() const override;
 
-	virtual bool is_initialized() const;
-	virtual bool initialize();
-	virtual void uninitialize();
+	virtual bool is_initialized() const override;
+	virtual bool initialize() override;
+	virtual void uninitialize() override;
 
-	virtual Size2 get_render_targetsize();
-	virtual bool is_stereo();
-	virtual Transform get_transform_for_eye(ARVRInterface::Eyes p_eye, const Transform &p_cam_transform);
-	virtual CameraMatrix get_projection_for_eye(ARVRInterface::Eyes p_eye, real_t p_aspect, real_t p_z_near, real_t p_z_far);
-	virtual void commit_for_eye(ARVRInterface::Eyes p_eye, RID p_render_target, const Rect2 &p_screen_rect);
+	virtual Size2 get_render_target_size() override;
+	virtual uint32_t get_view_count() override;
+	virtual Transform3D get_camera_transform() override;
+	virtual Transform3D get_transform_for_view(uint32_t p_view, const Transform3D &p_cam_transform) override;
+	virtual Projection get_projection_for_view(uint32_t p_view, double p_aspect, double p_z_near, double p_z_far) override;
+	virtual Vector<BlitToScreen> post_draw_viewport(RID p_render_target, const Rect2 &p_screen_rect) override;
 
-	virtual void process();
-	virtual void notification(int p_what);
+	virtual void process() override;
 
 	void _on_controller_changed();
-	void _on_input_event(int p_event_type, int p_input_source);
 
 	WebXRInterfaceJS();
 	~WebXRInterfaceJS();
 };
 
-#endif // JAVASCRIPT_ENABLED
+#endif // WEB_ENABLED
 
 #endif // WEBXR_INTERFACE_JS_H

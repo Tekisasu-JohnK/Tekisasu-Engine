@@ -9,15 +9,15 @@ namespace Godot
         /// Triggers child scene instantiation(s). Triggers a
         /// <see cref="Node.NotificationInstanced"/> notification on the root node.
         /// </summary>
-        /// <seealso cref="InstanceOrNull{T}(GenEditState)"/>
+        /// <seealso cref="InstantiateOrNull{T}(GenEditState)"/>
         /// <exception cref="InvalidCastException">
-        /// Thrown when the given the instantiated node can't be casted to the given type <typeparamref name="T"/>.
+        /// The instantiated node can't be casted to the given type <typeparamref name="T"/>.
         /// </exception>
         /// <typeparam name="T">The type to cast to. Should be a descendant of <see cref="Node"/>.</typeparam>
         /// <returns>The instantiated scene.</returns>
-        public T Instance<T>(PackedScene.GenEditState editState = (PackedScene.GenEditState)0) where T : class
+        public T Instantiate<T>(PackedScene.GenEditState editState = (PackedScene.GenEditState)0) where T : class
         {
-            return (T)(object)Instance(editState);
+            return (T)(object)Instantiate(editState);
         }
 
         /// <summary>
@@ -25,12 +25,12 @@ namespace Godot
         /// Triggers child scene instantiation(s). Triggers a
         /// <see cref="Node.NotificationInstanced"/> notification on the root node.
         /// </summary>
-        /// <seealso cref="Instance{T}(GenEditState)"/>
+        /// <seealso cref="Instantiate{T}(GenEditState)"/>
         /// <typeparam name="T">The type to cast to. Should be a descendant of <see cref="Node"/>.</typeparam>
         /// <returns>The instantiated scene.</returns>
-        public T InstanceOrNull<T>(PackedScene.GenEditState editState = (PackedScene.GenEditState)0) where T : class
+        public T InstantiateOrNull<T>(PackedScene.GenEditState editState = (PackedScene.GenEditState)0) where T : class
         {
-            return Instance(editState) as T;
+            return Instantiate(editState) as T;
         }
     }
 }
