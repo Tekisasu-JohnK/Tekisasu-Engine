@@ -5,9 +5,9 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>Godot</string>
+	<string>Tekisasu-Engine</string>
 	<key>CFBundleName</key>
-	<string>Godot</string>
+	<string>Tekisasu-Engine</string>
 	<key>CFBundleIconFile</key>
 	<string>Godot.icns</string>
 	<key>CFBundleIdentifier</key>
