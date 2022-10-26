@@ -37,6 +37,7 @@
 #include "core/io/resource_saver.h"
 #include "core/io/zip_io.h"
 #include "core/os/dir_access.h"
+#include "editor/editor_settings.h"
 #include "core/os/file_access.h"
 #include "core/project_settings.h"
 #include "core/script_language.h"
@@ -687,6 +688,11 @@ void EditorExportPlugin::_bind_methods() {
 	BIND_VMETHOD(MethodInfo("_export_file", PropertyInfo(Variant::STRING, "path"), PropertyInfo(Variant::STRING, "type"), PropertyInfo(Variant::POOL_STRING_ARRAY, "features")));
 	BIND_VMETHOD(MethodInfo("_export_begin", PropertyInfo(Variant::POOL_STRING_ARRAY, "features"), PropertyInfo(Variant::BOOL, "is_debug"), PropertyInfo(Variant::STRING, "path"), PropertyInfo(Variant::INT, "flags")));
 	BIND_VMETHOD(MethodInfo("_export_end"));
+	
+	GLOBAL_DEF("editor/export/convert_text_resources_to_binary", false);
+
+ 	EDITOR_DEF("export/ssh/ssh", "");
+ 	EDITOR_DEF("export/ssh/scp", "");
 }
 
 EditorExportPlugin::EditorExportPlugin() {
@@ -1028,6 +1034,122 @@ Error EditorExportPlatform::_add_shared_object(void *p_userdata, const SharedObj
 
 	return OK;
 }
+
+void EditorExportPlatform::zip_folder_recursive(zipFile &p_zip, const String &p_root_path, const String &p_folder, const String &p_pkg_name) {
+ 	String dir = p_folder.is_empty() ? p_root_path : p_root_path.path_join(p_folder);
+
+ 	Ref<DirAccess> da = DirAccess::open(dir);
+ 	da->list_dir_begin();
+ 	String f = da->get_next();
+ 	while (!f.is_empty()) {
+ 		if (f == "." || f == "..") {
+ 			f = da->get_next();
+ 			continue;
+ 		}
+ 		if (da->is_link(f)) {
+ 			OS::DateTime dt = OS::get_singleton()->get_datetime();
+
+ 			zip_fileinfo zipfi;
+ 			zipfi.tmz_date.tm_year = dt.year;
+ 			zipfi.tmz_date.tm_mon = dt.month - 1; // Note: "tm" month range - 0..11, Godot month range - 1..12, https://www.cplusplus.com/reference/ctime/tm/
+ 			zipfi.tmz_date.tm_mday = dt.day;
+ 			zipfi.tmz_date.tm_hour = dt.hour;
+ 			zipfi.tmz_date.tm_min = dt.minute;
+ 			zipfi.tmz_date.tm_sec = dt.second;
+ 			zipfi.dosDate = 0;
+ 			// 0120000: symbolic link type
+ 			// 0000755: permissions rwxr-xr-x
+ 			// 0000644: permissions rw-r--r--
+ 			uint32_t _mode = 0120644;
+ 			zipfi.external_fa = (_mode << 16L) | !(_mode & 0200);
+ 			zipfi.internal_fa = 0;
+
+ 			zipOpenNewFileInZip4(p_zip,
+ 					p_folder.path_join(f).utf8().get_data(),
+ 					&zipfi,
+ 					nullptr,
+ 					0,
+ 					nullptr,
+ 					0,
+ 					nullptr,
+ 					Z_DEFLATED,
+ 					Z_DEFAULT_COMPRESSION,
+ 					0,
+ 					-MAX_WBITS,
+ 					DEF_MEM_LEVEL,
+ 					Z_DEFAULT_STRATEGY,
+ 					nullptr,
+ 					0,
+ 					0x0314, // "version made by", 0x03 - Unix, 0x14 - ZIP specification version 2.0, required to store Unix file permissions
+ 					0);
+
+ 			String target = da->read_link(f);
+ 			zipWriteInFileInZip(p_zip, target.utf8().get_data(), target.utf8().size());
+ 			zipCloseFileInZip(p_zip);
+ 		} else if (da->current_is_dir()) {
+ 			zip_folder_recursive(p_zip, p_root_path, p_folder.path_join(f), p_pkg_name);
+ 		} else {
+ 			bool _is_executable = is_executable(dir.path_join(f));
+
+ 			OS::DateTime dt = OS::get_singleton()->get_datetime();
+
+ 			zip_fileinfo zipfi;
+ 			zipfi.tmz_date.tm_year = dt.year;
+ 			zipfi.tmz_date.tm_mon = dt.month - 1; // Note: "tm" month range - 0..11, Godot month range - 1..12, https://www.cplusplus.com/reference/ctime/tm/
+ 			zipfi.tmz_date.tm_mday = dt.day;
+ 			zipfi.tmz_date.tm_hour = dt.hour;
+ 			zipfi.tmz_date.tm_min = dt.minute;
+ 			zipfi.tmz_date.tm_sec = dt.second;
+ 			zipfi.dosDate = 0;
+ 			// 0100000: regular file type
+ 			// 0000755: permissions rwxr-xr-x
+ 			// 0000644: permissions rw-r--r--
+ 			uint32_t _mode = (_is_executable ? 0100755 : 0100644);
+ 			zipfi.external_fa = (_mode << 16L) | !(_mode & 0200);
+ 			zipfi.internal_fa = 0;
+
+ 			zipOpenNewFileInZip4(p_zip,
+ 					p_folder.path_join(f).utf8().get_data(),
+ 					&zipfi,
+ 					nullptr,
+ 					0,
+ 					nullptr,
+ 					0,
+ 					nullptr,
+ 					Z_DEFLATED,
+ 					Z_DEFAULT_COMPRESSION,
+ 					0,
+ 					-MAX_WBITS,
+ 					DEF_MEM_LEVEL,
+ 					Z_DEFAULT_STRATEGY,
+ 					nullptr,
+ 					0,
+ 					0x0314, // "version made by", 0x03 - Unix, 0x14 - ZIP specification version 2.0, required to store Unix file permissions
+ 					0);
+
+ 			Ref<FileAccess> fa = FileAccess::open(dir.path_join(f), FileAccess::READ);
+ 			if (fa.is_null()) {
+ 				add_message(EXPORT_MESSAGE_ERROR, TTR("ZIP Creation"), vformat(TTR("Could not open file to read from path \"%s\"."), dir.path_join(f)));
+ 				return;
+ 			}
+ 			const int bufsize = 16384;
+ 			uint8_t buf[bufsize];
+
+ 			while (true) {
+ 				uint64_t got = fa->get_buffer(buf, bufsize);
+ 				if (got == 0) {
+ 					break;
+ 				}
+ 				zipWriteInFileInZip(p_zip, buf, got);
+ 			}
+
+ 			zipCloseFileInZip(p_zip);
+ 		}
+ 		f = da->get_next();
+ 	}
+ 	da->list_dir_end();
+ }
+
 
 Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, const String &p_path, Vector<SharedObject> *p_so_files, bool p_embed, int64_t *r_embedded_start, int64_t *r_embedded_size) {
 	EditorProgress ep("savepack", TTR("Packing"), 102, true);

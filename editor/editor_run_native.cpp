@@ -91,6 +91,14 @@ void EditorRunNative::_notification(int p_what) {
 			first = false;
 		}
 	}
+
+	if (p_what == NOTIFICATION_EXIT_TREE) {
+		case NOTIFICATION_EXIT_TREE: {
+ 			for (int i = 0; i < export_platforms.size(); i++) {
+ 				export_platforms.write[i]->cleanup();
+ 			}
+ 		} break;
+	}
 }
 
 void EditorRunNative::_run_native(int p_idx, int p_platform) {
@@ -150,7 +158,9 @@ void EditorRunNative::_run_native(int p_idx, int p_platform) {
 	Error err = eep->run(preset, p_idx, flags);
 	result_dialog_log->clear();
 	if (eep->fill_log_messages(result_dialog_log, err)) {
-		result_dialog->popup_centered_ratio(0.5);
+		if (eep->get_worst_message_type() >= EditorExportPlatform::EXPORT_MESSAGE_ERROR) {
+ 			result_dialog->popup_centered_ratio(0.5);
+ 		}
 	}
 }
 

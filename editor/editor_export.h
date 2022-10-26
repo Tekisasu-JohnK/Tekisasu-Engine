@@ -32,6 +32,7 @@
 #define EDITOR_EXPORT_H
 
 #include "core/os/dir_access.h"
+#include "core/io/zip_io.h"
 #include "core/resource.h"
 #include "scene/gui/rich_text_label.h"
 #include "scene/main/node.h"
@@ -199,7 +200,6 @@ private:
 	void _export_find_resources(EditorFileSystemDirectory *p_dir, Set<String> &p_paths);
 	void _export_find_dependencies(const String &p_path, Set<String> &p_paths);
 
-	void gen_debug_flags(Vector<String> &r_flags, int p_flags);
 	static Error _save_pack_file(void *p_userdata, const String &p_path, const Vector<uint8_t> &p_data, int p_file, int p_total);
 	static Error _save_zip_file(void *p_userdata, const String &p_path, const Vector<uint8_t> &p_data, int p_file, int p_total);
 
@@ -219,6 +219,13 @@ protected:
 	bool exists_export_template(String template_file_name, String *err) const;
 	String find_export_template(String template_file_name, String *err = nullptr) const;
 	void gen_export_flags(Vector<String> &r_flags, int p_flags);
+	void gen_debug_flags(Vector<String> &r_flags, int p_flags);
+
+ 	virtual void zip_folder_recursive(zipFile &p_zip, const String &p_root_path, const String &p_folder, const String &p_pkg_name);
+
+ 	Error ssh_run_on_remote(const String &p_host, const String &p_port, const Vector<String> &p_ssh_args, const String &p_cmd_args, String *r_out = nullptr, int p_port_fwd = -1) const;
+ 	Error ssh_run_on_remote_no_wait(const String &p_host, const String &p_port, const Vector<String> &p_ssh_args, const String &p_cmd_args, OS::ProcessID *r_pid = nullptr, int p_port_fwd = -1) const;
+ 	Error ssh_push_to_remote(const String &p_host, const String &p_port, const Vector<String> &p_scp_args, const String &p_src_file, const String &p_dst_file) const;
 
 public:
 	virtual void get_preset_features(const Ref<EditorExportPreset> &p_preset, List<String> *r_features) = 0;
@@ -306,6 +313,7 @@ public:
 		DEBUG_FLAG_SHADER_FALLBACKS = 32,
 	};
 
+	virtual void cleanup() {}
 	virtual Error run(const Ref<EditorExportPreset> &p_preset, int p_device, int p_debug_flags) { return OK; }
 	virtual Ref<Texture> get_run_icon() const { return get_logo(); }
 
@@ -491,7 +499,6 @@ public:
 	virtual Error export_project_data(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, int p_flags);
 	virtual Error fixup_embedded_pck(const String &p_path, int64_t p_embedded_start, int64_t p_embedded_size) { return OK; }
 
-	void set_extension(const String &p_extension, const String &p_feature_key = "default");
 	void set_name(const String &p_name);
 	void set_os_name(const String &p_name);
 
