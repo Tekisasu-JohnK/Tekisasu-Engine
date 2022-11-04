@@ -44,6 +44,10 @@
 #include OPENGL_INCLUDE_H
 #endif
 
+#ifdef ANDROID_ENABLED
+typedef void (*PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC)(GLenum, GLenum, GLuint, GLint, GLint, GLsizei);
+#endif
+
 namespace GLES3 {
 
 class Config {
@@ -60,6 +64,7 @@ public:
 	int max_texture_image_units = 0;
 	int max_texture_size = 0;
 	int max_uniform_buffer_size = 0;
+	int max_viewport_size = 0;
 	int max_renderable_elements = 0;
 	int max_renderable_lights = 0;
 	int max_lights_per_object = 0;
@@ -81,6 +86,11 @@ public:
 
 	bool support_anisotropic_filter = false;
 	float anisotropic_level = 0.0f;
+
+	bool multiview_supported = false;
+#ifdef ANDROID_ENABLED
+	PFNGLFRAMEBUFFERTEXTUREMULTIVIEWOVRPROC eglFramebufferTextureMultiviewOVR = nullptr;
+#endif
 
 	static Config *get_singleton() { return singleton; };
 

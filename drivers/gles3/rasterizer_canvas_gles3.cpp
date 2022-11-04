@@ -130,7 +130,10 @@ void RasterizerCanvasGLES3::canvas_render_items(RID p_to_render_target, Item *p_
 		if (syncStatus == GL_UNSIGNALED) {
 			// If older than 2 frames, wait for sync OpenGL can have up to 3 frames in flight, any more and we need to sync anyway.
 			if (state.canvas_instance_data_buffers[state.current_buffer].last_frame_used < RSG::rasterizer->get_frame_number() - 2) {
+#ifndef WEB_ENABLED
+				// On web, we do nothing as the glSubBufferData will force a sync anyway and WebGL does not like waiting.
 				glClientWaitSync(state.canvas_instance_data_buffers[state.current_buffer].fence, 0, 100000000); // wait for up to 100ms
+#endif
 			} else {
 				// Used in last frame or frame before that. OpenGL can get up to two frames behind, so these buffers may still be in use
 				// Allocate a new buffer and use that.
@@ -433,10 +436,12 @@ void RasterizerCanvasGLES3::canvas_render_items(RID p_to_render_target, Item *p_
 				_render_items(p_to_render_target, item_count, canvas_transform_inverse, p_light_list, starting_index, false);
 				item_count = 0;
 
-				Rect2i group_rect = ci->canvas_group_owner->global_rect_cache;
-
-				if (ci->canvas_group_owner->canvas_group->mode == RS::CANVAS_GROUP_MODE_OPAQUE) {
+				if (ci->canvas_group_owner->canvas_group->mode != RS::CANVAS_GROUP_MODE_TRANSPARENT) {
+					Rect2i group_rect = ci->canvas_group_owner->global_rect_cache;
 					texture_storage->render_target_copy_to_back_buffer(p_to_render_target, group_rect, false);
+					if (ci->canvas_group_owner->canvas_group->mode == RS::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
+						items[item_count++] = ci->canvas_group_owner;
+					}
 				} else if (!backbuffer_cleared) {
 					texture_storage->render_target_clear_back_buffer(p_to_render_target, Rect2i(), Color(0, 0, 0, 0));
 					backbuffer_cleared = true;
@@ -544,9 +549,18 @@ void RasterizerCanvasGLES3::_render_items(RID p_to_render_target, int p_item_cou
 		}
 
 		RID material = ci->material_owner == nullptr ? ci->material : ci->material_owner->material;
-
-		if (material.is_null() && ci->canvas_group != nullptr) {
-			material = default_canvas_group_material;
+		if (ci->canvas_group != nullptr) {
+			if (ci->canvas_group->mode == RS::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
+				if (!p_to_backbuffer) {
+					material = default_clip_children_material;
+				}
+			} else {
+				if (ci->canvas_group->mode == RS::CANVAS_GROUP_MODE_CLIP_ONLY) {
+					material = default_clip_children_material;
+				} else {
+					material = default_canvas_group_material;
+				}
+			}
 		}
 
 		GLES3::CanvasShaderData *shader_data_cache = nullptr;
@@ -1010,7 +1024,7 @@ void RasterizerCanvasGLES3::_record_item_commands(const Item *p_item, const Tran
 				_add_to_batch(r_index, r_batch_broken);
 
 				if (primitive->point_count == 4) {
-					// Reset base data
+					// Reset base data.
 					_update_transform_2d_to_mat2x3(base_transform * draw_transform, state.instance_data_array[r_index].world);
 					state.instance_data_array[r_index].color_texture_pixel_size[0] = 0.0;
 					state.instance_data_array[r_index].color_texture_pixel_size[1] = 0.0;
@@ -1018,12 +1032,13 @@ void RasterizerCanvasGLES3::_record_item_commands(const Item *p_item, const Tran
 					state.instance_data_array[r_index].flags = base_flags | (state.instance_data_array[r_index - 1].flags & (FLAGS_DEFAULT_NORMAL_MAP_USED | FLAGS_DEFAULT_SPECULAR_MAP_USED)); //reset on each command for sanity, keep canvastexture binding config
 
 					for (uint32_t j = 0; j < 3; j++) {
-						//second half of triangle
-						state.instance_data_array[r_index].points[j * 2 + 0] = primitive->points[j + 1].x;
-						state.instance_data_array[r_index].points[j * 2 + 1] = primitive->points[j + 1].y;
-						state.instance_data_array[r_index].uvs[j * 2 + 0] = primitive->uvs[j + 1].x;
-						state.instance_data_array[r_index].uvs[j * 2 + 1] = primitive->uvs[j + 1].y;
-						Color col = primitive->colors[j + 1] * base_color;
+						int offset = j == 0 ? 0 : 1;
+						// Second triangle in the quad. Uses vertices 0, 2, 3.
+						state.instance_data_array[r_index].points[j * 2 + 0] = primitive->points[j + offset].x;
+						state.instance_data_array[r_index].points[j * 2 + 1] = primitive->points[j + offset].y;
+						state.instance_data_array[r_index].uvs[j * 2 + 0] = primitive->uvs[j + offset].x;
+						state.instance_data_array[r_index].uvs[j * 2 + 1] = primitive->uvs[j + offset].y;
+						Color col = primitive->colors[j + offset] * base_color;
 						state.instance_data_array[r_index].colors[j * 2 + 0] = (uint32_t(Math::make_half_float(col.g)) << 16) | Math::make_half_float(col.r);
 						state.instance_data_array[r_index].colors[j * 2 + 1] = (uint32_t(Math::make_half_float(col.a)) << 16) | Math::make_half_float(col.b);
 					}
@@ -2074,6 +2089,26 @@ void fragment() {
 		material_storage->material_set_shader(default_canvas_group_material, default_canvas_group_shader);
 	}
 
+	{
+		default_clip_children_shader = material_storage->shader_allocate();
+		material_storage->shader_initialize(default_clip_children_shader);
+
+		material_storage->shader_set_code(default_clip_children_shader, R"(
+// Default clip children shader.
+
+shader_type canvas_item;
+
+void fragment() {
+	vec4 c = textureLod(SCREEN_TEXTURE, SCREEN_UV, 0.0);
+	COLOR.rgb = c.rgb;
+}
+)");
+		default_clip_children_material = material_storage->material_allocate();
+		material_storage->material_initialize(default_clip_children_material);
+
+		material_storage->material_set_shader(default_clip_children_material, default_clip_children_shader);
+	}
+
 	default_canvas_texture = texture_storage->canvas_texture_allocate();
 	texture_storage->canvas_texture_initialize(default_canvas_texture);
 
@@ -2086,6 +2121,8 @@ RasterizerCanvasGLES3::~RasterizerCanvasGLES3() {
 	material_storage->shaders.canvas_shader.version_free(data.canvas_shader_default_version);
 	material_storage->material_free(default_canvas_group_material);
 	material_storage->shader_free(default_canvas_group_shader);
+	material_storage->material_free(default_clip_children_material);
+	material_storage->shader_free(default_clip_children_shader);
 	singleton = nullptr;
 
 	glDeleteBuffers(1, &data.canvas_quad_vertices);
