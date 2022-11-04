@@ -153,8 +153,23 @@ const PackedStringArray ProjectSettings::_trim_to_supported_features(const Packe
 #endif // TOOLS_ENABLED
 
 String ProjectSettings::localize_path(const String &p_path) const {
-	if (resource_path.is_empty() || p_path.begins_with("res://") || p_path.begins_with("user://") ||
-			(p_path.is_absolute_path() && !p_path.begins_with(resource_path))) {
+	if (resource_path.is_empty() || (p_path.is_absolute_path() && !p_path.begins_with(resource_path))) {
+		return p_path.simplify_path();
+	}
+
+	// Check if we have a special path (like res://) or a protocol identifier.
+	int p = p_path.find("://");
+	bool found = false;
+	if (p > 0) {
+		found = true;
+		for (int i = 0; i < p; i++) {
+			if (!is_ascii_alphanumeric_char(p_path[i])) {
+				found = false;
+				break;
+			}
+		}
+	}
+	if (found) {
 		return p_path.simplify_path();
 	}
 
@@ -1022,7 +1037,7 @@ Variant _GLOBAL_DEF(const String &p_var, const Variant &p_default, bool p_restar
 	if (!ProjectSettings::get_singleton()->has_setting(p_var)) {
 		ProjectSettings::get_singleton()->set(p_var, p_default);
 	}
-	ret = ProjectSettings::get_singleton()->get(p_var);
+	ret = GLOBAL_GET(p_var);
 
 	ProjectSettings::get_singleton()->set_initial_value(p_var, p_default);
 	ProjectSettings::get_singleton()->set_builtin_order(p_var);
