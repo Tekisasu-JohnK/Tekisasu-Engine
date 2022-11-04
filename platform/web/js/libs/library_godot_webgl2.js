@@ -1,12 +1,12 @@
 /*************************************************************************/
-/*  vulkan_context_x11.h                                                 */
+/*  library_godot_webgl2.js                                               */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
+/* Copyright (c) 2007-2020 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2020 Godot Engine contributors (cf. AUTHORS.md).   */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -27,25 +27,26 @@
 /* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
+const GodotWebGL2 = {
+	$GodotWebGL2__deps: ['$GL', '$GodotRuntime'],
+	$GodotWebGL2: {},
 
-#ifndef VULKAN_CONTEXT_X11_H
-#define VULKAN_CONTEXT_X11_H
-
-#ifdef VULKAN_ENABLED
-
-#include "drivers/vulkan/vulkan_context.h"
-#include <X11/Xlib.h>
-
-class VulkanContextX11 : public VulkanContext {
-	virtual const char *_get_platform_surface_extension() const;
-
-public:
-	Error window_create(DisplayServer::WindowID p_window_id, DisplayServer::VSyncMode p_vsync_mode, ::Window p_window, Display *p_display, int p_width, int p_height);
-
-	VulkanContextX11();
-	~VulkanContextX11();
+	godot_webgl2_glFramebufferTextureMultiviewOVR__deps: ['emscripten_webgl_get_current_context'],
+	godot_webgl2_glFramebufferTextureMultiviewOVR__proxy: 'sync',
+	godot_webgl2_glFramebufferTextureMultiviewOVR__sig: 'viiiiii',
+	godot_webgl2_glFramebufferTextureMultiviewOVR: function (target, attachment, texture, level, base_view_index, num_views) {
+		const context = GL.currentContext;
+		if (typeof context.multiviewExt === 'undefined') {
+			const ext = context.GLctx.getExtension('OVR_multiview2');
+			if (!ext) {
+				console.error('Trying to call glFramebufferTextureMultiviewOVR() without the OVR_multiview2 extension');
+				return;
+			}
+			context.multiviewExt = ext;
+		}
+		context.multiviewExt.framebufferTextureMultiviewOVR(target, attachment, GL.textures[texture], level, base_view_index, num_views);
+	},
 };
 
-#endif // VULKAN_ENABLED
-
-#endif // VULKAN_CONTEXT_X11_H
+autoAddDeps(GodotWebGL2, '$GodotWebGL2');
+mergeInto(LibraryManager.library, GodotWebGL2);
