@@ -1161,7 +1161,7 @@ void Viewport::_gui_cancel_tooltip() {
 		gui.tooltip_timer = Ref<SceneTreeTimer>();
 	}
 	if (gui.tooltip_popup) {
-		gui.tooltip_popup->queue_delete();
+		gui.tooltip_popup->queue_free();
 	}
 }
 
@@ -1261,11 +1261,17 @@ void Viewport::_gui_show_tooltip() {
 
 	tooltip_owner->add_child(gui.tooltip_popup);
 
-	Point2 tooltip_offset = ProjectSettings::get_singleton()->get("display/mouse_cursor/tooltip_position_offset");
+	Point2 tooltip_offset = GLOBAL_GET("display/mouse_cursor/tooltip_position_offset");
 	Rect2 r(gui.tooltip_pos + tooltip_offset, gui.tooltip_popup->get_contents_minimum_size());
+	r.size = r.size.min(panel->get_max_size());
 
 	Window *window = gui.tooltip_popup->get_parent_visible_window();
-	Rect2i vr = window->get_usable_parent_rect();
+	Rect2i vr;
+	if (gui.tooltip_popup->is_embedded()) {
+		vr = gui.tooltip_popup->_get_embedder()->get_visible_rect();
+	} else {
+		vr = window->get_usable_parent_rect();
+	}
 
 	if (r.size.x + r.position.x > vr.size.x + vr.position.x) {
 		// Place it in the opposite direction. If it fails, just hug the border.
@@ -1403,10 +1409,6 @@ Control *Viewport::gui_find_control(const Point2 &p_global) {
 }
 
 Control *Viewport::_gui_find_control_at_pos(CanvasItem *p_node, const Point2 &p_global, const Transform2D &p_xform, Transform2D &r_inv_xform) {
-	if (Object::cast_to<Viewport>(p_node)) {
-		return nullptr;
-	}
-
 	if (!p_node->is_visible()) {
 		return nullptr; // Canvas item hidden, discard.
 	}
@@ -1490,7 +1492,6 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 		gui.key_event_accepted = false;
 
 		Point2 mpos = mb->get_position();
-		gui.last_mouse_pos = mpos;
 		if (mb->is_pressed()) {
 			Size2 pos = mpos;
 			if (gui.mouse_focus_mask != MouseButton::NONE) {
@@ -1643,8 +1644,6 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 	if (mm.is_valid()) {
 		gui.key_event_accepted = false;
 		Point2 mpos = mm->get_position();
-
-		gui.last_mouse_pos = mpos;
 
 		// Drag & drop.
 		if (!gui.drag_attempted && gui.mouse_focus && (mm->get_button_mask() & MouseButton::MASK_LEFT) != MouseButton::NONE) {
@@ -2759,6 +2758,11 @@ void Viewport::push_input(const Ref<InputEvent> &p_event, bool p_local_coords) {
 		ev = p_event;
 	}
 
+	Ref<InputEventMouse> me = ev;
+	if (me.is_valid()) {
+		gui.last_mouse_pos = me->get_position();
+	}
+
 	if (is_embedding_subwindows() && _sub_windows_forward_input(ev)) {
 		set_input_as_handled();
 		return;
@@ -3727,6 +3731,7 @@ void Viewport::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_global_canvas_transform", "xform"), &Viewport::set_global_canvas_transform);
 	ClassDB::bind_method(D_METHOD("get_global_canvas_transform"), &Viewport::get_global_canvas_transform);
 	ClassDB::bind_method(D_METHOD("get_final_transform"), &Viewport::get_final_transform);
+	ClassDB::bind_method(D_METHOD("get_screen_transform"), &Viewport::get_screen_transform);
 
 	ClassDB::bind_method(D_METHOD("get_visible_rect"), &Viewport::get_visible_rect);
 	ClassDB::bind_method(D_METHOD("set_transparent_background", "enable"), &Viewport::set_transparent_background);

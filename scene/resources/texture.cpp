@@ -60,20 +60,14 @@ Size2 Texture2D::get_size() const {
 }
 
 bool Texture2D::is_pixel_opaque(int p_x, int p_y) const {
-	bool ret;
-	if (GDVIRTUAL_CALL(_is_pixel_opaque, p_x, p_y, ret)) {
-		return ret;
-	}
-
-	return true;
+	bool ret = true;
+	GDVIRTUAL_CALL(_is_pixel_opaque, p_x, p_y, ret);
+	return ret;
 }
 bool Texture2D::has_alpha() const {
-	bool ret;
-	if (GDVIRTUAL_CALL(_has_alpha, ret)) {
-		return ret;
-	}
-
-	return true;
+	bool ret = true;
+	GDVIRTUAL_CALL(_has_alpha, ret);
+	return ret;
 }
 
 void Texture2D::draw(RID p_canvas_item, const Point2 &p_pos, const Color &p_modulate, bool p_transpose) const {
@@ -122,7 +116,7 @@ void Texture2D::_bind_methods() {
 
 	GDVIRTUAL_BIND(_draw, "to_canvas_item", "pos", "modulate", "transpose")
 	GDVIRTUAL_BIND(_draw_rect, "to_canvas_item", "rect", "tile", "modulate", "transpose")
-	GDVIRTUAL_BIND(_draw_rect_region, "tp_canvas_item", "rect", "src_rect", "modulate", "transpose", "clip_uv");
+	GDVIRTUAL_BIND(_draw_rect_region, "to_canvas_item", "rect", "src_rect", "modulate", "transpose", "clip_uv");
 }
 
 Texture2D::Texture2D() {
@@ -653,7 +647,7 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 	Image::Format format = Image::Format(f->get_32());
 
 	if (data_format == DATA_FORMAT_PNG || data_format == DATA_FORMAT_WEBP || data_format == DATA_FORMAT_BASIS_UNIVERSAL) {
-		//look for a PNG or WEBP file inside
+		//look for a PNG or WebP file inside
 
 		int sw = w;
 		int sh = h;
@@ -740,7 +734,7 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 				}
 			}
 
-			image->create(w, h, true, mipmap_images[0]->get_format(), img_data);
+			image->set_data(w, h, true, mipmap_images[0]->get_format(), img_data);
 			return image;
 		}
 
@@ -766,10 +760,7 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 				f->get_buffer(wr, data.size());
 			}
 
-			Ref<Image> image;
-			image.instantiate();
-
-			image->create(tw, th, mipmaps - i ? true : false, format, data);
+			Ref<Image> image = Image::create_from_data(tw, th, mipmaps - i ? true : false, format, data);
 
 			return image;
 		}
@@ -2336,11 +2327,11 @@ void GradientTexture2D::_update() {
 	image.instantiate();
 
 	if (gradient->get_points_count() <= 1) { // No need to interpolate.
-		image->create(width, height, false, (use_hdr) ? Image::FORMAT_RGBAF : Image::FORMAT_RGBA8);
+		image->initialize_data(width, height, false, (use_hdr) ? Image::FORMAT_RGBAF : Image::FORMAT_RGBA8);
 		image->fill((gradient->get_points_count() == 1) ? gradient->get_color(0) : Color(0, 0, 0, 1));
 	} else {
 		if (use_hdr) {
-			image->create(width, height, false, Image::FORMAT_RGBAF);
+			image->initialize_data(width, height, false, Image::FORMAT_RGBAF);
 			Gradient &g = **gradient;
 			// `create()` isn't available for non-uint8_t data, so fill in the data manually.
 			for (int y = 0; y < height; y++) {
@@ -2367,7 +2358,7 @@ void GradientTexture2D::_update() {
 					}
 				}
 			}
-			image->create(width, height, false, Image::FORMAT_RGBA8, data);
+			image->set_data(width, height, false, Image::FORMAT_RGBA8, data);
 		}
 	}
 

@@ -633,7 +633,7 @@ Rect2 Control::get_parent_anchorable_rect() const {
 #ifdef TOOLS_ENABLED
 		Node *edited_root = get_tree()->get_edited_scene_root();
 		if (edited_root && (this == edited_root || edited_root->is_ancestor_of(this))) {
-			parent_rect.size = Size2(ProjectSettings::get_singleton()->get("display/window/size/viewport_width"), ProjectSettings::get_singleton()->get("display/window/size/viewport_height"));
+			parent_rect.size = Size2(GLOBAL_GET("display/window/size/viewport_width"), GLOBAL_GET("display/window/size/viewport_height"));
 		} else {
 			parent_rect = get_viewport()->get_visible_rect();
 		}
@@ -1436,13 +1436,6 @@ Rect2 Control::get_screen_rect() const {
 	return r;
 }
 
-Rect2 Control::get_window_rect() const {
-	ERR_FAIL_COND_V(!is_inside_tree(), Rect2());
-	Rect2 gr = get_global_rect();
-	gr.position += get_viewport()->get_visible_rect().position;
-	return gr;
-}
-
 Rect2 Control::get_anchorable_rect() const {
 	return Rect2(Point2(), get_size());
 }
@@ -1558,13 +1551,11 @@ bool Control::is_minimum_size_adjust_blocked() const {
 
 Size2 Control::get_minimum_size() const {
 	Vector2 ms;
-	if (GDVIRTUAL_CALL(_get_minimum_size, ms)) {
-		return ms;
-	}
-	return Vector2();
+	GDVIRTUAL_CALL(_get_minimum_size, ms);
+	return ms;
 }
 
-void Control::set_custom_minimum_size(const Size2i &p_custom) {
+void Control::set_custom_minimum_size(const Size2 &p_custom) {
 	if (p_custom == data.custom_minimum_size) {
 		return;
 	}
@@ -1572,7 +1563,7 @@ void Control::set_custom_minimum_size(const Size2i &p_custom) {
 	update_minimum_size();
 }
 
-Size2i Control::get_custom_minimum_size() const {
+Size2 Control::get_custom_minimum_size() const {
 	return data.custom_minimum_size;
 }
 
@@ -1806,11 +1797,8 @@ Variant Control::get_drag_data(const Point2 &p_point) {
 	}
 
 	Variant dd;
-	if (GDVIRTUAL_CALL(_get_drag_data, p_point, dd)) {
-		return dd;
-	}
-
-	return Variant();
+	GDVIRTUAL_CALL(_get_drag_data, p_point, dd);
+	return dd;
 }
 
 bool Control::can_drop_data(const Point2 &p_point, const Variant &p_data) const {
@@ -1822,10 +1810,8 @@ bool Control::can_drop_data(const Point2 &p_point, const Variant &p_data) const 
 	}
 
 	bool ret = false;
-	if (GDVIRTUAL_CALL(_can_drop_data, p_point, p_data, ret)) {
-		return ret;
-	}
-	return false;
+	GDVIRTUAL_CALL(_can_drop_data, p_point, p_data, ret);
+	return ret;
 }
 
 void Control::drop_data(const Point2 &p_point, const Variant &p_data) {
@@ -2732,11 +2718,8 @@ void Control::end_bulk_theme_override() {
 TypedArray<Vector2i> Control::structured_text_parser(TextServer::StructuredTextParser p_parser_type, const Array &p_args, const String &p_text) const {
 	if (p_parser_type == TextServer::STRUCTURED_TEXT_CUSTOM) {
 		TypedArray<Vector2i> ret;
-		if (GDVIRTUAL_CALL(_structured_text_parser, p_args, p_text, ret)) {
-			return ret;
-		} else {
-			return TypedArray<Vector2i>();
-		}
+		GDVIRTUAL_CALL(_structured_text_parser, p_args, p_text, ret);
+		return ret;
 	} else {
 		return TS->parse_structured_text(p_parser_type, p_args, p_text);
 	}
@@ -2821,10 +2804,8 @@ String Control::get_tooltip(const Point2 &p_pos) const {
 
 Control *Control::make_custom_tooltip(const String &p_text) const {
 	Object *ret = nullptr;
-	if (GDVIRTUAL_CALL(_make_custom_tooltip, p_text, ret)) {
-		return Object::cast_to<Control>(ret);
-	}
-	return nullptr;
+	GDVIRTUAL_CALL(_make_custom_tooltip, p_text, ret);
+	return Object::cast_to<Control>(ret);
 }
 
 // Base object overrides.
@@ -3175,7 +3156,7 @@ void Control::_bind_methods() {
 
 	ADD_GROUP("Layout", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "clip_contents"), "set_clip_contents", "is_clipping_contents");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "custom_minimum_size", PROPERTY_HINT_NONE, "suffix:px"), "set_custom_minimum_size", "get_custom_minimum_size");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "custom_minimum_size", PROPERTY_HINT_NONE, "suffix:px"), "set_custom_minimum_size", "get_custom_minimum_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "layout_direction", PROPERTY_HINT_ENUM, "Inherited,Locale,Left-to-Right,Right-to-Left"), "set_layout_direction", "get_layout_direction");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "layout_mode", PROPERTY_HINT_ENUM, "Position,Anchors,Container,Uncontrolled", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_INTERNAL), "_set_layout_mode", "_get_layout_mode");
 	ADD_PROPERTY_DEFAULT("layout_mode", LayoutMode::LAYOUT_MODE_POSITION);
