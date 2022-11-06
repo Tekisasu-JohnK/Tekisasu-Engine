@@ -484,7 +484,7 @@ def use_windows_spawn_fix(self, platform=None):
 def save_active_platforms(apnames, ap):
 
     for x in ap:
-svg_names = []
+        svg_names = []
         if os.path.isfile(x + "/logo.svg"):
             svg_names.append("logo")
         if os.path.isfile(x + "/run_icon.svg"):
