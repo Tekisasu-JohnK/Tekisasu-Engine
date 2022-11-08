@@ -33,15 +33,10 @@
 
 #include "scene/resources/mesh.h"
 
-class Mesh;
-class NavigationMeshGenerator;
-
 class NavigationMesh : public Resource {
 	GDCLASS(NavigationMesh, Resource);
 
-	friend class NavigationMeshGenerator;
-
-	PoolVector<Vector3> vertices;
+	Vector<Vector3> vertices;
 	struct Polygon {
 		Vector<int> indices;
 	};
@@ -52,12 +47,18 @@ class NavigationMesh : public Resource {
 		Vector3 from;
 		Vector3 to;
 
-		bool operator<(const _EdgeKey &p_with) const { return from == p_with.from ? to < p_with.to : from < p_with.from; }
+		static uint32_t hash(const _EdgeKey &p_key) {
+			return HashMapHasherDefault::hash(p_key.from) ^ HashMapHasherDefault::hash(p_key.to);
+		}
+
+		bool operator==(const _EdgeKey &p_with) const {
+			return HashMapComparatorDefault<Vector3>::compare(from, p_with.from) && HashMapComparatorDefault<Vector3>::compare(to, p_with.to);
+		}
 	};
 
 protected:
 	static void _bind_methods();
-	virtual void _validate_property(PropertyInfo &property) const;
+	void _validate_property(PropertyInfo &p_property) const;
 
 #ifndef DISABLE_DEPRECATED
 	bool _set(const StringName &p_name, const Variant &p_value);
@@ -128,8 +129,8 @@ public:
 	void set_collision_mask(uint32_t p_mask);
 	uint32_t get_collision_mask() const;
 
-	void set_collision_mask_bit(int p_bit, bool p_value);
-	bool get_collision_mask_bit(int p_bit) const;
+	void set_collision_mask_value(int p_layer_number, bool p_value);
+	bool get_collision_mask_value(int p_layer_number) const;
 
 	void set_source_geometry_mode(SourceGeometryMode p_geometry_mode);
 	SourceGeometryMode get_source_geometry_mode() const;
@@ -193,15 +194,17 @@ public:
 
 	void create_from_mesh(const Ref<Mesh> &p_mesh);
 
-	void set_vertices(const PoolVector<Vector3> &p_vertices);
-	PoolVector<Vector3> get_vertices() const;
+	void set_vertices(const Vector<Vector3> &p_vertices);
+	Vector<Vector3> get_vertices() const;
 
 	void add_polygon(const Vector<int> &p_polygon);
 	int get_polygon_count() const;
 	Vector<int> get_polygon(int p_idx);
 	void clear_polygons();
 
-	Ref<Mesh> get_debug_mesh();
+#ifdef DEBUG_ENABLED
+	Ref<ArrayMesh> get_debug_mesh();
+#endif // DEBUG_ENABLED
 
 	NavigationMesh();
 };

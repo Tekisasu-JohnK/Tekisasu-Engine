@@ -30,41 +30,43 @@
 
 #include "gradle_export_util.h"
 
-int _get_android_orientation_value(OS::ScreenOrientation screen_orientation) {
+#include "core/config/project_settings.h"
+
+int _get_android_orientation_value(DisplayServer::ScreenOrientation screen_orientation) {
 	switch (screen_orientation) {
-		case OS::SCREEN_PORTRAIT:
+		case DisplayServer::SCREEN_PORTRAIT:
 			return 1;
-		case OS::SCREEN_REVERSE_LANDSCAPE:
+		case DisplayServer::SCREEN_REVERSE_LANDSCAPE:
 			return 8;
-		case OS::SCREEN_REVERSE_PORTRAIT:
+		case DisplayServer::SCREEN_REVERSE_PORTRAIT:
 			return 9;
-		case OS::SCREEN_SENSOR_LANDSCAPE:
+		case DisplayServer::SCREEN_SENSOR_LANDSCAPE:
 			return 11;
-		case OS::SCREEN_SENSOR_PORTRAIT:
+		case DisplayServer::SCREEN_SENSOR_PORTRAIT:
 			return 12;
-		case OS::SCREEN_SENSOR:
+		case DisplayServer::SCREEN_SENSOR:
 			return 13;
-		case OS::SCREEN_LANDSCAPE:
+		case DisplayServer::SCREEN_LANDSCAPE:
 		default:
 			return 0;
 	}
 }
 
-String _get_android_orientation_label(OS::ScreenOrientation screen_orientation) {
+String _get_android_orientation_label(DisplayServer::ScreenOrientation screen_orientation) {
 	switch (screen_orientation) {
-		case OS::SCREEN_PORTRAIT:
+		case DisplayServer::SCREEN_PORTRAIT:
 			return "portrait";
-		case OS::SCREEN_REVERSE_LANDSCAPE:
+		case DisplayServer::SCREEN_REVERSE_LANDSCAPE:
 			return "reverseLandscape";
-		case OS::SCREEN_REVERSE_PORTRAIT:
+		case DisplayServer::SCREEN_REVERSE_PORTRAIT:
 			return "reversePortrait";
-		case OS::SCREEN_SENSOR_LANDSCAPE:
+		case DisplayServer::SCREEN_SENSOR_LANDSCAPE:
 			return "userLandscape";
-		case OS::SCREEN_SENSOR_PORTRAIT:
+		case DisplayServer::SCREEN_SENSOR_PORTRAIT:
 			return "userPortrait";
-		case OS::SCREEN_SENSOR:
+		case DisplayServer::SCREEN_SENSOR:
 			return "fullUser";
-		case OS::SCREEN_LANDSCAPE:
+		case DisplayServer::SCREEN_LANDSCAPE:
 		default:
 			return "landscape";
 	}
@@ -73,11 +75,10 @@ String _get_android_orientation_label(OS::ScreenOrientation screen_orientation) 
 // Utility method used to create a directory.
 Error create_directory(const String &p_dir) {
 	if (!DirAccess::exists(p_dir)) {
-		DirAccess *filesystem_da = DirAccess::create(DirAccess::ACCESS_RESOURCES);
-		ERR_FAIL_COND_V_MSG(!filesystem_da, ERR_CANT_CREATE, "Cannot create directory '" + p_dir + "'.");
+		Ref<DirAccess> filesystem_da = DirAccess::create(DirAccess::ACCESS_RESOURCES);
+		ERR_FAIL_COND_V_MSG(filesystem_da.is_null(), ERR_CANT_CREATE, "Cannot create directory '" + p_dir + "'.");
 		Error err = filesystem_da->make_dir_recursive(p_dir);
 		ERR_FAIL_COND_V_MSG(err, ERR_CANT_CREATE, "Cannot create directory '" + p_dir + "'.");
-		memdelete(filesystem_da);
 	}
 	return OK;
 }
@@ -90,10 +91,9 @@ Error store_file_at_path(const String &p_path, const Vector<uint8_t> &p_data) {
 	if (err != OK) {
 		return err;
 	}
-	FileAccess *fa = FileAccess::open(p_path, FileAccess::WRITE);
-	ERR_FAIL_COND_V_MSG(!fa, ERR_CANT_CREATE, "Cannot create file '" + p_path + "'.");
+	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::WRITE);
+	ERR_FAIL_COND_V_MSG(fa.is_null(), ERR_CANT_CREATE, "Cannot create file '" + p_path + "'.");
 	fa->store_buffer(p_data.ptr(), p_data.size());
-	memdelete(fa);
 	return OK;
 }
 
@@ -108,10 +108,9 @@ Error store_string_at_path(const String &p_path, const String &p_data) {
 		}
 		return err;
 	}
-	FileAccess *fa = FileAccess::open(p_path, FileAccess::WRITE);
-	ERR_FAIL_COND_V_MSG(!fa, ERR_CANT_CREATE, "Cannot create file '" + p_path + "'.");
+	Ref<FileAccess> fa = FileAccess::open(p_path, FileAccess::WRITE);
+	ERR_FAIL_COND_V_MSG(fa.is_null(), ERR_CANT_CREATE, "Cannot create file '" + p_path + "'.");
 	fa->store_string(p_data);
-	memdelete(fa);
 	return OK;
 }
 
@@ -120,8 +119,8 @@ Error store_string_at_path(const String &p_path, const String &p_data) {
 // It is used by the export_project_files method to save all the asset files into the gradle project.
 // It's functionality mirrors that of the method save_apk_file.
 // This method will be called ONLY when custom build is enabled.
-Error rename_and_store_file_in_gradle_project(void *p_userdata, const String &p_path, const Vector<uint8_t> &p_data, int p_file, int p_total) {
-	CustomExportData *export_data = (CustomExportData *)p_userdata;
+Error rename_and_store_file_in_gradle_project(void *p_userdata, const String &p_path, const Vector<uint8_t> &p_data, int p_file, int p_total, const Vector<String> &p_enc_in_filters, const Vector<String> &p_enc_ex_filters, const Vector<uint8_t> &p_key) {
+	CustomExportData *export_data = static_cast<CustomExportData *>(p_userdata);
 	String dst_path = p_path.replace_first("res://", export_data->assets_directory + "/");
 	print_verbose("Saving project files from " + p_path + " into " + dst_path);
 	Error err = store_file_at_path(dst_path, p_data);
@@ -151,17 +150,18 @@ Error _create_project_name_strings_files(const Ref<EditorExportPreset> &p_preset
 	store_string_at_path("res://android/build/res/values/godot_project_name_string.xml", processed_default_xml_string);
 
 	// Searches the Gradle project res/ directory to find all supported locales
-	DirAccessRef da = DirAccess::open("res://android/build/res");
-	if (!da) {
+	Ref<DirAccess> da = DirAccess::open("res://android/build/res");
+	if (da.is_null()) {
 		if (OS::get_singleton()->is_stdout_verbose()) {
 			print_error("Unable to open Android resources directory.");
 		}
 		return ERR_CANT_OPEN;
 	}
 	da->list_dir_begin();
+	Dictionary appnames = GLOBAL_GET("application/config/name_localized");
 	while (true) {
 		String file = da->get_next();
-		if (file == "") {
+		if (file.is_empty()) {
 			break;
 		}
 		if (!file.begins_with("values-")) {
@@ -169,10 +169,9 @@ Error _create_project_name_strings_files(const Ref<EditorExportPreset> &p_preset
 			continue;
 		}
 		String locale = file.replace("values-", "").replace("-r", "_");
-		String property_name = "application/config/name_" + locale;
 		String locale_directory = "res://android/build/res/" + file + "/godot_project_name_string.xml";
-		if (ProjectSettings::get_singleton()->has_setting(property_name)) {
-			String locale_project_name = ProjectSettings::get_singleton()->get(property_name);
+		if (appnames.has(locale)) {
+			String locale_project_name = appnames[locale];
 			String processed_xml_string = vformat(godot_project_name_xml_string, _android_xml_escape(locale_project_name));
 			print_verbose("Storing project name for locale " + locale + " under " + locale_directory);
 			store_string_at_path(locale_directory, processed_xml_string);
@@ -190,9 +189,7 @@ String bool_to_string(bool v) {
 }
 
 String _get_gles_tag() {
-	bool min_gles3 = ProjectSettings::get_singleton()->get("rendering/quality/driver/driver_name") == "GLES3" &&
-			!ProjectSettings::get_singleton()->get("rendering/quality/driver/fallback_to_gles2");
-	return min_gles3 ? "    <uses-feature android:glEsVersion=\"0x00030000\" android:required=\"true\" />\n" : "";
+	return "    <uses-feature android:glEsVersion=\"0x00030000\" android:required=\"true\" />\n";
 }
 
 String _get_screen_sizes_tag(const Ref<EditorExportPreset> &p_preset) {
@@ -212,7 +209,7 @@ String _get_screen_sizes_tag(const Ref<EditorExportPreset> &p_preset) {
 String _get_xr_features_tag(const Ref<EditorExportPreset> &p_preset) {
 	String manifest_xr_features;
 	int xr_mode_index = (int)(p_preset->get("xr_features/xr_mode"));
-	bool uses_xr = xr_mode_index == XR_MODE_OVR || xr_mode_index == XR_MODE_OPENXR;
+	bool uses_xr = xr_mode_index == XR_MODE_OPENXR;
 	if (uses_xr) {
 		manifest_xr_features += "    <uses-feature tools:node=\"replace\" android:name=\"android.hardware.vr.headtracking\" android:required=\"true\" android:version=\"1\" />\n";
 
@@ -235,9 +232,8 @@ String _get_xr_features_tag(const Ref<EditorExportPreset> &p_preset) {
 
 String _get_activity_tag(const Ref<EditorExportPreset> &p_preset) {
 	int xr_mode_index = (int)(p_preset->get("xr_features/xr_mode"));
-	bool uses_xr = xr_mode_index == XR_MODE_OVR || xr_mode_index == XR_MODE_OPENXR;
-	String orientation = _get_android_orientation_label(
-			OS::get_singleton()->get_screen_orientation_from_string(GLOBAL_GET("display/window/handheld/orientation")));
+	bool uses_xr = xr_mode_index == XR_MODE_OPENXR;
+	String orientation = _get_android_orientation_label(DisplayServer::ScreenOrientation(int(GLOBAL_GET("display/window/handheld/orientation"))));
 	String manifest_activity_text = vformat(
 			"        <activity android:name=\"com.godot.game.GodotApp\" "
 			"tools:replace=\"android:screenOrientation,android:excludeFromRecents,android:resizeableActivity\" "
@@ -258,17 +254,16 @@ String _get_activity_tag(const Ref<EditorExportPreset> &p_preset) {
 
 String _get_application_tag(const Ref<EditorExportPreset> &p_preset, bool p_has_read_write_storage_permission) {
 	int xr_mode_index = (int)(p_preset->get("xr_features/xr_mode"));
-	bool uses_xr = xr_mode_index == XR_MODE_OVR || xr_mode_index == XR_MODE_OPENXR;
+	bool uses_xr = xr_mode_index == XR_MODE_OPENXR;
 	String manifest_application_text = vformat(
 			"    <application android:label=\"@string/godot_project_name_string\"\n"
 			"        android:allowBackup=\"%s\"\n"
+			"        android:icon=\"@mipmap/icon\"\n"
 			"        android:isGame=\"%s\"\n"
 			"        android:hasFragileUserData=\"%s\"\n"
 			"        android:requestLegacyExternalStorage=\"%s\"\n"
 			"        tools:replace=\"android:allowBackup,android:isGame,android:hasFragileUserData,android:requestLegacyExternalStorage\"\n"
-			"        tools:ignore=\"GoogleAppIndexingWarning\"\n"
-			"        android:icon=\"@mipmap/icon\" >\n\n"
-			"        <meta-data tools:node=\"remove\" android:name=\"xr_mode_metadata_name\" />\n"
+			"        tools:ignore=\"GoogleAppIndexingWarning\">\n\n"
 			"        <meta-data tools:node=\"remove\" android:name=\"xr_hand_tracking_version_name\" />\n"
 			"        <meta-data tools:node=\"remove\" android:name=\"xr_hand_tracking_metadata_name\" />\n",
 			bool_to_string(p_preset->get("user_data_backup/allow")),
@@ -277,10 +272,6 @@ String _get_application_tag(const Ref<EditorExportPreset> &p_preset, bool p_has_
 			bool_to_string(p_has_read_write_storage_permission));
 
 	if (uses_xr) {
-		if (xr_mode_index == XR_MODE_OVR) {
-			manifest_application_text += "        <meta-data tools:node=\"replace\" android:name=\"com.samsung.android.vr.application.mode\" android:value=\"vr_only\" />\n";
-		}
-
 		bool hand_tracking_enabled = (int)(p_preset->get("xr_features/hand_tracking")) > XR_HAND_TRACKING_NONE;
 		if (hand_tracking_enabled) {
 			int hand_tracking_frequency_index = p_preset->get("xr_features/hand_tracking_frequency");

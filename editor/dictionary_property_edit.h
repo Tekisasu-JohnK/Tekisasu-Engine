@@ -33,14 +33,13 @@
 
 #include "scene/main/node.h"
 
-class DictionaryPropertyEdit : public Reference {
-	GDCLASS(DictionaryPropertyEdit, Reference);
+class DictionaryPropertyEdit : public RefCounted {
+	GDCLASS(DictionaryPropertyEdit, RefCounted);
 
 	ObjectID obj;
 	StringName property;
 
 	void _notif_change();
-	void _notif_changev(const String &p_v);
 	void _set_key(const Variant &p_old_key, const Variant &p_new_key);
 	void _set_value(const Variant &p_key, const Variant &p_value);
 

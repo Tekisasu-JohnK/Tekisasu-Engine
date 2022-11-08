@@ -31,6 +31,7 @@
 #ifndef ANIMATION_NODE_STATE_MACHINE_H
 #define ANIMATION_NODE_STATE_MACHINE_H
 
+#include "core/math/expression.h"
 #include "scene/animation/animation_tree.h"
 
 class AnimationNodeStateMachineTransition : public Resource {
@@ -44,13 +45,18 @@ public:
 	};
 
 private:
-	SwitchMode switch_mode;
-	bool auto_advance;
+	SwitchMode switch_mode = SWITCH_MODE_IMMEDIATE;
+	bool auto_advance = false;
 	StringName advance_condition;
 	StringName advance_condition_name;
-	float xfade;
-	bool disabled;
-	int priority;
+	float xfade_time = 0.0;
+	Ref<Curve> xfade_curve;
+	bool disabled = false;
+	int priority = 1;
+	String advance_expression;
+
+	friend class AnimationNodeStateMachinePlayback;
+	Ref<Expression> expression;
 
 protected:
 	static void _bind_methods();
@@ -67,8 +73,14 @@ public:
 
 	StringName get_advance_condition_name() const;
 
+	void set_advance_expression(const String &p_expression);
+	String get_advance_expression() const;
+
 	void set_xfade_time(float p_xfade);
 	float get_xfade_time() const;
+
+	void set_xfade_curve(const Ref<Curve> &p_curve);
+	Ref<Curve> get_xfade_curve() const;
 
 	void set_disabled(bool p_disabled);
 	bool is_disabled() const;
@@ -89,32 +101,41 @@ class AnimationNodeStateMachinePlayback : public Resource {
 	friend class AnimationNodeStateMachine;
 
 	struct AStarCost {
-		float distance;
+		float distance = 0.0;
 		StringName prev;
 	};
 
-	float len_total;
+	struct Transition {
+		StringName from;
+		StringName to;
+		StringName next;
+	};
 
 	float len_current = 0.0;
 	float pos_current = 0.0;
 	bool end_loop = false;
 
 	StringName current;
+	Transition current_transition;
+	Ref<Curve> current_curve;
+	bool force_auto_advance = false;
 
 	StringName fading_from;
-	float fading_time;
-	float fading_pos;
+	float fading_time = 0.0;
+	float fading_pos = 0.0;
 
 	Vector<StringName> path;
-	bool playing;
+	bool playing = false;
 
 	StringName start_request;
-	bool start_request_travel;
-	bool stop_request;
+	bool start_request_travel = false;
+	bool stop_request = false;
 
 	bool _travel(AnimationNodeStateMachine *p_state_machine, const StringName &p_travel);
 
-	float process(AnimationNodeStateMachine *p_state_machine, float p_time, bool p_seek);
+	double process(AnimationNodeStateMachine *p_state_machine, double p_time, bool p_seek, bool p_seek_root);
+
+	bool _check_advance_condition(const Ref<AnimationNodeStateMachine> p_state_machine, const Ref<AnimationNodeStateMachineTransition> p_transition) const;
 
 protected:
 	static void _bind_methods();
@@ -144,36 +165,47 @@ private:
 		Vector2 position;
 	};
 
-	Map<StringName, State> states;
+	HashMap<StringName, State> states;
 
 	struct Transition {
 		StringName from;
 		StringName to;
+		StringName local_from;
+		StringName local_to;
 		Ref<AnimationNodeStateMachineTransition> transition;
 	};
 
 	Vector<Transition> transitions;
 
-	StringName playback;
-
-	StringName start_node;
-	StringName end_node;
+	StringName playback = "playback";
+	StringName state_machine_name;
+	AnimationNodeStateMachine *prev_state_machine = nullptr;
+	bool updating_transitions = false;
 
 	Vector2 graph_offset;
 
 	void _tree_changed();
+	void _remove_transition(const Ref<AnimationNodeStateMachineTransition> p_transition);
+	void _rename_transitions(const StringName &p_name, const StringName &p_new_name);
+	bool _can_connect(const StringName &p_name, Vector<AnimationNodeStateMachine *> p_parents = Vector<AnimationNodeStateMachine *>());
+	StringName _get_shortest_path(const StringName &p_path) const;
 
 protected:
-	void _notification(int p_what);
 	static void _bind_methods();
 
 	bool _set(const StringName &p_name, const Variant &p_value);
 	bool _get(const StringName &p_name, Variant &r_ret) const;
 	void _get_property_list(List<PropertyInfo> *p_list) const;
+	bool _check_advance_condition(const Ref<AnimationNodeStateMachine> p_state_machine, const Ref<AnimationNodeStateMachineTransition> p_transition) const;
+
+	virtual void reset_state() override;
 
 public:
-	virtual void get_parameter_list(List<PropertyInfo> *r_list) const;
-	virtual Variant get_parameter_default_value(const StringName &p_parameter) const;
+	StringName start_node = "Start";
+	StringName end_node = "End";
+
+	virtual void get_parameter_list(List<PropertyInfo> *r_list) const override;
+	virtual Variant get_parameter_default_value(const StringName &p_parameter) const override;
 
 	void add_node(const StringName &p_name, Ref<AnimationNode> p_node, const Vector2 &p_position = Vector2());
 	void replace_node(const StringName &p_name, Ref<AnimationNode> p_node);
@@ -187,31 +219,30 @@ public:
 	void set_node_position(const StringName &p_name, const Vector2 &p_position);
 	Vector2 get_node_position(const StringName &p_name) const;
 
-	virtual void get_child_nodes(List<ChildNode> *r_child_nodes);
+	virtual void get_child_nodes(List<ChildNode> *r_child_nodes) override;
 
 	bool has_transition(const StringName &p_from, const StringName &p_to) const;
+	bool has_local_transition(const StringName &p_from, const StringName &p_to) const;
 	int find_transition(const StringName &p_from, const StringName &p_to) const;
 	void add_transition(const StringName &p_from, const StringName &p_to, const Ref<AnimationNodeStateMachineTransition> &p_transition);
 	Ref<AnimationNodeStateMachineTransition> get_transition(int p_transition) const;
 	StringName get_transition_from(int p_transition) const;
 	StringName get_transition_to(int p_transition) const;
 	int get_transition_count() const;
-	void remove_transition_by_index(int p_transition);
+	void remove_transition_by_index(const int p_transition);
 	void remove_transition(const StringName &p_from, const StringName &p_to);
 
-	void set_start_node(const StringName &p_node);
-	String get_start_node() const;
+	bool can_edit_node(const StringName &p_name) const;
 
-	void set_end_node(const StringName &p_node);
-	String get_end_node() const;
+	AnimationNodeStateMachine *get_prev_state_machine() const;
 
 	void set_graph_offset(const Vector2 &p_offset);
 	Vector2 get_graph_offset() const;
 
-	virtual float process(float p_time, bool p_seek);
-	virtual String get_caption() const;
+	virtual double process(double p_time, bool p_seek, bool p_seek_root) override;
+	virtual String get_caption() const override;
 
-	virtual Ref<AnimationNode> get_child_by_name(const StringName &p_name);
+	virtual Ref<AnimationNode> get_child_by_name(const StringName &p_name) override;
 
 	AnimationNodeStateMachine();
 };

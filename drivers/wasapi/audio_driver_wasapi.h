@@ -35,7 +35,7 @@
 
 #include "core/os/mutex.h"
 #include "core/os/thread.h"
-#include "core/safe_refcount.h"
+#include "core/templates/safe_refcount.h"
 #include "servers/audio_server.h"
 
 #include <audioclient.h>
@@ -46,30 +46,20 @@
 class AudioDriverWASAPI : public AudioDriver {
 	class AudioDeviceWASAPI {
 	public:
-		IAudioClient *audio_client;
-		IAudioRenderClient *render_client;
-		IAudioCaptureClient *capture_client;
+		IAudioClient *audio_client = nullptr;
+		IAudioRenderClient *render_client = nullptr;
+		IAudioCaptureClient *capture_client = nullptr;
 		SafeFlag active;
 
-		WORD format_tag;
-		WORD bits_per_sample;
-		unsigned int channels;
-		unsigned int frame_size;
+		WORD format_tag = 0;
+		WORD bits_per_sample = 0;
+		unsigned int channels = 0;
+		unsigned int frame_size = 0;
 
-		String device_name;
-		String new_device;
+		String device_name = "Default";
+		String new_device = "Default";
 
-		AudioDeviceWASAPI() :
-				audio_client(NULL),
-				render_client(NULL),
-				capture_client(NULL),
-				format_tag(0),
-				bits_per_sample(0),
-				channels(0),
-				frame_size(0),
-				device_name("Default"),
-				new_device("Default") {
-		}
+		AudioDeviceWASAPI() {}
 	};
 
 	AudioDeviceWASAPI audio_input;
@@ -80,11 +70,16 @@ class AudioDriverWASAPI : public AudioDriver {
 
 	Vector<int32_t> samples_in;
 
-	unsigned int channels;
-	int mix_rate;
-	int buffer_frames;
+	unsigned int channels = 0;
+	int mix_rate = 0;
+	int buffer_frames = 0;
+	int target_latency_ms = 0;
+	float real_latency = 0.0;
+	bool using_audio_client_3 = false;
 
 	SafeFlag exit_thread;
+
+	static bool is_running_on_wine();
 
 	static _FORCE_INLINE_ void write_sample(WORD format_tag, int bits_per_sample, BYTE *buffer, int i, int32_t sample);
 	static _FORCE_INLINE_ int32_t read_sample(WORD format_tag, int bits_per_sample, BYTE *buffer, int i);
@@ -98,7 +93,7 @@ class AudioDriverWASAPI : public AudioDriver {
 
 	Error audio_device_init(AudioDeviceWASAPI *p_device, bool p_capture, bool reinit);
 	Error audio_device_finish(AudioDeviceWASAPI *p_device);
-	Array audio_device_get_list(bool p_capture);
+	PackedStringArray audio_device_get_list(bool p_capture);
 
 public:
 	virtual const char *get_name() const {
@@ -108,8 +103,9 @@ public:
 	virtual Error init();
 	virtual void start();
 	virtual int get_mix_rate() const;
+	virtual float get_latency();
 	virtual SpeakerMode get_speaker_mode() const;
-	virtual Array get_device_list();
+	virtual PackedStringArray get_device_list();
 	virtual String get_device();
 	virtual void set_device(String device);
 	virtual void lock();
@@ -118,7 +114,7 @@ public:
 
 	virtual Error capture_start();
 	virtual Error capture_stop();
-	virtual Array capture_get_device_list();
+	virtual PackedStringArray capture_get_device_list();
 	virtual void capture_set_device(const String &p_name);
 	virtual String capture_get_device();
 

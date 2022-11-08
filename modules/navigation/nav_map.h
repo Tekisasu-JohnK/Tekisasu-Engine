@@ -33,33 +33,40 @@
 
 #include "nav_rid.h"
 
-#include "core/map.h"
 #include "core/math/math_defs.h"
-#include "core/os/thread_work_pool.h"
+#include "core/object/worker_thread_pool.h"
+#include "core/templates/rb_map.h"
 #include "nav_utils.h"
 
 #include <KdTree.h>
 
+class NavLink;
 class NavRegion;
 class RvoAgent;
-class NavRegion;
 
 class NavMap : public NavRid {
 	/// Map Up
 	Vector3 up = Vector3(0, 1, 0);
 
 	/// To find the polygons edges the vertices are displaced in a grid where
-	/// each cell has the following cell_size and cell_height.
+	/// each cell has the following cell_size.
 	real_t cell_size = 0.25;
-	real_t cell_height = 0.25;
 
 	/// This value is used to detect the near edges to connect.
 	real_t edge_connection_margin = 0.25;
 
+	/// This value is used to limit how far links search to find polygons to connect to.
+	real_t link_connection_radius = 1.0;
+
 	bool regenerate_polygons = true;
 	bool regenerate_links = true;
 
+	/// Map regions
 	LocalVector<NavRegion *> regions;
+
+	/// Map links
+	LocalVector<NavLink *> links;
+	LocalVector<gd::Polygon> link_polygons;
 
 	/// Map polygons
 	LocalVector<gd::Polygon> polygons;
@@ -82,9 +89,6 @@ class NavMap : public NavRid {
 	/// Change the id each time the map is updated.
 	uint32_t map_update_id = 0;
 
-	/// Pooled threads for computing steps
-	ThreadWorkPool step_work_pool;
-
 public:
 	NavMap();
 	~NavMap();
@@ -99,14 +103,14 @@ public:
 		return cell_size;
 	}
 
-	void set_cell_height(float p_cell_height);
-	float get_cell_height() const {
-		return cell_height;
-	}
-
 	void set_edge_connection_margin(float p_edge_connection_margin);
 	float get_edge_connection_margin() const {
 		return edge_connection_margin;
+	}
+
+	void set_link_connection_radius(float p_link_connection_radius);
+	float get_link_connection_radius() const {
+		return link_connection_radius;
 	}
 
 	gd::PointKey get_point_key(const Vector3 &p_pos) const;
@@ -122,6 +126,12 @@ public:
 	void remove_region(NavRegion *p_region);
 	const LocalVector<NavRegion *> &get_regions() const {
 		return regions;
+	}
+
+	void add_link(NavLink *p_link);
+	void remove_link(NavLink *p_link);
+	const LocalVector<NavLink *> &get_links() const {
+		return links;
 	}
 
 	bool has_agent(RvoAgent *agent) const;

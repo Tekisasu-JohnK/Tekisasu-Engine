@@ -33,7 +33,7 @@
 
 #include "core/os/mutex.h"
 #include "core/os/thread.h"
-#include "core/safe_refcount.h"
+#include "core/templates/safe_refcount.h"
 #include "servers/audio_server.h"
 
 #include <mmsystem.h>
@@ -50,7 +50,7 @@ class AudioDriverXAudio2 : public AudioDriver {
 	struct XAudio2DriverVoiceCallback : public IXAudio2VoiceCallback {
 		HANDLE buffer_end_event;
 		XAudio2DriverVoiceCallback() :
-				buffer_end_event(CreateEvent(NULL, FALSE, FALSE, NULL)) {}
+				buffer_end_event(CreateEvent(nullptr, FALSE, FALSE, nullptr)) {}
 		void STDMETHODCALLTYPE OnBufferEnd(void *pBufferContext) {
 			SetEvent(buffer_end_event);
 		}
@@ -67,27 +67,27 @@ class AudioDriverXAudio2 : public AudioDriver {
 	Thread thread;
 	Mutex mutex;
 
-	int32_t *samples_in;
+	int32_t *samples_in = nullptr;
 	int16_t *samples_out[AUDIO_BUFFERS];
 
 	static void thread_func(void *p_udata);
-	int buffer_size;
+	int buffer_size = 0;
 
-	unsigned int mix_rate;
-	SpeakerMode speaker_mode;
+	unsigned int mix_rate = 0;
+	SpeakerMode speaker_mode = SpeakerMode::SPEAKER_MODE_STEREO;
 
-	int channels;
+	int channels = 0;
 
 	SafeFlag active;
 	SafeFlag exit_thread;
-	bool pcm_open;
+	bool pcm_open = false;
 
-	WAVEFORMATEX wave_format;
+	WAVEFORMATEX wave_format = { 0 };
 	Microsoft::WRL::ComPtr<IXAudio2> xaudio;
-	int current_buffer;
-	IXAudio2MasteringVoice *mastering_voice;
+	int current_buffer = 0;
+	IXAudio2MasteringVoice *mastering_voice = nullptr;
 	XAUDIO2_BUFFER xaudio_buffer[AUDIO_BUFFERS];
-	IXAudio2SourceVoice *source_voice;
+	IXAudio2SourceVoice *source_voice = nullptr;
 	XAudio2DriverVoiceCallback voice_callback;
 
 public:
@@ -103,7 +103,7 @@ public:
 	virtual void finish();
 
 	AudioDriverXAudio2();
-	~AudioDriverXAudio2();
+	~AudioDriverXAudio2() {}
 };
 
 #endif // AUDIO_DRIVER_XAUDIO2_H

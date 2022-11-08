@@ -1,8 +1,3 @@
-#if REAL_T_IS_DOUBLE
-using real_t = System.Double;
-#else
-using real_t = System.Single;
-#endif
 using System;
 
 namespace Godot
@@ -40,9 +35,9 @@ namespace Godot
         public const real_t NaN = real_t.NaN;
 
         // 0.0174532924f and 0.0174532925199433
-        private const real_t _deg2RadConst = (real_t)0.0174532925199432957692369077M;
+        private const real_t _degToRadConst = (real_t)0.0174532925199432957692369077M;
         // 57.29578f and 57.2957795130823
-        private const real_t _rad2DegConst = (real_t)57.295779513082320876798154814M;
+        private const real_t _radToDegConst = (real_t)57.295779513082320876798154814M;
 
         /// <summary>
         /// Returns the absolute value of <paramref name="s"/> (i.e. positive value).
@@ -124,19 +119,6 @@ namespace Godot
         }
 
         /// <summary>
-        /// Converts a 2D point expressed in the cartesian coordinate
-        /// system (X and Y axis) to the polar coordinate system
-        /// (a distance from the origin and an angle).
-        /// </summary>
-        /// <param name="x">The input X coordinate.</param>
-        /// <param name="y">The input Y coordinate.</param>
-        /// <returns>A <see cref="Vector2"/> with X representing the distance and Y representing the angle.</returns>
-        public static Vector2 Cartesian2Polar(real_t x, real_t y)
-        {
-            return new Vector2(Sqrt(x * x + y * y), Atan2(y, x));
-        }
-
-        /// <summary>
         /// Rounds <paramref name="s"/> upward (towards positive infinity).
         /// </summary>
         /// <param name="s">The number to ceil.</param>
@@ -193,13 +175,141 @@ namespace Godot
         }
 
         /// <summary>
+        /// Cubic interpolates between two values by the factor defined in <paramref name="weight"/>
+        /// with pre and post values.
+        /// </summary>
+        /// <param name="from">The start value for interpolation.</param>
+        /// <param name="to">The destination value for interpolation.</param>
+        /// <param name="pre">The value which before "from" value for interpolation.</param>
+        /// <param name="post">The value which after "to" value for interpolation.</param>
+        /// <param name="weight">A value on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
+        /// <returns>The resulting value of the interpolation.</returns>
+        public static real_t CubicInterpolate(real_t from, real_t to, real_t pre, real_t post, real_t weight)
+        {
+            return 0.5f *
+                    ((from * 2.0f) +
+                            (-pre + to) * weight +
+                            (2.0f * pre - 5.0f * from + 4.0f * to - post) * (weight * weight) +
+                            (-pre + 3.0f * from - 3.0f * to + post) * (weight * weight * weight));
+        }
+
+        /// <summary>
+        /// Cubic interpolates between two rotation values with shortest path
+        /// by the factor defined in <paramref name="weight"/> with pre and post values.
+        /// See also <see cref="LerpAngle"/>.
+        /// </summary>
+        /// <param name="from">The start value for interpolation.</param>
+        /// <param name="to">The destination value for interpolation.</param>
+        /// <param name="pre">The value which before "from" value for interpolation.</param>
+        /// <param name="post">The value which after "to" value for interpolation.</param>
+        /// <param name="weight">A value on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
+        /// <returns>The resulting value of the interpolation.</returns>
+        public static real_t CubicInterpolateAngle(real_t from, real_t to, real_t pre, real_t post, real_t weight)
+        {
+            real_t fromRot = from % Mathf.Tau;
+
+            real_t preDiff = (pre - fromRot) % Mathf.Tau;
+            real_t preRot = fromRot + (2.0f * preDiff) % Mathf.Tau - preDiff;
+
+            real_t toDiff = (to - fromRot) % Mathf.Tau;
+            real_t toRot = fromRot + (2.0f * toDiff) % Mathf.Tau - toDiff;
+
+            real_t postDiff = (post - toRot) % Mathf.Tau;
+            real_t postRot = toRot + (2.0f * postDiff) % Mathf.Tau - postDiff;
+
+            return CubicInterpolate(fromRot, toRot, preRot, postRot, weight);
+        }
+
+        /// <summary>
+        /// Cubic interpolates between two values by the factor defined in <paramref name="weight"/>
+        /// with pre and post values.
+        /// It can perform smoother interpolation than <see cref="CubicInterpolate"/>
+        /// by the time values.
+        /// </summary>
+        /// <param name="from">The start value for interpolation.</param>
+        /// <param name="to">The destination value for interpolation.</param>
+        /// <param name="pre">The value which before "from" value for interpolation.</param>
+        /// <param name="post">The value which after "to" value for interpolation.</param>
+        /// <param name="weight">A value on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
+        /// <param name="toT"></param>
+        /// <param name="preT"></param>
+        /// <param name="postT"></param>
+        /// <returns>The resulting value of the interpolation.</returns>
+        public static real_t CubicInterpolateInTime(real_t from, real_t to, real_t pre, real_t post, real_t weight, real_t toT, real_t preT, real_t postT)
+        {
+            /* Barry-Goldman method */
+            real_t t = Lerp(0.0f, toT, weight);
+            real_t a1 = Lerp(pre, from, preT == 0 ? 0.0f : (t - preT) / -preT);
+            real_t a2 = Lerp(from, to, toT == 0 ? 0.5f : t / toT);
+            real_t a3 = Lerp(to, post, postT - toT == 0 ? 1.0f : (t - toT) / (postT - toT));
+            real_t b1 = Lerp(a1, a2, toT - preT == 0 ? 0.0f : (t - preT) / (toT - preT));
+            real_t b2 = Lerp(a2, a3, postT == 0 ? 1.0f : t / postT);
+            return Lerp(b1, b2, toT == 0 ? 0.5f : t / toT);
+        }
+
+        /// <summary>
+        /// Cubic interpolates between two rotation values with shortest path
+        /// by the factor defined in <paramref name="weight"/> with pre and post values.
+        /// See also <see cref="LerpAngle"/>.
+        /// It can perform smoother interpolation than <see cref="CubicInterpolateAngle"/>
+        /// by the time values.
+        /// </summary>
+        /// <param name="from">The start value for interpolation.</param>
+        /// <param name="to">The destination value for interpolation.</param>
+        /// <param name="pre">The value which before "from" value for interpolation.</param>
+        /// <param name="post">The value which after "to" value for interpolation.</param>
+        /// <param name="weight">A value on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
+        /// <param name="toT"></param>
+        /// <param name="preT"></param>
+        /// <param name="postT"></param>
+        /// <returns>The resulting value of the interpolation.</returns>
+        public static real_t CubicInterpolateAngleInTime(real_t from, real_t to, real_t pre, real_t post, real_t weight,
+                    real_t toT, real_t preT, real_t postT)
+        {
+            real_t fromRot = from % Mathf.Tau;
+
+            real_t preDiff = (pre - fromRot) % Mathf.Tau;
+            real_t preRot = fromRot + (2.0f * preDiff) % Mathf.Tau - preDiff;
+
+            real_t toDiff = (to - fromRot) % Mathf.Tau;
+            real_t toRot = fromRot + (2.0f * toDiff) % Mathf.Tau - toDiff;
+
+            real_t postDiff = (post - toRot) % Mathf.Tau;
+            real_t postRot = toRot + (2.0f * postDiff) % Mathf.Tau - postDiff;
+
+            return CubicInterpolateInTime(fromRot, toRot, preRot, postRot, weight, toT, preT, postT);
+        }
+
+        /// <summary>
+        /// Returns the point at the given <paramref name="t"/> on a one-dimensional Bezier curve defined by
+        /// the given <paramref name="control1"/>, <paramref name="control2"/> and <paramref name="end"/> points.
+        /// </summary>
+        /// <param name="start">The start value for the interpolation.</param>
+        /// <param name="control1">Control point that defines the bezier curve.</param>
+        /// <param name="control2">Control point that defines the bezier curve.</param>
+        /// <param name="end">The destination value for the interpolation.</param>
+        /// <param name="t">A value on the range of 0.0 to 1.0, representing the amount of interpolation.</param>
+        /// <returns>The resulting value of the interpolation.</returns>
+        public static real_t BezierInterpolate(real_t start, real_t control1, real_t control2, real_t end, real_t t)
+        {
+            // Formula from Wikipedia article on Bezier curves
+            real_t omt = 1 - t;
+            real_t omt2 = omt * omt;
+            real_t omt3 = omt2 * omt;
+            real_t t2 = t * t;
+            real_t t3 = t2 * t;
+
+            return start * omt3 + control1 * omt2 * t * 3 + control2 * omt * t2 * 3 + end * t3;
+        }
+
+        /// <summary>
         /// Converts an angle expressed in degrees to radians.
         /// </summary>
         /// <param name="deg">An angle expressed in degrees.</param>
         /// <returns>The same angle expressed in radians.</returns>
-        public static real_t Deg2Rad(real_t deg)
+        public static real_t DegToRad(real_t deg)
         {
-            return deg * _deg2RadConst;
+            return deg * _degToRadConst;
         }
 
         /// <summary>
@@ -462,20 +572,6 @@ namespace Godot
         }
 
         /// <summary>
-        /// Converts a 2D point expressed in the polar coordinate
-        /// system (a distance from the origin <paramref name="r"/>
-        /// and an angle <paramref name="th"/>) to the cartesian
-        /// coordinate system (X and Y axis).
-        /// </summary>
-        /// <param name="r">The distance from the origin.</param>
-        /// <param name="th">The angle of the point.</param>
-        /// <returns>A <see cref="Vector2"/> representing the cartesian coordinate.</returns>
-        public static Vector2 Polar2Cartesian(real_t r, real_t th)
-        {
-            return new Vector2(r * Cos(th), r * Sin(th));
-        }
-
-        /// <summary>
         /// Performs a canonical Modulus operation, where the output is on the range [0, <paramref name="b"/>).
         /// </summary>
         /// <param name="a">The dividend, the primary input.</param>
@@ -523,9 +619,9 @@ namespace Godot
         /// </summary>
         /// <param name="rad">An angle expressed in radians.</param>
         /// <returns>The same angle expressed in degrees.</returns>
-        public static real_t Rad2Deg(real_t rad)
+        public static real_t RadToDeg(real_t rad)
         {
-            return rad * _rad2DegConst;
+            return rad * _radToDegConst;
         }
 
         /// <summary>
@@ -538,7 +634,7 @@ namespace Godot
         /// <param name="outFrom">The start value for the output interpolation.</param>
         /// <param name="outTo">The destination value for the output interpolation.</param>
         /// <returns>The resulting mapped value mapped.</returns>
-        public static real_t RangeLerp(real_t value, real_t inFrom, real_t inTo, real_t outFrom, real_t outTo)
+        public static real_t Remap(real_t value, real_t inFrom, real_t inTo, real_t outFrom, real_t outTo)
         {
             return Lerp(outFrom, outTo, InverseLerp(inFrom, inTo, value));
         }
@@ -668,10 +764,10 @@ namespace Godot
         /// Snaps float value <paramref name="s"/> to a given <paramref name="step"/>.
         /// This can also be used to round a floating point number to an arbitrary number of decimals.
         /// </summary>
-        /// <param name="s">The value to stepify.</param>
+        /// <param name="s">The value to snap.</param>
         /// <param name="step">The step size to snap to.</param>
         /// <returns>The snapped value.</returns>
-        public static real_t Stepify(real_t s, real_t step)
+        public static real_t Snapped(real_t s, real_t step)
         {
             if (step != 0f)
             {
@@ -734,9 +830,29 @@ namespace Godot
         {
             real_t range = max - min;
             if (IsZeroApprox(range))
+            {
                 return min;
-
+            }
             return min + ((((value - min) % range) + range) % range);
+        }
+
+        private static real_t Fract(real_t value)
+        {
+            return value - (real_t)Math.Floor(value);
+        }
+
+        /// <summary>
+        /// Returns the <paramref name="value"/> wrapped between <c>0</c> and the <paramref name="length"/>.
+        /// If the limit is reached, the next value the function returned is decreased to the <c>0</c> side
+        /// or increased to the <paramref name="length"/> side (like a triangle wave).
+        /// If <paramref name="length"/> is less than zero, it becomes positive.
+        /// </summary>
+        /// <param name="value">The value to pingpong.</param>
+        /// <param name="length">The maximum value of the function.</param>
+        /// <returns>The ping-ponged value.</returns>
+        public static real_t PingPong(real_t value, real_t length)
+        {
+            return (length != (real_t)0.0) ? Abs(Fract((value - length) / (length * (real_t)2.0)) * length * (real_t)2.0 - length) : (real_t)0.0;
         }
     }
 }

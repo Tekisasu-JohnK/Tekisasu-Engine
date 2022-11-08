@@ -31,11 +31,11 @@
 #ifndef ANDROID_GRADLE_EXPORT_UTIL_H
 #define ANDROID_GRADLE_EXPORT_UTIL_H
 
+#include "core/io/dir_access.h"
+#include "core/io/file_access.h"
 #include "core/io/zip_io.h"
-#include "core/os/dir_access.h"
-#include "core/os/file_access.h"
 #include "core/os/os.h"
-#include "editor/editor_export.h"
+#include "editor/export/editor_export.h"
 
 const String godot_project_name_xml_string = R"(<?xml version="1.0" encoding="utf-8"?>
 <!--WARNING: THIS FILE WILL BE OVERWRITTEN AT BUILD TIME-->
@@ -47,8 +47,7 @@ const String godot_project_name_xml_string = R"(<?xml version="1.0" encoding="ut
 // Supported XR modes.
 // This should match the entries in 'platform/android/java/lib/src/org/godotengine/godot/xr/XRMode.java'
 static const int XR_MODE_REGULAR = 0;
-static const int XR_MODE_OVR = 1;
-static const int XR_MODE_OPENXR = 2;
+static const int XR_MODE_OPENXR = 1;
 
 // Supported XR hand tracking modes.
 static const int XR_HAND_TRACKING_NONE = 0;
@@ -70,9 +69,9 @@ struct CustomExportData {
 	Vector<String> libs;
 };
 
-int _get_android_orientation_value(OS::ScreenOrientation screen_orientation);
+int _get_android_orientation_value(DisplayServer::ScreenOrientation screen_orientation);
 
-String _get_android_orientation_label(OS::ScreenOrientation screen_orientation);
+String _get_android_orientation_label(DisplayServer::ScreenOrientation screen_orientation);
 
 // Utility method used to create a directory.
 Error create_directory(const String &p_dir);
@@ -90,7 +89,7 @@ Error store_string_at_path(const String &p_path, const String &p_data);
 // It is used by the export_project_files method to save all the asset files into the gradle project.
 // It's functionality mirrors that of the method save_apk_file.
 // This method will be called ONLY when custom build is enabled.
-Error rename_and_store_file_in_gradle_project(void *p_userdata, const String &p_path, const Vector<uint8_t> &p_data, int p_file, int p_total);
+Error rename_and_store_file_in_gradle_project(void *p_userdata, const String &p_path, const Vector<uint8_t> &p_data, int p_file, int p_total, const Vector<String> &p_enc_in_filters, const Vector<String> &p_enc_ex_filters, const Vector<uint8_t> &p_key);
 
 // Creates strings.xml files inside the gradle project for different locales.
 Error _create_project_name_strings_files(const Ref<EditorExportPreset> &p_preset, const String &project_name);

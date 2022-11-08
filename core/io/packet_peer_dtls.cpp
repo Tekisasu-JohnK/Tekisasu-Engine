@@ -29,8 +29,8 @@
 /*************************************************************************/
 
 #include "packet_peer_dtls.h"
-#include "core/os/file_access.h"
-#include "core/project_settings.h"
+#include "core/config/project_settings.h"
+#include "core/io/file_access.h"
 
 PacketPeerDTLS *(*PacketPeerDTLS::_create)() = nullptr;
 bool PacketPeerDTLS::available = false;
@@ -57,7 +57,4 @@ void PacketPeerDTLS::_bind_methods() {
 	BIND_ENUM_CONSTANT(STATUS_CONNECTED);
 	BIND_ENUM_CONSTANT(STATUS_ERROR);
 	BIND_ENUM_CONSTANT(STATUS_ERROR_HOSTNAME_MISMATCH);
-}
-
-PacketPeerDTLS::PacketPeerDTLS() {
 }

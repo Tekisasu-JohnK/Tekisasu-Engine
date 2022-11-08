@@ -26,10 +26,7 @@ check:
 include-list:
 	@list=""; \
 	threshold=0.20; \
-	exclude_ctl="ar bn fa he hi ml si ta te ur"; \
 	for po in $(POFILES); do \
-	  lang=`basename $$po .po`; \
-	  if `grep -q $$lang <<< $$exclude_ctl`; then continue; fi; \
 	  res=`msgfmt --statistics $$po -o /dev/null 2>&1 | sed 's/[^0-9,]*//g'`; \
 	  complete=`cut -d',' -f1 <<< $$res`; \
 	  fuzzy_or_untranslated=`cut -d',' -f2 <<< $$res`; \
@@ -38,6 +35,7 @@ include-list:
 	  if [ -z "$$untranslated_maybe" ]; then untranslated_maybe=0; fi; \
 	  incomplete=`expr $$fuzzy_or_untranslated + $$untranslated_maybe`; \
 	  if `awk "BEGIN {exit !($$complete / ($$complete + $$incomplete) > $$threshold)}"`; then \
+	    lang=`basename $$po .po`; \
 	    list+="$$lang,"; \
 	  fi; \
 	done; \

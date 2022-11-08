@@ -30,7 +30,7 @@
 
 #include "crypto.h"
 
-#include "core/engine.h"
+#include "core/config/engine.h"
 #include "core/io/certs_compressed.gen.h"
 #include "core/io/compression.h"
 
@@ -98,21 +98,21 @@ void Crypto::load_default_certificates(String p_path) {
 	}
 }
 
-PoolByteArray Crypto::hmac_digest(HashingContext::HashType p_hash_type, PoolByteArray p_key, PoolByteArray p_msg) {
+PackedByteArray Crypto::hmac_digest(HashingContext::HashType p_hash_type, PackedByteArray p_key, PackedByteArray p_msg) {
 	Ref<HMACContext> ctx = Ref<HMACContext>(HMACContext::create());
-	ERR_FAIL_COND_V_MSG(ctx.is_null(), PoolByteArray(), "HMAC is not available without mbedtls module.");
+	ERR_FAIL_COND_V_MSG(ctx.is_null(), PackedByteArray(), "HMAC is not available without mbedtls module.");
 	Error err = ctx->start(p_hash_type, p_key);
-	ERR_FAIL_COND_V(err != OK, PoolByteArray());
+	ERR_FAIL_COND_V(err != OK, PackedByteArray());
 	err = ctx->update(p_msg);
-	ERR_FAIL_COND_V(err != OK, PoolByteArray());
+	ERR_FAIL_COND_V(err != OK, PackedByteArray());
 	return ctx->finish();
 }
 
-// Compares two HMACS for equality without leaking timing information in order to prevent timing attakcs.
+// Compares two HMACS for equality without leaking timing information in order to prevent timing attacks.
 // @see: https://paragonie.com/blog/2015/11/preventing-timing-attacks-on-string-comparison-with-double-hmac-strategy
-bool Crypto::constant_time_compare(PoolByteArray p_trusted, PoolByteArray p_received) {
-	const uint8_t *t = p_trusted.read().ptr();
-	const uint8_t *r = p_received.read().ptr();
+bool Crypto::constant_time_compare(PackedByteArray p_trusted, PackedByteArray p_received) {
+	const uint8_t *t = p_trusted.ptr();
+	const uint8_t *r = p_received.ptr();
 	int tlen = p_trusted.size();
 	int rlen = p_received.size();
 	// If the lengths are different then nothing else matters.
@@ -139,12 +139,9 @@ void Crypto::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("constant_time_compare", "trusted", "received"), &Crypto::constant_time_compare);
 }
 
-Crypto::Crypto() {
-}
-
 /// Resource loader/saver
 
-RES ResourceFormatLoaderCrypto::load(const String &p_path, const String &p_original_path, Error *r_error) {
+Ref<Resource> ResourceFormatLoaderCrypto::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads, float *r_progress, CacheMode p_cache_mode) {
 	String el = p_path.get_extension().to_lower();
 	if (el == "crt") {
 		X509Certificate *cert = X509Certificate::create();
@@ -188,7 +185,7 @@ String ResourceFormatLoaderCrypto::get_resource_type(const String &p_path) const
 	return "";
 }
 
-Error ResourceFormatSaverCrypto::save(const String &p_path, const RES &p_resource, uint32_t p_flags) {
+Error ResourceFormatSaverCrypto::save(const Ref<Resource> &p_resource, const String &p_path, uint32_t p_flags) {
 	Error err;
 	Ref<X509Certificate> cert = p_resource;
 	Ref<CryptoKey> key = p_resource;
@@ -204,7 +201,7 @@ Error ResourceFormatSaverCrypto::save(const String &p_path, const RES &p_resourc
 	return OK;
 }
 
-void ResourceFormatSaverCrypto::get_recognized_extensions(const RES &p_resource, List<String> *p_extensions) const {
+void ResourceFormatSaverCrypto::get_recognized_extensions(const Ref<Resource> &p_resource, List<String> *p_extensions) const {
 	const X509Certificate *cert = Object::cast_to<X509Certificate>(*p_resource);
 	const CryptoKey *key = Object::cast_to<CryptoKey>(*p_resource);
 	if (cert) {
@@ -217,6 +214,7 @@ void ResourceFormatSaverCrypto::get_recognized_extensions(const RES &p_resource,
 		p_extensions->push_back("pub");
 	}
 }
-bool ResourceFormatSaverCrypto::recognize(const RES &p_resource) const {
+
+bool ResourceFormatSaverCrypto::recognize(const Ref<Resource> &p_resource) const {
 	return Object::cast_to<X509Certificate>(*p_resource) || Object::cast_to<CryptoKey>(*p_resource);
 }

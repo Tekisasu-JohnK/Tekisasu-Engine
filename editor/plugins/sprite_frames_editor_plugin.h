@@ -31,15 +31,21 @@
 #ifndef SPRITE_FRAMES_EDITOR_PLUGIN_H
 #define SPRITE_FRAMES_EDITOR_PLUGIN_H
 
-#include "editor/editor_node.h"
 #include "editor/editor_plugin.h"
-#include "scene/2d/animated_sprite.h"
+#include "scene/2d/animated_sprite_2d.h"
+#include "scene/gui/button.h"
+#include "scene/gui/check_button.h"
 #include "scene/gui/dialogs.h"
-#include "scene/gui/file_dialog.h"
+#include "scene/gui/item_list.h"
 #include "scene/gui/line_edit.h"
+#include "scene/gui/scroll_container.h"
+#include "scene/gui/spin_box.h"
 #include "scene/gui/split_container.h"
 #include "scene/gui/texture_rect.h"
 #include "scene/gui/tree.h"
+
+class EditorFileDialog;
+class EditorUndoRedoManager;
 
 class SpriteFramesEditor : public HSplitContainer {
 	GDCLASS(SpriteFramesEditor, HSplitContainer);
@@ -51,58 +57,60 @@ class SpriteFramesEditor : public HSplitContainer {
 	};
 	int dominant_param = PARAM_FRAME_COUNT;
 
-	ToolButton *load;
-	ToolButton *load_sheet;
-	ToolButton *_delete;
-	ToolButton *copy;
-	ToolButton *paste;
-	ToolButton *empty;
-	ToolButton *empty2;
-	ToolButton *move_up;
-	ToolButton *move_down;
-	ToolButton *zoom_out;
-	ToolButton *zoom_reset;
-	ToolButton *zoom_in;
-	ItemList *tree;
+	bool read_only = false;
+
+	Button *load = nullptr;
+	Button *load_sheet = nullptr;
+	Button *delete_frame = nullptr;
+	Button *copy = nullptr;
+	Button *paste = nullptr;
+	Button *empty_before = nullptr;
+	Button *empty_after = nullptr;
+	Button *move_up = nullptr;
+	Button *move_down = nullptr;
+	Button *zoom_out = nullptr;
+	Button *zoom_reset = nullptr;
+	Button *zoom_in = nullptr;
+	ItemList *tree = nullptr;
 	bool loading_scene;
 	int sel;
 
-	ToolButton *new_anim;
-	ToolButton *remove_anim;
-	LineEdit *anim_search_box;
+	Button *add_anim = nullptr;
+	Button *delete_anim = nullptr;
+	LineEdit *anim_search_box = nullptr;
 
-	Tree *animations;
-	SpinBox *anim_speed;
-	CheckButton *anim_loop;
+	Tree *animations = nullptr;
+	SpinBox *anim_speed = nullptr;
+	CheckButton *anim_loop = nullptr;
 
-	EditorFileDialog *file;
+	EditorFileDialog *file = nullptr;
 
-	AcceptDialog *dialog;
+	AcceptDialog *dialog = nullptr;
 
-	SpriteFrames *frames;
+	SpriteFrames *frames = nullptr;
 
 	StringName edited_anim;
 
-	ConfirmationDialog *delete_dialog;
+	ConfirmationDialog *delete_dialog = nullptr;
 
-	ConfirmationDialog *split_sheet_dialog;
-	ScrollContainer *split_sheet_scroll;
-	TextureRect *split_sheet_preview;
-	SpinBox *split_sheet_h;
-	SpinBox *split_sheet_v;
-	SpinBox *split_sheet_size_x;
-	SpinBox *split_sheet_size_y;
-	SpinBox *split_sheet_sep_x;
-	SpinBox *split_sheet_sep_y;
-	SpinBox *split_sheet_offset_x;
-	SpinBox *split_sheet_offset_y;
-	ToolButton *split_sheet_zoom_out;
-	ToolButton *split_sheet_zoom_reset;
-	ToolButton *split_sheet_zoom_in;
-	EditorFileDialog *file_split_sheet;
-	Set<int> frames_selected;
-	Set<int> frames_toggled_by_mouse_hover;
-	int last_frame_selected;
+	ConfirmationDialog *split_sheet_dialog = nullptr;
+	ScrollContainer *split_sheet_scroll = nullptr;
+	TextureRect *split_sheet_preview = nullptr;
+	SpinBox *split_sheet_h = nullptr;
+	SpinBox *split_sheet_v = nullptr;
+	SpinBox *split_sheet_size_x = nullptr;
+	SpinBox *split_sheet_size_y = nullptr;
+	SpinBox *split_sheet_sep_x = nullptr;
+	SpinBox *split_sheet_sep_y = nullptr;
+	SpinBox *split_sheet_offset_x = nullptr;
+	SpinBox *split_sheet_offset_y = nullptr;
+	Button *split_sheet_zoom_out = nullptr;
+	Button *split_sheet_zoom_reset = nullptr;
+	Button *split_sheet_zoom_in = nullptr;
+	EditorFileDialog *file_split_sheet = nullptr;
+	HashSet<int> frames_selected;
+	HashSet<int> frames_toggled_by_mouse_hover;
+	int last_frame_selected = 0;
 
 	float scale_ratio;
 	int thumbnail_default_size;
@@ -119,7 +127,7 @@ class SpriteFramesEditor : public HSplitContainer {
 	Size2i _get_separation() const;
 
 	void _load_pressed();
-	void _file_load_request(const PoolVector<String> &p_path, int p_at_pos = -1);
+	void _file_load_request(const Vector<String> &p_path, int p_at_pos = -1);
 	void _copy_pressed();
 	void _paste_pressed();
 	void _empty_pressed();
@@ -146,7 +154,7 @@ class SpriteFramesEditor : public HSplitContainer {
 	bool updating;
 	bool updating_split_settings = false; // Skip SpinBox/Range callback when setting value by code.
 
-	UndoRedo *undo_redo;
+	Ref<EditorUndoRedoManager> undo_redo;
 
 	Variant get_drag_data_fw(const Point2 &p_point, Control *p_from);
 	bool can_drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from) const;
@@ -168,11 +176,10 @@ class SpriteFramesEditor : public HSplitContainer {
 
 protected:
 	void _notification(int p_what);
-	void _gui_input(Ref<InputEvent> p_event);
 	static void _bind_methods();
 
 public:
-	void set_undo_redo(UndoRedo *p_undo_redo) { undo_redo = p_undo_redo; }
+	void set_undo_redo(Ref<EditorUndoRedoManager> p_undo_redo);
 
 	void edit(SpriteFrames *p_frames);
 	SpriteFramesEditor();
@@ -181,18 +188,17 @@ public:
 class SpriteFramesEditorPlugin : public EditorPlugin {
 	GDCLASS(SpriteFramesEditorPlugin, EditorPlugin);
 
-	SpriteFramesEditor *frames_editor;
-	EditorNode *editor;
-	Button *button;
+	SpriteFramesEditor *frames_editor = nullptr;
+	Button *button = nullptr;
 
 public:
-	virtual String get_name() const { return "SpriteFrames"; }
-	bool has_main_screen() const { return false; }
-	virtual void edit(Object *p_object);
-	virtual bool handles(Object *p_object) const;
-	virtual void make_visible(bool p_visible);
+	virtual String get_name() const override { return "SpriteFrames"; }
+	bool has_main_screen() const override { return false; }
+	virtual void edit(Object *p_object) override;
+	virtual bool handles(Object *p_object) const override;
+	virtual void make_visible(bool p_visible) override;
 
-	SpriteFramesEditorPlugin(EditorNode *p_node);
+	SpriteFramesEditorPlugin();
 	~SpriteFramesEditorPlugin();
 };
 

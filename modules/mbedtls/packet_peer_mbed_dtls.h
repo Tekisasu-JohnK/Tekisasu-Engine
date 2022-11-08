@@ -32,7 +32,7 @@
 #define PACKET_PEER_MBED_DTLS_H
 
 #include "core/io/packet_peer_dtls.h"
-#include "ssl_context_mbedtls.h"
+#include "tls_context_mbedtls.h"
 
 #include <mbedtls/timing.h>
 
@@ -44,7 +44,7 @@ private:
 
 	uint8_t packet_buffer[PACKET_BUFFER_SIZE];
 
-	Status status;
+	Status status = STATUS_DISCONNECTED;
 	String hostname;
 
 	Ref<PacketPeerUDP> base;
@@ -56,7 +56,7 @@ private:
 	void _cleanup();
 
 protected:
-	Ref<SSLContextMbedTLS> ssl_ctx;
+	Ref<TLSContextMbedTLS> tls_ctx;
 	mbedtls_timing_delay_context timer;
 
 	Error _do_handshake();

@@ -1,8 +1,3 @@
-#if REAL_T_IS_DOUBLE
-using real_t = System.Double;
-#else
-using real_t = System.Single;
-#endif
 using System;
 using System.Runtime.InteropServices;
 
@@ -14,7 +9,7 @@ namespace Godot
     /// It consists of a three <see cref="Vector2"/> values: x, y, and the origin.
     ///
     /// For more information, read this documentation article:
-    /// https://docs.godotengine.org/en/3.5/tutorials/math/matrices_and_transforms.html
+    /// https://docs.godotengine.org/en/latest/tutorials/math/matrices_and_transforms.html
     /// </summary>
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
@@ -80,6 +75,9 @@ namespace Godot
         /// The third column is the <see cref="origin"/> vector.
         /// </summary>
         /// <param name="column">Which column vector.</param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// <paramref name="column"/> is not 0, 1 or 2.
+        /// </exception>
         public Vector2 this[int column]
         {
             get
@@ -93,7 +91,7 @@ namespace Godot
                     case 2:
                         return origin;
                     default:
-                        throw new IndexOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(nameof(column));
                 }
             }
             set
@@ -110,7 +108,7 @@ namespace Godot
                         origin = value;
                         return;
                     default:
-                        throw new IndexOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(nameof(column));
                 }
             }
         }
@@ -232,7 +230,7 @@ namespace Godot
             if (dot > 0.9995f)
             {
                 // Linearly interpolate to avoid numerical precision issues
-                v = v1.LinearInterpolate(v2, weight).Normalized();
+                v = v1.Lerp(v2, weight).Normalized();
             }
             else
             {
@@ -246,8 +244,8 @@ namespace Godot
             Vector2 p2 = transform.origin;
 
             // Construct matrix
-            var res = new Transform2D(Mathf.Atan2(v.y, v.x), p1.LinearInterpolate(p2, weight));
-            Vector2 scale = s1.LinearInterpolate(s2, weight);
+            var res = new Transform2D(Mathf.Atan2(v.y, v.x), p1.Lerp(p2, weight));
+            Vector2 scale = s1.Lerp(s2, weight);
             res.x *= scale;
             res.y *= scale;
 
@@ -297,7 +295,9 @@ namespace Godot
         }
 
         /// <summary>
-        /// Rotates the transform by <paramref name="angle"/> (in radians), using matrix multiplication.
+        /// Rotates the transform by <paramref name="angle"/> (in radians).
+        /// The operation is done in the parent/global frame, equivalent to
+        /// multiplying the matrix from the left.
         /// </summary>
         /// <param name="angle">The angle to rotate, in radians.</param>
         /// <returns>The rotated transformation matrix.</returns>
@@ -307,7 +307,21 @@ namespace Godot
         }
 
         /// <summary>
-        /// Scales the transform by the given scaling factor, using matrix multiplication.
+        /// Rotates the transform by <paramref name="angle"/> (in radians).
+        /// The operation is done in the local frame, equivalent to
+        /// multiplying the matrix from the right.
+        /// </summary>
+        /// <param name="angle">The angle to rotate, in radians.</param>
+        /// <returns>The rotated transformation matrix.</returns>
+        public Transform2D RotatedLocal(real_t angle)
+        {
+            return new Transform2D(angle, new Vector2()) * this;
+        }
+
+        /// <summary>
+        /// Scales the transform by the given scaling factor.
+        /// The operation is done in the parent/global frame, equivalent to
+        /// multiplying the matrix from the left.
         /// </summary>
         /// <param name="scale">The scale to introduce.</param>
         /// <returns>The scaled transformation matrix.</returns>
@@ -317,6 +331,21 @@ namespace Godot
             copy.x *= scale;
             copy.y *= scale;
             copy.origin *= scale;
+            return copy;
+        }
+
+        /// <summary>
+        /// Scales the transform by the given scaling factor.
+        /// The operation is done in the local frame, equivalent to
+        /// multiplying the matrix from the right.
+        /// </summary>
+        /// <param name="scale">The scale to introduce.</param>
+        /// <returns>The scaled transformation matrix.</returns>
+        public Transform2D ScaledLocal(Vector2 scale)
+        {
+            Transform2D copy = this;
+            copy.x *= scale;
+            copy.y *= scale;
             return copy;
         }
 
@@ -331,44 +360,31 @@ namespace Godot
         }
 
         /// <summary>
-        /// Translates the transform by the given <paramref name="offset"/>,
-        /// relative to the transform's basis vectors.
-        ///
-        /// Unlike <see cref="Rotated"/> and <see cref="Scaled"/>,
-        /// this does not use matrix multiplication.
+        /// Translates the transform by the given <paramref name="offset"/>.
+        /// The operation is done in the parent/global frame, equivalent to
+        /// multiplying the matrix from the left.
         /// </summary>
         /// <param name="offset">The offset to translate by.</param>
         /// <returns>The translated matrix.</returns>
         public Transform2D Translated(Vector2 offset)
         {
             Transform2D copy = this;
-            copy.origin += copy.BasisXform(offset);
+            copy.origin += offset;
             return copy;
         }
 
         /// <summary>
-        /// Returns a vector transformed (multiplied) by this transformation matrix.
+        /// Translates the transform by the given <paramref name="offset"/>.
+        /// The operation is done in the local frame, equivalent to
+        /// multiplying the matrix from the right.
         /// </summary>
-        /// <seealso cref="XformInv(Vector2)"/>
-        /// <param name="v">A vector to transform.</param>
-        /// <returns>The transformed vector.</returns>
-        [Obsolete("Xform is deprecated. Use the multiplication operator (Transform2D * Vector2) instead.")]
-        public Vector2 Xform(Vector2 v)
+        /// <param name="offset">The offset to translate by.</param>
+        /// <returns>The translated matrix.</returns>
+        public Transform2D TranslatedLocal(Vector2 offset)
         {
-            return new Vector2(Tdotx(v), Tdoty(v)) + origin;
-        }
-
-        /// <summary>
-        /// Returns a vector transformed (multiplied) by the inverse transformation matrix.
-        /// </summary>
-        /// <seealso cref="Xform(Vector2)"/>
-        /// <param name="v">A vector to inversely transform.</param>
-        /// <returns>The inversely transformed vector.</returns>
-        [Obsolete("XformInv is deprecated. Use the multiplication operator (Vector2 * Transform2D) instead.")]
-        public Vector2 XformInv(Vector2 v)
-        {
-            Vector2 vInv = v - origin;
-            return new Vector2(x.Dot(vInv), y.Dot(vInv));
+            Transform2D copy = this;
+            copy.origin += copy.BasisXform(offset);
+            return copy;
         }
 
         // Constants
@@ -464,7 +480,7 @@ namespace Godot
         }
 
         /// <summary>
-        /// Returns a Vector2 transformed (multiplied) by transformation matrix.
+        /// Returns a Vector2 transformed (multiplied) by the transformation matrix.
         /// </summary>
         /// <param name="transform">The transformation to apply.</param>
         /// <param name="vector">A Vector2 to transform.</param>
@@ -487,7 +503,7 @@ namespace Godot
         }
 
         /// <summary>
-        /// Returns a Rect2 transformed (multiplied) by transformation matrix.
+        /// Returns a Rect2 transformed (multiplied) by the transformation matrix.
         /// </summary>
         /// <param name="transform">The transformation to apply.</param>
         /// <param name="rect">A Rect2 to transform.</param>
@@ -498,7 +514,7 @@ namespace Godot
             Vector2 toX = transform.x * rect.Size.x;
             Vector2 toY = transform.y * rect.Size.y;
 
-            return new Rect2(pos, rect.Size).Expand(pos + toX).Expand(pos + toY).Expand(pos + toX + toY);
+            return new Rect2(pos, new Vector2()).Expand(pos + toX).Expand(pos + toY).Expand(pos + toX + toY);
         }
 
         /// <summary>
@@ -514,11 +530,11 @@ namespace Godot
             Vector2 to2 = new Vector2(rect.Position.x + rect.Size.x, rect.Position.y + rect.Size.y) * transform;
             Vector2 to3 = new Vector2(rect.Position.x + rect.Size.x, rect.Position.y) * transform;
 
-            return new Rect2(pos, rect.Size).Expand(to1).Expand(to2).Expand(to3);
+            return new Rect2(pos, new Vector2()).Expand(to1).Expand(to2).Expand(to3);
         }
 
         /// <summary>
-        /// Returns a copy of the given Vector2[] transformed (multiplied) by transformation matrix.
+        /// Returns a copy of the given Vector2[] transformed (multiplied) by the transformation matrix.
         /// </summary>
         /// <param name="transform">The transformation to apply.</param>
         /// <param name="array">A Vector2[] to transform.</param>
@@ -589,7 +605,7 @@ namespace Godot
         /// <returns>Whether or not the transform and the object are exactly equal.</returns>
         public override bool Equals(object obj)
         {
-            return obj is Transform2D transform2D && Equals(transform2D);
+            return obj is Transform2D other && Equals(other);
         }
 
         /// <summary>
@@ -630,12 +646,7 @@ namespace Godot
         /// <returns>A string representation of this transform.</returns>
         public override string ToString()
         {
-            return String.Format("({0}, {1}, {2})", new object[]
-            {
-                x.ToString(),
-                y.ToString(),
-                origin.ToString()
-            });
+            return $"[X: {x}, Y: {y}, O: {origin}]";
         }
 
         /// <summary>
@@ -644,12 +655,7 @@ namespace Godot
         /// <returns>A string representation of this transform.</returns>
         public string ToString(string format)
         {
-            return String.Format("({0}, {1}, {2})", new object[]
-            {
-                x.ToString(format),
-                y.ToString(format),
-                origin.ToString(format)
-            });
+            return $"[X: {x.ToString(format)}, Y: {y.ToString(format)}, O: {origin.ToString(format)}]";
         }
     }
 }

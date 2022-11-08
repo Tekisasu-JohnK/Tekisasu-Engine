@@ -1,8 +1,3 @@
-#if REAL_T_IS_DOUBLE
-using real_t = System.Double;
-#else
-using real_t = System.Single;
-#endif
 using System;
 using System.Runtime.InteropServices;
 
@@ -117,27 +112,16 @@ namespace Godot
         }
 
         /// <summary>
-        /// The center of the plane, the point where the normal line intersects the plane.
-        /// Deprecated, use the Center property instead.
-        /// </summary>
-        /// <returns>Equivalent to <see cref="Normal"/> multiplied by `D`.</returns>
-        [Obsolete("GetAnyPoint is deprecated. Use the Center property instead.")]
-        public Vector3 GetAnyPoint()
-        {
-            return _normal * D;
-        }
-
-        /// <summary>
         /// Returns <see langword="true"/> if point is inside the plane.
-        /// Comparison uses a custom minimum epsilon threshold.
+        /// Comparison uses a custom minimum tolerance threshold.
         /// </summary>
         /// <param name="point">The point to check.</param>
-        /// <param name="epsilon">The tolerance threshold.</param>
+        /// <param name="tolerance">The tolerance threshold.</param>
         /// <returns>A <see langword="bool"/> for whether or not the plane has the point.</returns>
-        public bool HasPoint(Vector3 point, real_t epsilon = Mathf.Epsilon)
+        public bool HasPoint(Vector3 point, real_t tolerance = Mathf.Epsilon)
         {
             real_t dist = _normal.Dot(point) - D;
-            return Mathf.Abs(dist) <= epsilon;
+            return Mathf.Abs(dist) <= tolerance;
         }
 
         /// <summary>
@@ -308,6 +292,18 @@ namespace Godot
         }
 
         /// <summary>
+        /// Constructs a <see cref="Plane"/> from a <paramref name="normal"/> vector and
+        /// a <paramref name="point"/> on the plane.
+        /// </summary>
+        /// <param name="normal">The normal of the plane, must be normalized.</param>
+        /// <param name="point">The point on the plane.</param>
+        public Plane(Vector3 normal, Vector3 point)
+        {
+            _normal = normal;
+            D = _normal.Dot(point);
+        }
+
+        /// <summary>
         /// Constructs a <see cref="Plane"/> from the three points, given in clockwise order.
         /// </summary>
         /// <param name="v1">The first point.</param>
@@ -369,12 +365,7 @@ namespace Godot
         /// <returns>Whether or not the plane and the other object are exactly equal.</returns>
         public override bool Equals(object obj)
         {
-            if (obj is Plane)
-            {
-                return Equals((Plane)obj);
-            }
-
-            return false;
+            return obj is Plane other && Equals(other);
         }
 
         /// <summary>
@@ -413,11 +404,7 @@ namespace Godot
         /// <returns>A string representation of this plane.</returns>
         public override string ToString()
         {
-            return String.Format("({0}, {1})", new object[]
-            {
-                _normal.ToString(),
-                D.ToString()
-            });
+            return $"{_normal}, {D}";
         }
 
         /// <summary>
@@ -426,11 +413,7 @@ namespace Godot
         /// <returns>A string representation of this plane.</returns>
         public string ToString(string format)
         {
-            return String.Format("({0}, {1})", new object[]
-            {
-                _normal.ToString(format),
-                D.ToString(format)
-            });
+            return $"{_normal.ToString(format)}, {D.ToString(format)}";
         }
     }
 }

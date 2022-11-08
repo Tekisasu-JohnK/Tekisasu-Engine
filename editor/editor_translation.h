@@ -31,8 +31,8 @@
 #ifndef EDITOR_TRANSLATION_H
 #define EDITOR_TRANSLATION_H
 
-#include "core/ustring.h"
-#include "core/vector.h"
+#include "core/string/ustring.h"
+#include "core/templates/vector.h"
 
 Vector<String> get_editor_locales();
 void load_editor_translations(const String &p_locale);

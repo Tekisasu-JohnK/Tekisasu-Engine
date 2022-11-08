@@ -38,7 +38,6 @@ class TextureRect : public Control {
 
 public:
 	enum StretchMode {
-		STRETCH_SCALE_ON_EXPAND, //default, for backwards compatibility
 		STRETCH_SCALE,
 		STRETCH_TILE,
 		STRETCH_KEEP,
@@ -49,25 +48,25 @@ public:
 	};
 
 private:
-	bool expand;
-	bool hflip;
-	bool vflip;
-	Ref<Texture> texture;
-	StretchMode stretch_mode;
+	bool ignore_texture_size = false;
+	bool hflip = false;
+	bool vflip = false;
+	Ref<Texture2D> texture;
+	StretchMode stretch_mode = STRETCH_SCALE;
 
 	void _texture_changed();
 
 protected:
 	void _notification(int p_what);
-	virtual Size2 get_minimum_size() const;
+	virtual Size2 get_minimum_size() const override;
 	static void _bind_methods();
 
 public:
-	void set_texture(const Ref<Texture> &p_tex);
-	Ref<Texture> get_texture() const;
+	void set_texture(const Ref<Texture2D> &p_tex);
+	Ref<Texture2D> get_texture() const;
 
-	void set_expand(bool p_expand);
-	bool has_expand() const;
+	void set_ignore_texture_size(bool p_ignore);
+	bool get_ignore_texture_size() const;
 
 	void set_stretch_mode(StretchMode p_mode);
 	StretchMode get_stretch_mode() const;
