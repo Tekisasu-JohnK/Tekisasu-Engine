@@ -290,7 +290,7 @@ def add_release_flags(bidding):
 def move_for_export(SOURCE_FILE, TARGET_FILE):
     if os.path.exists(BIN_FOLDER + "/" + SOURCE_FILE):
 	    # Copy bin/SconsCreatedFile.exe to export/PrettyNameForTemplates.exe
-	    SEND_CMD=("echo F | xcopy " + BIN_FOLDER + F_SLASH + SOURCE_FILE + " " + EXPORT_FOLDER + F_SLASH + TARGET_FILE)
+	    SEND_CMD=("echo Yes | xcopy " + BIN_FOLDER + F_SLASH + SOURCE_FILE + " " + EXPORT_FOLDER + F_SLASH + TARGET_FILE)
 	    print("SEND_CMD : " + SEND_CMD)
 	    os.system(SEND_CMD)
 
