@@ -287,8 +287,8 @@ def add_release_flags(bidding):
 
 #tekisasu_input(action, target, cpuarc, uwp)
 
-os.system("scons platform=windows target=editor bits=64 -j8")
-os.system("scons platform=windows target=template_release bits=64 -j8")
-os.system("scons platform=windows target=template_release bits=32 -j8")
-os.system("scons platform=windows target=template_debug bits=64 -j8")
-os.system("scons platform=windows target=template_debug bits=32 -j8")
+os.system("scons platform=windows target=editor arch=x86_64 -j8")
+os.system("scons platform=windows target=template_release arch=x86_64 -j8")
+os.system("scons platform=windows target=template_release arch=x86_32 -j8")
+os.system("scons platform=windows target=template_debug arch=x86_64 -j8")
+os.system("scons platform=windows target=template_debug arch=x86_32 -j8")
