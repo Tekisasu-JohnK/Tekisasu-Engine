@@ -287,8 +287,44 @@ def add_release_flags(bidding):
 
 #tekisasu_input(action, target, cpuarc, uwp)
 
+def move_for_export(SOURCE_FILE, TARGET_FILE):
+    if os.path.exists(BIN_FOLDER + "/" + SOURCE_FILE):
+	    # Copy bin/SconsCreatedFile.exe to export/PrettyNameForTemplates.exe
+	    SEND_CMD=("echo F | xcopy " + BIN_FOLDER + F_SLASH + SOURCE_FILE + " " + EXPORT_FOLDER + F_SLASH + TARGET_FILE)
+	    print("SEND_CMD : " + SEND_CMD)
+	    os.system(SEND_CMD)
+
+# Build
 os.system("scons platform=windows target=editor arch=x86_64 -j8")
 os.system("scons platform=windows target=template_release arch=x86_64 -j8")
 os.system("scons platform=windows target=template_release arch=x86_32 -j8")
 os.system("scons platform=windows target=template_debug arch=x86_64 -j8")
 os.system("scons platform=windows target=template_debug arch=x86_32 -j8")
+
+# Rename and prepare to add to Exports package on dev.tekisasu.com
+# Editor 64-bit
+SOURCE_FILE="godot.windows.editor.x86_64.exe"
+TARGET_FILE="Tekisasu-Engine.exe"
+move_for_export(SOURCE_FILE, TARGET_FILE)
+
+# Template release 64-bit
+SOURCE_FILE="godot.windows.template_release.x86_64.exe"
+TARGET_FILE="windows_64_release.exe"
+move_for_export(SOURCE_FILE, TARGET_FILE)
+
+# Template release_debug 64-bit
+SOURCE_FILE="godot.windows.template_debug.x86_64.exe"
+TARGET_FILE="windows_64_debug.exe"
+move_for_export(SOURCE_FILE, TARGET_FILE)
+
+# Template release 32-bit
+SOURCE_FILE="godot.windows.template_release.x86_32.exe"
+TARGET_FILE="windows_32_release.exe"
+move_for_export(SOURCE_FILE, TARGET_FILE)
+
+# Template release_debug 32-bit
+SOURCE_FILE="godot.windows.template_debug.x86_32.exe"
+TARGET_FILE="windows_32_debug.exe"
+move_for_export(SOURCE_FILE, TARGET_FILE)
+
+
