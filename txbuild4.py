@@ -309,22 +309,22 @@ move_for_export(SOURCE_FILE, TARGET_FILE)
 
 # Template release 64-bit
 SOURCE_FILE="godot.windows.template_release.x86_64.exe"
-TARGET_FILE="windows_64_release.exe"
+TARGET_FILE="windows_release_x86_64.exe"
 move_for_export(SOURCE_FILE, TARGET_FILE)
 
 # Template release_debug 64-bit
 SOURCE_FILE="godot.windows.template_debug.x86_64.exe"
-TARGET_FILE="windows_64_debug.exe"
+TARGET_FILE="windows_debug_x86_64.exe"
 move_for_export(SOURCE_FILE, TARGET_FILE)
 
 # Template release 32-bit
 SOURCE_FILE="godot.windows.template_release.x86_32.exe"
-TARGET_FILE="windows_32_release.exe"
+TARGET_FILE="windows_release_x86_32.exe"
 move_for_export(SOURCE_FILE, TARGET_FILE)
 
 # Template release_debug 32-bit
 SOURCE_FILE="godot.windows.template_debug.x86_32.exe"
-TARGET_FILE="windows_32_debug.exe"
+TARGET_FILE="windows_debug_x86_32.exe"
 move_for_export(SOURCE_FILE, TARGET_FILE)
 
 
