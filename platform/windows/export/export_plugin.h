@@ -35,32 +35,11 @@
 #include "core/os/os.h"
 #include "editor/editor_settings.h"
 #include "editor/export/editor_export_platform_pc.h"
+#include "platform/windows/logo.gen.h"
 
 class EditorExportPlatformWindows : public EditorExportPlatformPC {
-	struct SSHCleanupCommand {
- 		String host;
- 		String port;
- 		Vector<String> ssh_args;
- 		String cmd_args;
-
- 		SSHCleanupCommand(){};
- 		SSHCleanupCommand(const String &p_host, const String &p_port, const Vector<String> &p_ssh_arg, const String &p_cmd_args) {
- 			host = p_host;
- 			port = p_port;
- 			ssh_args = p_ssh_arg;
- 			cmd_args = p_cmd_args;
- 		};
- 	};
-
- 	Ref<ImageTexture> run_icon;
- 	Ref<ImageTexture> stop_icon;
-
- 	Vector<SSHCleanupCommand> cleanup_commands;
- 	OS::ProcessID ssh_pid = 0;
- 	int menu_options = 0;	
-	Error _rcedit_add_data(const Ref<EditorExportPreset> &p_preset, const String &p_path);
+	Error _rcedit_add_data(const Ref<EditorExportPreset> &p_preset, const String &p_path, bool p_console_icon);
 	Error _code_sign(const Ref<EditorExportPreset> &p_preset, const String &p_path);
-	Error _export_debug_script(const Ref<EditorExportPreset> &p_preset, const String &p_app_name, const String &p_pkg_name, const String &p_path);
 
 public:
 	virtual Error export_project(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, int p_flags = 0) override;
@@ -73,16 +52,6 @@ public:
 	virtual bool get_export_option_visibility(const EditorExportPreset *p_preset, const String &p_option, const HashMap<StringName, Variant> &p_options) const override;
 	virtual String get_template_file_name(const String &p_target, const String &p_arch) const override;
 	virtual Error fixup_embedded_pck(const String &p_path, int64_t p_embedded_start, int64_t p_embedded_size) override;
-	virtual Ref<Texture2D> get_run_icon() const override;
- 	virtual bool poll_export() override;
- 	virtual Ref<ImageTexture> get_option_icon(int p_index) const override;
- 	virtual int get_options_count() const override;
- 	virtual String get_option_label(int p_index) const override;
- 	virtual String get_option_tooltip(int p_index) const override;
- 	virtual Error run(const Ref<EditorExportPreset> &p_preset, int p_device, int p_debug_flags) override;
- 	virtual void cleanup() override;
-
- 	EditorExportPlatformWindows();
 };
 
 #endif // WINDOWS_EXPORT_PLUGIN_H

@@ -51,6 +51,7 @@ void register_windows_exporter() {
 
 	Ref<EditorExportPlatformWindows> platform;
 	platform.instantiate();
+	platform->set_logo(ImageTexture::create_from_image(memnew(Image(_windows_logo))));
 	platform->set_name("Windows Desktop");
 	platform->set_os_name("Windows");
 

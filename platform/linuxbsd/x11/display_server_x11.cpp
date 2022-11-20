@@ -376,10 +376,18 @@ void DisplayServerX11::mouse_set_mode(MouseMode p_mode) {
 	}
 
 	// The only modes that show a cursor are VISIBLE and CONFINED
-	bool showCursor = (p_mode == MOUSE_MODE_VISIBLE || p_mode == MOUSE_MODE_CONFINED);
+	bool show_cursor = (p_mode == MOUSE_MODE_VISIBLE || p_mode == MOUSE_MODE_CONFINED);
+	bool previously_shown = (mouse_mode == MOUSE_MODE_VISIBLE || mouse_mode == MOUSE_MODE_CONFINED);
+
+	if (show_cursor && !previously_shown) {
+		WindowID window_id = get_window_at_screen_position(mouse_get_position());
+		if (window_id != INVALID_WINDOW_ID) {
+			_send_window_event(windows[window_id], WINDOW_EVENT_MOUSE_ENTER);
+		}
+	}
 
 	for (const KeyValue<WindowID, WindowData> &E : windows) {
-		if (showCursor) {
+		if (show_cursor) {
 			XDefineCursor(x11_display, E.value.x11_window, cursors[current_cursor]); // show cursor
 		} else {
 			XDefineCursor(x11_display, E.value.x11_window, null_cursor); // hide cursor
@@ -1309,6 +1317,14 @@ int64_t DisplayServerX11::window_get_native_handle(HandleType p_handle_type, Win
 		case WINDOW_VIEW: {
 			return 0; // Not supported.
 		}
+#ifdef GLES3_ENABLED
+		case OPENGL_CONTEXT: {
+			if (gl_manager) {
+				return (int64_t)gl_manager->get_glx_context(p_window);
+			}
+			return 0;
+		}
+#endif
 		default: {
 			return 0;
 		}
@@ -3414,7 +3430,7 @@ bool DisplayServerX11::mouse_process_popups() {
 			XWindowAttributes root_attrs;
 			XGetWindowAttributes(x11_display, root, &root_attrs);
 			Vector2i pos = Vector2i(root_attrs.x + root_x, root_attrs.y + root_y);
-			if ((pos != last_mouse_monitor_pos) || (mask != last_mouse_monitor_mask)) {
+			if (mask != last_mouse_monitor_mask) {
 				if (((mask & Button1Mask) || (mask & Button2Mask) || (mask & Button3Mask) || (mask & Button4Mask) || (mask & Button5Mask))) {
 					List<WindowID>::Element *C = nullptr;
 					List<WindowID>::Element *E = popup_list.back();
@@ -3440,7 +3456,6 @@ bool DisplayServerX11::mouse_process_popups() {
 				}
 			}
 			last_mouse_monitor_mask = mask;
-			last_mouse_monitor_pos = pos;
 		}
 	}
 	return closed;
@@ -4113,10 +4128,10 @@ void DisplayServerX11::process_events() {
 				if (event.xselection.target == requested) {
 					Property p = _read_property(x11_display, windows[window_id].x11_window, XInternAtom(x11_display, "PRIMARY", 0));
 
-					Vector<String> files = String((char *)p.data).split("\n", false);
+					Vector<String> files = String((char *)p.data).split("\r\n", false);
 					XFree(p.data);
 					for (int i = 0; i < files.size(); i++) {
-						files.write[i] = files[i].replace("file://", "").uri_decode().strip_edges();
+						files.write[i] = files[i].replace("file://", "").uri_decode();
 					}
 
 					if (!windows[window_id].drop_files_callback.is_null()) {
@@ -4399,7 +4414,7 @@ void DisplayServerX11::window_set_vsync_mode(DisplayServer::VSyncMode p_vsync_mo
 
 #if defined(GLES3_ENABLED)
 	if (gl_manager) {
-		gl_manager->set_use_vsync(p_vsync_mode == DisplayServer::VSYNC_ENABLED);
+		gl_manager->set_use_vsync(p_vsync_mode != DisplayServer::VSYNC_DISABLED);
 	}
 #endif
 }
@@ -4660,6 +4675,7 @@ DisplayServerX11::WindowID DisplayServerX11::_create_window(WindowMode p_mode, V
 		if (gl_manager) {
 			Error err = gl_manager->window_create(id, wd.x11_window, x11_display, p_rect.size.width, p_rect.size.height);
 			ERR_FAIL_COND_V_MSG(err != OK, INVALID_WINDOW_ID, "Can't create an OpenGL window");
+			window_set_vsync_mode(p_vsync_mode, id);
 		}
 #endif
 
