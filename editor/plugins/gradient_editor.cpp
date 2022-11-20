@@ -99,7 +99,7 @@ void GradientEditor::_gradient_changed() {
 
 void GradientEditor::_ramp_changed() {
 	editing = true;
-	Ref<EditorUndoRedoManager> undo_redo = EditorNode::get_undo_redo();
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(TTR("Gradient Edited"), UndoRedo::MERGE_ENDS);
 	undo_redo->add_do_method(gradient.ptr(), "set_offsets", get_offsets());
 	undo_redo->add_do_method(gradient.ptr(), "set_colors", get_colors());
@@ -203,6 +203,7 @@ void GradientEditor::gui_input(const Ref<InputEvent> &p_event) {
 		grabbed = _get_point_from_pos(mb->get_position().x);
 		_show_color_picker();
 		accept_event();
+		return;
 	}
 
 	// Delete point on right click.

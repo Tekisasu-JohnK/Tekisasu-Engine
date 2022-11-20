@@ -1045,7 +1045,6 @@ void EditorPropertyLayersGrid::_notification(int p_what) {
 			const int vofs = (grid_size.height - h) / 2;
 
 			int layer_index = 0;
-			int block_index = 0;
 
 			Point2 arrow_pos;
 
@@ -1112,8 +1111,6 @@ void EditorPropertyLayersGrid::_notification(int p_what) {
 						break;
 					}
 				}
-
-				++block_index;
 			}
 
 			if ((expansion_rows != prev_expansion_rows) && expanded) {
@@ -2688,7 +2685,7 @@ void EditorPropertyQuaternion::_custom_value_changed(double val) {
 	v.y = Math::deg_to_rad(edit_euler.y);
 	v.z = Math::deg_to_rad(edit_euler.z);
 
-	Quaternion temp_q = Quaternion(v);
+	Quaternion temp_q = Quaternion::from_euler(v);
 	spin[0]->set_value(temp_q.x);
 	spin[1]->set_value(temp_q.y);
 	spin[2]->set_value(temp_q.z);
@@ -2725,7 +2722,7 @@ void EditorPropertyQuaternion::update_property() {
 	spin[2]->set_value(val.z);
 	spin[3]->set_value(val.w);
 	if (!is_grabbing_euler()) {
-		Vector3 v = val.normalized().get_euler_yxz();
+		Vector3 v = val.normalized().get_euler();
 		edit_euler.x = Math::rad_to_deg(v.x);
 		edit_euler.y = Math::rad_to_deg(v.y);
 		edit_euler.z = Math::rad_to_deg(v.z);
@@ -4097,7 +4094,6 @@ void EditorPropertyResource::update_property() {
 				sub_inspector->set_keying(is_keying());
 				sub_inspector->set_read_only(is_read_only());
 				sub_inspector->set_use_folding(is_using_folding());
-				sub_inspector->set_undo_redo(EditorNode::get_undo_redo());
 
 				sub_inspector_vbox = memnew(VBoxContainer);
 				add_child(sub_inspector_vbox);

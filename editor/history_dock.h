@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  editor_network_profiler.h                                            */
+/*  history_dock.h                                                       */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,45 +28,39 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef EDITOR_NETWORK_PROFILER_H
-#define EDITOR_NETWORK_PROFILER_H
+#ifndef HISTORY_DOCK_H
+#define HISTORY_DOCK_H
 
-#include "scene/debugger/scene_debugger.h"
 #include "scene/gui/box_container.h"
-#include "scene/gui/button.h"
-#include "scene/gui/label.h"
-#include "scene/gui/split_container.h"
-#include "scene/gui/tree.h"
 
-class EditorNetworkProfiler : public VBoxContainer {
-	GDCLASS(EditorNetworkProfiler, VBoxContainer)
+class CheckBox;
+class ItemList;
+class EditorUndoRedoManager;
 
-private:
-	Button *activate = nullptr;
-	Button *clear_button = nullptr;
-	Tree *counters_display = nullptr;
-	LineEdit *incoming_bandwidth_text = nullptr;
-	LineEdit *outgoing_bandwidth_text = nullptr;
+class HistoryDock : public VBoxContainer {
+	GDCLASS(HistoryDock, VBoxContainer);
 
-	Timer *frame_delay = nullptr;
+	Ref<EditorUndoRedoManager> ur_manager;
+	ItemList *action_list = nullptr;
 
-	HashMap<ObjectID, SceneDebugger::RPCNodeInfo> nodes_data;
+	CheckBox *current_scene_checkbox = nullptr;
+	CheckBox *global_history_checkbox = nullptr;
 
-	void _update_frame();
+	bool need_refresh = true;
+	int current_version = 0;
 
-	void _activate_pressed();
-	void _clear_pressed();
+	void on_history_changed();
+	void refresh_history();
+	void on_version_changed();
+	void refresh_version();
 
 protected:
-	void _notification(int p_what);
-	static void _bind_methods();
+	void _notification(int p_notification);
 
 public:
-	void add_node_frame_data(const SceneDebugger::RPCNodeInfo p_frame);
-	void set_bandwidth(int p_incoming, int p_outgoing);
-	bool is_profiling();
+	void seek_history(int p_index);
 
-	EditorNetworkProfiler();
+	HistoryDock();
 };
 
-#endif // EDITOR_NETWORK_PROFILER_H
+#endif // HISTORY_DOCK_H
