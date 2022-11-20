@@ -833,7 +833,7 @@ void TextEdit::_notification(int p_what) {
 									continue;
 								}
 
-								// If we've changed colour we are at the start of a new section, therefore we need to go back to the end
+								// If we've changed color we are at the start of a new section, therefore we need to go back to the end
 								// of the previous section to draw it, we'll also add the character back on.
 								if (color != previous_color) {
 									characters--;
@@ -1854,6 +1854,12 @@ void TextEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
 		} else {
 			if (mb->get_button_index() == MouseButton::LEFT) {
 				if (selection_drag_attempt && is_mouse_over_selection()) {
+					remove_secondary_carets();
+
+					Point2i pos = get_line_column_at_pos(get_local_mouse_pos());
+					set_caret_line(pos.y, false, true, 0, 0);
+					set_caret_column(pos.x, true, 0);
+
 					deselect();
 				}
 				dragging_minimap = false;
@@ -2051,7 +2057,8 @@ void TextEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
 		}
 
 		if (is_shortcut_keys_enabled()) {
-			// SELECT ALL, SELECT WORD UNDER CARET, ADD SELECTION FOR NEXT OCCURRENCE, CUT, COPY, PASTE.
+			// SELECT ALL, SELECT WORD UNDER CARET, ADD SELECTION FOR NEXT OCCURRENCE,
+			// CLEAR CARETS AND SELECTIONS, CUT, COPY, PASTE.
 			if (k->is_action("ui_text_select_all", true)) {
 				select_all();
 				accept_event();
@@ -2067,10 +2074,12 @@ void TextEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
 				accept_event();
 				return;
 			}
-			if (k->is_action("ui_text_remove_secondary_carets", true) && _should_remove_secondary_carets()) {
-				remove_secondary_carets();
-				accept_event();
-				return;
+			if (k->is_action("ui_text_clear_carets_and_selection", true)) {
+				// Since the default shortcut is ESC, accepts the event only if it's actually performed.
+				if (_clear_carets_and_selection()) {
+					accept_event();
+					return;
+				}
 			}
 			if (k->is_action("ui_cut", true)) {
 				cut();
@@ -2656,7 +2665,7 @@ void TextEdit::_do_backspace(bool p_word, bool p_all_to_left) {
 			set_caret_line(get_caret_line(caret_idx), false, true, 0, caret_idx);
 			set_caret_column(column, caret_idx == 0, caret_idx);
 
-			// Now we can clean up the overlaping caret.
+			// Now we can clean up the overlapping caret.
 			if (overlapping_caret_index != -1) {
 				backspace(overlapping_caret_index);
 				i++;
@@ -2824,8 +2833,18 @@ void TextEdit::_move_caret_document_end(bool p_select) {
 	}
 }
 
-bool TextEdit::_should_remove_secondary_carets() {
-	return carets.size() > 1;
+bool TextEdit::_clear_carets_and_selection() {
+	if (get_caret_count() > 1) {
+		remove_secondary_carets();
+		return true;
+	}
+
+	if (has_selection()) {
+		deselect();
+		return true;
+	}
+
+	return false;
 }
 
 void TextEdit::_get_above_below_caret_line_column(int p_old_line, int p_old_wrap_index, int p_old_column, bool p_below, int &p_new_line, int &p_new_column, int p_last_fit_x) const {
@@ -6547,7 +6566,7 @@ void TextEdit::_cut_internal(int p_caret) {
 		int indent_level = get_indent_level(cl);
 		double hscroll = get_h_scroll();
 
-		// Check for overlaping carets.
+		// Check for overlapping carets.
 		// We don't need to worry about selections as that is caught before this entire section.
 		for (int j = i - 1; j >= 0; j--) {
 			if (get_caret_line(caret_edit_order[j]) == cl) {

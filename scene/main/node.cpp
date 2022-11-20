@@ -1759,11 +1759,11 @@ void Node::add_to_group(const StringName &p_identifier, bool p_persistent) {
 }
 
 void Node::remove_from_group(const StringName &p_identifier) {
-	ERR_FAIL_COND(!data.grouped.has(p_identifier));
-
 	HashMap<StringName, GroupData>::Iterator E = data.grouped.find(p_identifier);
 
-	ERR_FAIL_COND(!E);
+	if (!E) {
+		return;
+	}
 
 	if (data.tree) {
 		data.tree->remove_from_group(E->key, this);
@@ -2581,10 +2581,14 @@ void Node::print_orphan_nodes() {
 }
 
 void Node::queue_free() {
+	// There are users which instantiate multiple scene trees for their games.
+	// Use the node's own tree to handle its deletion when relevant.
 	if (is_inside_tree()) {
 		get_tree()->queue_delete(this);
 	} else {
-		SceneTree::get_singleton()->queue_delete(this);
+		SceneTree *tree = SceneTree::get_singleton();
+		ERR_FAIL_NULL_MSG(tree, "Can't queue free a node when no SceneTree is available.");
+		tree->queue_delete(this);
 	}
 }
 
@@ -2652,7 +2656,7 @@ PackedStringArray Node::get_configuration_warnings() const {
 
 String Node::get_configuration_warnings_as_string() const {
 	PackedStringArray warnings = get_configuration_warnings();
-	String all_warnings = String();
+	String all_warnings;
 	for (int i = 0; i < warnings.size(); i++) {
 		if (i > 0) {
 			all_warnings += "\n\n";
