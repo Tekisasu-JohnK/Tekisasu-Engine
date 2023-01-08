@@ -134,7 +134,7 @@ Projection Projection::create_for_hmd(int p_eye, real_t p_aspect, real_t p_intra
 
 Projection Projection::create_orthogonal(real_t p_left, real_t p_right, real_t p_bottom, real_t p_top, real_t p_znear, real_t p_zfar) {
 	Projection proj;
-	proj.set_orthogonal(p_left, p_right, p_bottom, p_top, p_zfar, p_zfar);
+	proj.set_orthogonal(p_left, p_right, p_bottom, p_top, p_znear, p_zfar);
 	return proj;
 }
 
@@ -181,7 +181,7 @@ Plane Projection::get_projection_plane(Planes p_plane) const {
 			new_plane.normal = -new_plane.normal;
 			new_plane.normalize();
 			return new_plane;
-		} break;
+		}
 		case PLANE_FAR: {
 			Plane new_plane = Plane(matrix[3] - matrix[2],
 					matrix[7] - matrix[6],
@@ -191,7 +191,7 @@ Plane Projection::get_projection_plane(Planes p_plane) const {
 			new_plane.normal = -new_plane.normal;
 			new_plane.normalize();
 			return new_plane;
-		} break;
+		}
 		case PLANE_LEFT: {
 			Plane new_plane = Plane(matrix[3] + matrix[0],
 					matrix[7] + matrix[4],
@@ -201,7 +201,7 @@ Plane Projection::get_projection_plane(Planes p_plane) const {
 			new_plane.normal = -new_plane.normal;
 			new_plane.normalize();
 			return new_plane;
-		} break;
+		}
 		case PLANE_TOP: {
 			Plane new_plane = Plane(matrix[3] - matrix[1],
 					matrix[7] - matrix[5],
@@ -211,7 +211,7 @@ Plane Projection::get_projection_plane(Planes p_plane) const {
 			new_plane.normal = -new_plane.normal;
 			new_plane.normalize();
 			return new_plane;
-		} break;
+		}
 		case PLANE_RIGHT: {
 			Plane new_plane = Plane(matrix[3] - matrix[0],
 					matrix[7] - matrix[4],
@@ -221,7 +221,7 @@ Plane Projection::get_projection_plane(Planes p_plane) const {
 			new_plane.normal = -new_plane.normal;
 			new_plane.normalize();
 			return new_plane;
-		} break;
+		}
 		case PLANE_BOTTOM: {
 			Plane new_plane = Plane(matrix[3] + matrix[1],
 					matrix[7] + matrix[5],
@@ -231,7 +231,7 @@ Plane Projection::get_projection_plane(Planes p_plane) const {
 			new_plane.normal = -new_plane.normal;
 			new_plane.normalize();
 			return new_plane;
-		} break;
+		}
 	}
 
 	return Plane();

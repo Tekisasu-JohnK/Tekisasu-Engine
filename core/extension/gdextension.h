@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  native_extension.h                                                   */
+/*  gdextension.h                                                        */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,36 +28,39 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef NATIVE_EXTENSION_H
-#define NATIVE_EXTENSION_H
+#ifndef GDEXTENSION_H
+#define GDEXTENSION_H
 
-#include "core/extension/gdnative_interface.h"
+#include <functional>
+
+#include "core/extension/gdextension_interface.h"
+#include "core/io/config_file.h"
 #include "core/io/resource_loader.h"
 #include "core/object/ref_counted.h"
 
-class NativeExtension : public Resource {
-	GDCLASS(NativeExtension, Resource)
+class GDExtension : public Resource {
+	GDCLASS(GDExtension, Resource)
 
 	void *library = nullptr; // pointer if valid,
 	String library_path;
 
 	struct Extension {
-		ObjectNativeExtension native_extension;
+		ObjectGDExtension gdextension;
 	};
 
 	HashMap<StringName, Extension> extension_classes;
 
-	static void _register_extension_class(const GDNativeExtensionClassLibraryPtr p_library, const GDNativeStringNamePtr p_class_name, const GDNativeStringNamePtr p_parent_class_name, const GDNativeExtensionClassCreationInfo *p_extension_funcs);
-	static void _register_extension_class_method(const GDNativeExtensionClassLibraryPtr p_library, const GDNativeStringNamePtr p_class_name, const GDNativeExtensionClassMethodInfo *p_method_info);
-	static void _register_extension_class_integer_constant(const GDNativeExtensionClassLibraryPtr p_library, const GDNativeStringNamePtr p_class_name, const GDNativeStringNamePtr p_enum_name, const GDNativeStringNamePtr p_constant_name, GDNativeInt p_constant_value, GDNativeBool p_is_bitfield);
-	static void _register_extension_class_property(const GDNativeExtensionClassLibraryPtr p_library, const GDNativeStringNamePtr p_class_name, const GDNativePropertyInfo *p_info, const GDNativeStringNamePtr p_setter, const GDNativeStringNamePtr p_getter);
-	static void _register_extension_class_property_group(const GDNativeExtensionClassLibraryPtr p_library, const GDNativeStringNamePtr p_class_name, const GDNativeStringNamePtr p_group_name, const GDNativeStringNamePtr p_prefix);
-	static void _register_extension_class_property_subgroup(const GDNativeExtensionClassLibraryPtr p_library, const GDNativeStringNamePtr p_class_name, const GDNativeStringNamePtr p_subgroup_name, const GDNativeStringNamePtr p_prefix);
-	static void _register_extension_class_signal(const GDNativeExtensionClassLibraryPtr p_library, const GDNativeStringNamePtr p_class_name, const GDNativeStringNamePtr p_signal_name, const GDNativePropertyInfo *p_argument_info, GDNativeInt p_argument_count);
-	static void _unregister_extension_class(const GDNativeExtensionClassLibraryPtr p_library, const GDNativeStringNamePtr p_class_name);
-	static void _get_library_path(const GDNativeExtensionClassLibraryPtr p_library, GDNativeStringPtr r_path);
+	static void _register_extension_class(GDExtensionClassLibraryPtr p_library, GDExtensionConstStringNamePtr p_class_name, GDExtensionConstStringNamePtr p_parent_class_name, const GDExtensionClassCreationInfo *p_extension_funcs);
+	static void _register_extension_class_method(GDExtensionClassLibraryPtr p_library, GDExtensionConstStringNamePtr p_class_name, const GDExtensionClassMethodInfo *p_method_info);
+	static void _register_extension_class_integer_constant(GDExtensionClassLibraryPtr p_library, GDExtensionConstStringNamePtr p_class_name, GDExtensionConstStringNamePtr p_enum_name, GDExtensionConstStringNamePtr p_constant_name, GDExtensionInt p_constant_value, GDExtensionBool p_is_bitfield);
+	static void _register_extension_class_property(GDExtensionClassLibraryPtr p_library, GDExtensionConstStringNamePtr p_class_name, const GDExtensionPropertyInfo *p_info, GDExtensionConstStringNamePtr p_setter, GDExtensionConstStringNamePtr p_getter);
+	static void _register_extension_class_property_group(GDExtensionClassLibraryPtr p_library, GDExtensionConstStringNamePtr p_class_name, GDExtensionConstStringNamePtr p_group_name, GDExtensionConstStringNamePtr p_prefix);
+	static void _register_extension_class_property_subgroup(GDExtensionClassLibraryPtr p_library, GDExtensionConstStringNamePtr p_class_name, GDExtensionConstStringNamePtr p_subgroup_name, GDExtensionConstStringNamePtr p_prefix);
+	static void _register_extension_class_signal(GDExtensionClassLibraryPtr p_library, GDExtensionConstStringNamePtr p_class_name, GDExtensionConstStringNamePtr p_signal_name, const GDExtensionPropertyInfo *p_argument_info, GDExtensionInt p_argument_count);
+	static void _unregister_extension_class(GDExtensionClassLibraryPtr p_library, GDExtensionConstStringNamePtr p_class_name);
+	static void _get_library_path(GDExtensionClassLibraryPtr p_library, GDExtensionStringPtr r_path);
 
-	GDNativeInitialization initialization;
+	GDExtensionInitialization initialization;
 	int32_t level_initialized = -1;
 
 protected:
@@ -65,15 +68,16 @@ protected:
 
 public:
 	static String get_extension_list_config_file();
+	static String find_extension_library(const String &p_path, Ref<ConfigFile> p_config, std::function<bool(String)> p_has_feature, PackedStringArray *r_tags = nullptr);
 
 	Error open_library(const String &p_path, const String &p_entry_symbol);
 	void close_library();
 
 	enum InitializationLevel {
-		INITIALIZATION_LEVEL_CORE = GDNATIVE_INITIALIZATION_CORE,
-		INITIALIZATION_LEVEL_SERVERS = GDNATIVE_INITIALIZATION_SERVERS,
-		INITIALIZATION_LEVEL_SCENE = GDNATIVE_INITIALIZATION_SCENE,
-		INITIALIZATION_LEVEL_EDITOR = GDNATIVE_INITIALIZATION_EDITOR
+		INITIALIZATION_LEVEL_CORE = GDEXTENSION_INITIALIZATION_CORE,
+		INITIALIZATION_LEVEL_SERVERS = GDEXTENSION_INITIALIZATION_SERVERS,
+		INITIALIZATION_LEVEL_SCENE = GDEXTENSION_INITIALIZATION_SCENE,
+		INITIALIZATION_LEVEL_EDITOR = GDEXTENSION_INITIALIZATION_EDITOR
 	};
 
 	bool is_library_open() const;
@@ -82,14 +86,14 @@ public:
 	void initialize_library(InitializationLevel p_level);
 	void deinitialize_library(InitializationLevel p_level);
 
-	static void initialize_native_extensions();
-	NativeExtension();
-	~NativeExtension();
+	static void initialize_gdextensions();
+	GDExtension();
+	~GDExtension();
 };
 
-VARIANT_ENUM_CAST(NativeExtension::InitializationLevel)
+VARIANT_ENUM_CAST(GDExtension::InitializationLevel)
 
-class NativeExtensionResourceLoader : public ResourceFormatLoader {
+class GDExtensionResourceLoader : public ResourceFormatLoader {
 public:
 	virtual Ref<Resource> load(const String &p_path, const String &p_original_path, Error *r_error, bool p_use_sub_threads = false, float *r_progress = nullptr, CacheMode p_cache_mode = CACHE_MODE_REUSE);
 	virtual void get_recognized_extensions(List<String> *p_extensions) const;
@@ -97,4 +101,4 @@ public:
 	virtual String get_resource_type(const String &p_path) const;
 };
 
-#endif // NATIVE_EXTENSION_H
+#endif // GDEXTENSION_H

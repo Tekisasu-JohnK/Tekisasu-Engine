@@ -161,6 +161,18 @@ bool CharString::operator<(const CharString &p_right) const {
 	return is_str_less(get_data(), p_right.get_data());
 }
 
+bool CharString::operator==(const CharString &p_right) const {
+	if (length() == 0) {
+		// True if both have length 0, false if only p_right has a length
+		return p_right.length() == 0;
+	} else if (p_right.length() == 0) {
+		// False due to unequal length
+		return false;
+	}
+
+	return strcmp(ptr(), p_right.ptr()) == 0;
+}
+
 CharString &CharString::operator+=(char p_char) {
 	const int lhs_len = length();
 	resize(lhs_len + 2);
@@ -207,37 +219,6 @@ void CharString::copy_from(const char *p_cstr) {
 /*************************************************************************/
 /*  String                                                               */
 /*************************************************************************/
-
-//kind of poor should be rewritten properly
-String String::word_wrap(int p_chars_per_line) const {
-	int from = 0;
-	int last_space = 0;
-	String ret;
-	for (int i = 0; i < length(); i++) {
-		if (i - from >= p_chars_per_line) {
-			if (last_space == -1) {
-				ret += substr(from, i - from + 1) + "\n";
-			} else {
-				ret += substr(from, last_space - from) + "\n";
-				i = last_space; //rewind
-			}
-			from = i + 1;
-			last_space = -1;
-		} else if (operator[](i) == ' ' || operator[](i) == '\t') {
-			last_space = i;
-		} else if (operator[](i) == '\n') {
-			ret += substr(from, i - from) + "\n";
-			from = i + 1;
-			last_space = -1;
-		}
-	}
-
-	if (from < length()) {
-		ret += substr(from, length());
-	}
-
-	return ret;
-}
 
 Error String::parse_url(String &r_scheme, String &r_host, int &r_port, String &r_path) const {
 	// Splits the URL into scheme, host, port, path. Strip credentials when present.
@@ -1256,8 +1237,8 @@ Vector<String> String::rsplit(const String &p_splitter, bool p_allow_empty, int 
 	return ret;
 }
 
-Vector<float> String::split_floats(const String &p_splitter, bool p_allow_empty) const {
-	Vector<float> ret;
+Vector<double> String::split_floats(const String &p_splitter, bool p_allow_empty) const {
+	Vector<double> ret;
 	int from = 0;
 	int len = length();
 
