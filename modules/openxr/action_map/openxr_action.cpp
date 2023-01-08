@@ -42,7 +42,7 @@ void OpenXRAction::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_toplevel_paths", "toplevel_paths"), &OpenXRAction::set_toplevel_paths);
 	ClassDB::bind_method(D_METHOD("get_toplevel_paths"), &OpenXRAction::get_toplevel_paths);
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "toplevel_paths", PROPERTY_HINT_ARRAY_TYPE, "STRING"), "set_toplevel_paths", "get_toplevel_paths");
+	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "toplevel_paths"), "set_toplevel_paths", "get_toplevel_paths");
 
 	BIND_ENUM_CONSTANT(OPENXR_ACTION_BOOL);
 	BIND_ENUM_CONSTANT(OPENXR_ACTION_FLOAT);
@@ -75,6 +75,7 @@ String OpenXRAction::get_name_with_set() const {
 
 void OpenXRAction::set_localized_name(const String p_localized_name) {
 	localized_name = p_localized_name;
+	emit_changed();
 }
 
 String OpenXRAction::get_localized_name() const {
@@ -83,6 +84,7 @@ String OpenXRAction::get_localized_name() const {
 
 void OpenXRAction::set_action_type(const OpenXRAction::ActionType p_action_type) {
 	action_type = p_action_type;
+	emit_changed();
 }
 
 OpenXRAction::ActionType OpenXRAction::get_action_type() const {
@@ -91,6 +93,7 @@ OpenXRAction::ActionType OpenXRAction::get_action_type() const {
 
 void OpenXRAction::set_toplevel_paths(const PackedStringArray p_toplevel_paths) {
 	toplevel_paths = p_toplevel_paths;
+	emit_changed();
 }
 
 PackedStringArray OpenXRAction::get_toplevel_paths() const {
@@ -100,15 +103,18 @@ PackedStringArray OpenXRAction::get_toplevel_paths() const {
 void OpenXRAction::add_toplevel_path(const String p_toplevel_path) {
 	if (!toplevel_paths.has(p_toplevel_path)) {
 		toplevel_paths.push_back(p_toplevel_path);
+		emit_changed();
 	}
 }
 
 void OpenXRAction::rem_toplevel_path(const String p_toplevel_path) {
 	if (toplevel_paths.has(p_toplevel_path)) {
 		toplevel_paths.erase(p_toplevel_path);
+		emit_changed();
 	}
 }
 
 void OpenXRAction::parse_toplevel_paths(const String p_toplevel_paths) {
 	toplevel_paths = p_toplevel_paths.split(",", false);
+	emit_changed();
 }
