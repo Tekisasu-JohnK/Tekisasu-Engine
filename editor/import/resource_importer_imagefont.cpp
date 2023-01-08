@@ -66,7 +66,7 @@ void ResourceImporterImageFont::get_import_options(const String &p_path, List<Im
 	r_options->push_back(ImportOption(PropertyInfo(Variant::RECT2I, "image_margin"), Rect2i()));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::RECT2I, "character_margin"), Rect2i()));
 
-	r_options->push_back(ImportOption(PropertyInfo(Variant::ARRAY, "fallbacks", PROPERTY_HINT_ARRAY_TYPE, vformat("%s/%s:%s", Variant::OBJECT, PROPERTY_HINT_RESOURCE_TYPE, "Font")), Array()));
+	r_options->push_back(ImportOption(PropertyInfo(Variant::ARRAY, "fallbacks", PROPERTY_HINT_ARRAY_TYPE, MAKE_RESOURCE_TYPE_HINT("Font")), Array()));
 
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "compress"), true));
 }
@@ -121,6 +121,7 @@ Error ResourceImporterImageFont::import(const String &p_source_file, const Strin
 	font->set_fixed_size(chr_height);
 	font->set_subpixel_positioning(TextServer::SUBPIXEL_POSITIONING_DISABLED);
 	font->set_force_autohinter(false);
+	font->set_allow_system_fallback(false);
 	font->set_hinting(TextServer::HINTING_NONE);
 	font->set_oversampling(1.0f);
 	font->set_fallbacks(fallbacks);

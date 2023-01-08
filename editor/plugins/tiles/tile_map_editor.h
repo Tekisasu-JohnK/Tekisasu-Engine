@@ -47,8 +47,6 @@
 #include "scene/gui/tab_bar.h"
 #include "scene/gui/tree.h"
 
-class EditorUndoRedoManager;
-
 class TileMapEditorPlugin : public Object {
 public:
 	struct TabData {
@@ -70,7 +68,6 @@ class TileMapEditorTilesPlugin : public TileMapEditorPlugin {
 	GDCLASS(TileMapEditorTilesPlugin, TileMapEditorPlugin);
 
 private:
-	Ref<EditorUndoRedoManager> undo_redo;
 	ObjectID tile_map_id;
 	int tile_map_layer = -1;
 	virtual void edit(ObjectID p_tile_map_id, int p_tile_map_layer) override;
@@ -94,6 +91,8 @@ private:
 	VSeparator *tools_settings_vsep_2 = nullptr;
 	CheckBox *bucket_contiguous_checkbox = nullptr;
 	Button *random_tile_toggle = nullptr;
+
+	HBoxContainer *scatter_controls_container = nullptr;
 	float scattering = 0.0;
 	Label *scatter_label = nullptr;
 	SpinBox *scatter_spinbox = nullptr;
@@ -223,7 +222,6 @@ class TileMapEditorTerrainsPlugin : public TileMapEditorPlugin {
 	GDCLASS(TileMapEditorTerrainsPlugin, TileMapEditorPlugin);
 
 private:
-	Ref<EditorUndoRedoManager> undo_redo;
 	ObjectID tile_map_id;
 	int tile_map_layer = -1;
 	virtual void edit(ObjectID p_tile_map_id, int p_tile_map_layer) override;
@@ -317,7 +315,6 @@ class TileMapEditor : public VBoxContainer {
 	GDCLASS(TileMapEditor, VBoxContainer);
 
 private:
-	Ref<EditorUndoRedoManager> undo_redo;
 	bool tileset_changed_needs_update = false;
 	ObjectID tile_map_id;
 	int tile_map_layer = -1;

@@ -153,7 +153,7 @@ EditorAbout::EditorAbout() {
 
 	Label *about_text = memnew(Label);
 	about_text->set_v_size_flags(Control::SIZE_SHRINK_CENTER);
-	about_text->set_text(String::utf8("\xc2\xa9 2021-2022 John Knight, Tekisasu.\n\xc2\xa9 2007-2022 Juan Linietsky, Ariel Manzur.\n\xc2\xa9 2014-2022 ") +
+	about_text->set_text(String::utf8("\xc2\xa9 2021-2023 John Knight, Tekisasu.\n\xc2\xa9 2007-2022 Juan Linietsky, Ariel Manzur.\n\xc2\xa9 2014-2022 ") +
 			TTR("Godot Engine contributors") + "\n");
 	version_info_vbc->add_child(about_text);
 

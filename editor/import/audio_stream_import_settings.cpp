@@ -288,17 +288,15 @@ void AudioStreamImportSettings::_draw_indicator() {
 		float preview_len = zoom_bar->get_page();
 		float beat_size = 60 / float(stream->get_bpm());
 		int prev_beat = 0;
-		int last_text_end_x = 0;
 		for (int i = 0; i < rect.size.width; i++) {
 			float ofs = preview_offset + i * preview_len / rect.size.width;
 			int beat = int(ofs / beat_size);
 			if (beat != prev_beat) {
 				String text = itos(beat);
 				int text_w = beat_font->get_string_size(text).width;
-				if (i - text_w / 2 > last_text_end_x + 2 * EDSCALE && beat == _hovering_beat) {
+				if (i - text_w / 2 > 2 * EDSCALE && beat == _hovering_beat) {
 					int x_ofs = i - text_w / 2;
 					_indicator->draw_string(beat_font, Point2(x_ofs, 2 * EDSCALE + beat_font->get_ascent(main_size)), text, HORIZONTAL_ALIGNMENT_LEFT, rect.size.width - x_ofs, Font::DEFAULT_FONT_SIZE, color);
-					last_text_end_x = i + text_w / 2;
 					break;
 				}
 				prev_beat = beat;
@@ -467,12 +465,17 @@ void AudioStreamImportSettings::_settings_changed() {
 	updating_settings = true;
 	stream->call("set_loop", loop->is_pressed());
 	stream->call("set_loop_offset", loop_offset->get_value());
+	if (loop->is_pressed()) {
+		loop_offset->set_editable(true);
+	} else {
+		loop_offset->set_editable(false);
+	}
+
 	if (bpm_enabled->is_pressed()) {
 		stream->call("set_bpm", bpm_edit->get_value());
-		beats_enabled->show();
-		beats_edit->show();
-		bar_beats_label->show();
-		bar_beats_edit->show();
+		beats_enabled->set_disabled(false);
+		beats_edit->set_editable(true);
+		bar_beats_edit->set_editable(true);
 		double bpm = bpm_edit->get_value();
 		if (bpm > 0) {
 			float beat_size = 60 / float(bpm);
@@ -488,10 +491,9 @@ void AudioStreamImportSettings::_settings_changed() {
 	} else {
 		stream->call("set_bpm", 0);
 		stream->call("set_bar_beats", 4);
-		beats_enabled->hide();
-		beats_edit->hide();
-		bar_beats_label->hide();
-		bar_beats_edit->hide();
+		beats_enabled->set_disabled(true);
+		beats_edit->set_editable(false);
+		bar_beats_edit->set_editable(false);
 	}
 	if (bpm_enabled->is_pressed() && beats_enabled->is_pressed()) {
 		stream->call("set_beat_count", beats_edit->get_value());
@@ -554,7 +556,16 @@ AudioStreamImportSettings::AudioStreamImportSettings() {
 	bpm_edit->connect("value_changed", callable_mp(this, &AudioStreamImportSettings::_settings_changed).unbind(1));
 	interactive_hb->add_child(bpm_edit);
 	interactive_hb->add_spacer();
-	bar_beats_label = memnew(Label(TTR("Beats/Bar:")));
+	beats_enabled = memnew(CheckBox);
+	beats_enabled->set_text(TTR("Beat Count:"));
+	beats_enabled->connect("toggled", callable_mp(this, &AudioStreamImportSettings::_settings_changed).unbind(1));
+	interactive_hb->add_child(beats_enabled);
+	beats_edit = memnew(SpinBox);
+	beats_edit->set_tooltip_text(TTR("Configure the amount of Beats used for music-aware looping. If zero, it will be autodetected from the length.\nIt is recommended to set this value (either manually or by clicking on a beat number in the preview) to ensure looping works properly."));
+	beats_edit->set_max(99999);
+	beats_edit->connect("value_changed", callable_mp(this, &AudioStreamImportSettings::_settings_changed).unbind(1));
+	interactive_hb->add_child(beats_edit);
+	bar_beats_label = memnew(Label(TTR("Bar Beats:")));
 	interactive_hb->add_child(bar_beats_label);
 	bar_beats_edit = memnew(SpinBox);
 	bar_beats_edit->set_tooltip_text(TTR("Configure the Beats Per Bar. This used for music-aware transitions between AudioStreams."));
@@ -563,15 +574,6 @@ AudioStreamImportSettings::AudioStreamImportSettings() {
 	bar_beats_edit->connect("value_changed", callable_mp(this, &AudioStreamImportSettings::_settings_changed).unbind(1));
 	interactive_hb->add_child(bar_beats_edit);
 	interactive_hb->add_spacer();
-	beats_enabled = memnew(CheckBox);
-	beats_enabled->set_text(TTR("Length (in beats):"));
-	beats_enabled->connect("toggled", callable_mp(this, &AudioStreamImportSettings::_settings_changed).unbind(1));
-	interactive_hb->add_child(beats_enabled);
-	beats_edit = memnew(SpinBox);
-	beats_edit->set_tooltip_text(TTR("Configure the amount of Beats used for music-aware looping. If zero, it will be autodetected from the length.\nIt is recommended to set this value (either manually or by clicking on a beat number in the preview) to ensure looping works properly."));
-	beats_edit->set_max(99999);
-	beats_edit->connect("value_changed", callable_mp(this, &AudioStreamImportSettings::_settings_changed).unbind(1));
-	interactive_hb->add_child(beats_edit);
 	main_vbox->add_margin_child(TTR("Music Playback:"), interactive_hb);
 
 	color_rect = memnew(ColorRect);
