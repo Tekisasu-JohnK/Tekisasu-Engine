@@ -989,6 +989,18 @@ String ShaderLanguage::get_precision_name(DataPrecision p_type) {
 	return "";
 }
 
+String ShaderLanguage::get_interpolation_name(DataInterpolation p_interpolation) {
+	switch (p_interpolation) {
+		case INTERPOLATION_FLAT:
+			return "flat";
+		case INTERPOLATION_SMOOTH:
+			return "smooth";
+		default:
+			break;
+	}
+	return "";
+}
+
 String ShaderLanguage::get_datatype_name(DataType p_type) {
 	switch (p_type) {
 		case TYPE_VOID:
@@ -4110,43 +4122,41 @@ PropertyInfo ShaderLanguage::uniform_to_property_info(const ShaderNode::Uniform 
 		case ShaderLanguage::TYPE_USAMPLER2D: {
 			if (p_uniform.array_size > 0) {
 				pi.type = Variant::ARRAY;
+				pi.hint = PROPERTY_HINT_ARRAY_TYPE;
+				pi.hint_string = MAKE_RESOURCE_TYPE_HINT("Texture2D");
 			} else {
 				pi.type = Variant::OBJECT;
+				pi.hint = PROPERTY_HINT_RESOURCE_TYPE;
+				pi.hint_string = "Texture2D";
 			}
-			pi.hint = PROPERTY_HINT_RESOURCE_TYPE;
-			pi.hint_string = "Texture2D";
 		} break;
 		case ShaderLanguage::TYPE_SAMPLER2DARRAY:
 		case ShaderLanguage::TYPE_ISAMPLER2DARRAY:
-		case ShaderLanguage::TYPE_USAMPLER2DARRAY: {
+		case ShaderLanguage::TYPE_USAMPLER2DARRAY:
+		case ShaderLanguage::TYPE_SAMPLERCUBE:
+		case ShaderLanguage::TYPE_SAMPLERCUBEARRAY: {
 			if (p_uniform.array_size > 0) {
 				pi.type = Variant::ARRAY;
+				pi.hint = PROPERTY_HINT_ARRAY_TYPE;
+				pi.hint_string = MAKE_RESOURCE_TYPE_HINT("TextureLayered");
 			} else {
 				pi.type = Variant::OBJECT;
+				pi.hint = PROPERTY_HINT_RESOURCE_TYPE;
+				pi.hint_string = "TextureLayered";
 			}
-			pi.hint = PROPERTY_HINT_RESOURCE_TYPE;
-			pi.hint_string = "TextureLayered";
 		} break;
 		case ShaderLanguage::TYPE_SAMPLER3D:
 		case ShaderLanguage::TYPE_ISAMPLER3D:
 		case ShaderLanguage::TYPE_USAMPLER3D: {
 			if (p_uniform.array_size > 0) {
 				pi.type = Variant::ARRAY;
+				pi.hint = PROPERTY_HINT_ARRAY_TYPE;
+				pi.hint_string = MAKE_RESOURCE_TYPE_HINT("Texture3D");
 			} else {
 				pi.type = Variant::OBJECT;
+				pi.hint = PROPERTY_HINT_RESOURCE_TYPE;
+				pi.hint_string = "Texture3D";
 			}
-			pi.hint = PROPERTY_HINT_RESOURCE_TYPE;
-			pi.hint_string = "Texture3D";
-		} break;
-		case ShaderLanguage::TYPE_SAMPLERCUBE:
-		case ShaderLanguage::TYPE_SAMPLERCUBEARRAY: {
-			if (p_uniform.array_size > 0) {
-				pi.type = Variant::ARRAY;
-			} else {
-				pi.type = Variant::OBJECT;
-			}
-			pi.hint = PROPERTY_HINT_RESOURCE_TYPE;
-			pi.hint_string = "TextureLayered";
 		} break;
 		case ShaderLanguage::TYPE_STRUCT: {
 			// FIXME: Implement this.
@@ -4419,13 +4429,17 @@ bool ShaderLanguage::_is_operator_assign(Operator p_op) const {
 }
 
 bool ShaderLanguage::_validate_varying_assign(ShaderNode::Varying &p_varying, String *r_message) {
-	if (current_function != String("vertex") && current_function != String("fragment")) {
+	if (current_function != "vertex" && current_function != "fragment") {
 		*r_message = vformat(RTR("Varying may not be assigned in the '%s' function."), current_function);
 		return false;
 	}
 	switch (p_varying.stage) {
 		case ShaderNode::Varying::STAGE_UNKNOWN: // first assign
 			if (current_function == varying_function_names.vertex) {
+				if (p_varying.type < TYPE_INT) {
+					*r_message = vformat(RTR("Varying with '%s' data type may only be assigned in the 'fragment' function."), get_datatype_name(p_varying.type));
+					return false;
+				}
 				p_varying.stage = ShaderNode::Varying::STAGE_VERTEX;
 			} else if (current_function == varying_function_names.fragment) {
 				p_varying.stage = ShaderNode::Varying::STAGE_FRAGMENT;
@@ -5225,7 +5239,7 @@ ShaderLanguage::Node *ShaderLanguage::_parse_expression(BlockNode *p_block, cons
 										if (shader->varyings.has(varname)) {
 											switch (shader->varyings[varname].stage) {
 												case ShaderNode::Varying::STAGE_UNKNOWN: {
-													_set_error(vformat(RTR("Varying '%s' must be assigned in the vertex or fragment function first."), varname));
+													_set_error(vformat(RTR("Varying '%s' must be assigned in the 'vertex' or 'fragment' function first."), varname));
 													return nullptr;
 												}
 												case ShaderNode::Varying::STAGE_VERTEX_TO_FRAGMENT_LIGHT:
@@ -5409,6 +5423,16 @@ ShaderLanguage::Node *ShaderLanguage::_parse_expression(BlockNode *p_block, cons
 							}
 						} else {
 							switch (var.stage) {
+								case ShaderNode::Varying::STAGE_UNKNOWN: {
+									if (var.type < TYPE_INT) {
+										if (current_function == varying_function_names.vertex) {
+											_set_error(vformat(RTR("Varying with '%s' data type may only be used in the 'fragment' function."), get_datatype_name(var.type)));
+										} else {
+											_set_error(vformat(RTR("Varying '%s' must be assigned in the 'fragment' function first."), identifier));
+										}
+										return nullptr;
+									}
+								} break;
 								case ShaderNode::Varying::STAGE_VERTEX:
 									if (current_function == varying_function_names.fragment || current_function == varying_function_names.light) {
 										var.stage = ShaderNode::Varying::STAGE_VERTEX_TO_FRAGMENT_LIGHT;
@@ -7590,7 +7614,7 @@ Error ShaderLanguage::_parse_block(BlockNode *p_block, const FunctionInfo &p_fun
 				return ERR_BUG;
 			}
 
-			if (b && b->parent_function && p_function_info.main_function) {
+			if (b->parent_function && p_function_info.main_function) {
 				_set_error(vformat(RTR("Using '%s' in the '%s' processor function is incorrect."), "return", b->parent_function->name));
 				return ERR_PARSE_ERROR;
 			}
@@ -8190,25 +8214,27 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 			};
 				[[fallthrough]];
 			case TK_INSTANCE: {
+				if (tk.type == TK_INSTANCE) {
 #ifdef DEBUG_ENABLED
-				keyword_completion_context = CF_UNIFORM_KEYWORD;
-				if (_lookup_next(next)) {
-					if (next.type == TK_UNIFORM) {
-						keyword_completion_context ^= CF_UNIFORM_KEYWORD;
+					keyword_completion_context = CF_UNIFORM_KEYWORD;
+					if (_lookup_next(next)) {
+						if (next.type == TK_UNIFORM) {
+							keyword_completion_context ^= CF_UNIFORM_KEYWORD;
+						}
 					}
-				}
 #endif // DEBUG_ENABLED
-				if (String(shader_type_identifier) != "spatial") {
-					_set_error(vformat(RTR("Uniform instances are not yet implemented for '%s' shaders."), shader_type_identifier));
-					return ERR_PARSE_ERROR;
-				}
-				if (uniform_scope == ShaderNode::Uniform::SCOPE_LOCAL) {
-					tk = _get_token();
-					if (tk.type != TK_UNIFORM) {
-						_set_expected_after_error("uniform", "instance");
+					if (String(shader_type_identifier) != "spatial") {
+						_set_error(vformat(RTR("Uniform instances are not yet implemented for '%s' shaders."), shader_type_identifier));
 						return ERR_PARSE_ERROR;
 					}
-					uniform_scope = ShaderNode::Uniform::SCOPE_INSTANCE;
+					if (uniform_scope == ShaderNode::Uniform::SCOPE_LOCAL) {
+						tk = _get_token();
+						if (tk.type != TK_UNIFORM) {
+							_set_expected_after_error("uniform", "instance");
+							return ERR_PARSE_ERROR;
+						}
+						uniform_scope = ShaderNode::Uniform::SCOPE_INSTANCE;
+					}
 				}
 			};
 				[[fallthrough]];
@@ -8225,7 +8251,7 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 					}
 				}
 				DataPrecision precision = PRECISION_DEFAULT;
-				DataInterpolation interpolation = INTERPOLATION_SMOOTH;
+				DataInterpolation interpolation = INTERPOLATION_DEFAULT;
 				DataType type;
 				StringName name;
 				int array_size = 0;
@@ -8331,6 +8357,11 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 
 				if (type == TYPE_VOID) {
 					_set_error(vformat(RTR("The '%s' data type is not allowed here."), "void"));
+					return ERR_PARSE_ERROR;
+				}
+
+				if (!is_uniform && interpolation != INTERPOLATION_DEFAULT && type < TYPE_INT) {
+					_set_error(vformat(RTR("Interpolation modifier '%s' cannot be used with boolean types."), get_interpolation_name(interpolation)));
 					return ERR_PARSE_ERROR;
 				}
 
@@ -8878,7 +8909,7 @@ Error ShaderLanguage::_parse_shader(const HashMap<StringName, FunctionInfo> &p_f
 							_set_error(RTR("Expected an uniform group identifier or `;`."));
 						}
 						return ERR_PARSE_ERROR;
-					} else if (tk.type == TK_SEMICOLON && current_uniform_group_name.is_empty()) {
+					} else if (current_uniform_group_name.is_empty()) {
 						_set_error(RTR("Group needs to be opened before."));
 						return ERR_PARSE_ERROR;
 					} else {
