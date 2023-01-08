@@ -124,5 +124,6 @@ Shape2D::Shape2D(const RID &p_rid) {
 }
 
 Shape2D::~Shape2D() {
+	ERR_FAIL_NULL(PhysicsServer2D::get_singleton());
 	PhysicsServer2D::get_singleton()->free(shape);
 }

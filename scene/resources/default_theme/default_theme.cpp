@@ -84,7 +84,8 @@ static Ref<ImageTexture> generate_icon(int p_index) {
 	// with integer scales.
 	const bool upsample = !Math::is_equal_approx(Math::round(scale), scale);
 	ImageLoaderSVG img_loader;
-	img_loader.create_image_from_string(img, default_theme_icons_sources[p_index], scale, upsample, HashMap<Color, Color>());
+	Error err = img_loader.create_image_from_string(img, default_theme_icons_sources[p_index], scale, upsample, HashMap<Color, Color>());
+	ERR_FAIL_COND_V_MSG(err != OK, Ref<ImageTexture>(), "Failed generating icon, unsupported or invalid SVG data in default theme.");
 #endif
 
 	return ImageTexture::create_from_image(img);
@@ -98,6 +99,11 @@ static Ref<StyleBox> make_empty_stylebox(float p_margin_left = -1, float p_margi
 
 void fill_default_theme(Ref<Theme> &theme, const Ref<Font> &default_font, const Ref<Font> &bold_font, const Ref<Font> &bold_italics_font, const Ref<Font> &italics_font, Ref<Texture2D> &default_icon, Ref<StyleBox> &default_style, float p_scale) {
 	scale = p_scale;
+
+	// Default theme properties.
+	theme->set_default_font(default_font);
+	theme->set_default_font_size(default_font_size * scale);
+	theme->set_default_base_scale(scale);
 
 	// Font colors
 	const Color control_font_color = Color(0.875, 0.875, 0.875);

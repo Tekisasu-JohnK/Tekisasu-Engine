@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  bit_map.h                                                            */
+/*  navigation_polygon.h                                                 */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,58 +28,67 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef BIT_MAP_H
-#define BIT_MAP_H
+#ifndef NAVIGATION_POLYGON_H
+#define NAVIGATION_POLYGON_H
 
-#include "core/io/image.h"
-#include "core/io/resource.h"
-#include "core/io/resource_loader.h"
+#include "scene/2d/node_2d.h"
+#include "scene/resources/navigation_mesh.h"
 
-template <typename T>
-class TypedArray;
+class NavigationPolygon : public Resource {
+	GDCLASS(NavigationPolygon, Resource);
 
-class BitMap : public Resource {
-	GDCLASS(BitMap, Resource);
-	OBJ_SAVE_TYPE(BitMap);
+	Vector<Vector2> vertices;
+	struct Polygon {
+		Vector<int> indices;
+	};
+	Vector<Polygon> polygons;
+	Vector<Vector<Vector2>> outlines;
 
-	Vector<uint8_t> bitmask;
-	int width = 0;
-	int height = 0;
+	mutable Rect2 item_rect;
+	mutable bool rect_cache_dirty = true;
 
-	Vector<Vector<Vector2>> _march_square(const Rect2i &p_rect, const Point2i &p_start) const;
-
-	TypedArray<PackedVector2Array> _opaque_to_polygons_bind(const Rect2i &p_rect, float p_epsilon) const;
+	Mutex navigation_mesh_generation;
+	// Navigation mesh
+	Ref<NavigationMesh> navigation_mesh;
 
 protected:
-	void _set_data(const Dictionary &p_d);
-	Dictionary _get_data() const;
-
 	static void _bind_methods();
 
+	void _set_polygons(const TypedArray<Vector<int32_t>> &p_array);
+	TypedArray<Vector<int32_t>> _get_polygons() const;
+
+	void _set_outlines(const TypedArray<Vector<Vector2>> &p_array);
+	TypedArray<Vector<Vector2>> _get_outlines() const;
+
 public:
-	void create(const Size2i &p_size);
-	void create_from_image_alpha(const Ref<Image> &p_image, float p_threshold = 0.1);
+#ifdef TOOLS_ENABLED
+	Rect2 _edit_get_rect() const;
+	bool _edit_is_selected_on_click(const Point2 &p_point, double p_tolerance) const;
+#endif
 
-	void set_bitv(const Point2i &p_pos, bool p_value);
-	void set_bit(int p_x, int p_y, bool p_value);
-	void set_bit_rect(const Rect2i &p_rect, bool p_value);
-	bool get_bitv(const Point2i &p_pos) const;
-	bool get_bit(int p_x, int p_y) const;
+	void set_vertices(const Vector<Vector2> &p_vertices);
+	Vector<Vector2> get_vertices() const;
 
-	int get_true_bit_count() const;
+	void add_polygon(const Vector<int> &p_polygon);
+	int get_polygon_count() const;
 
-	Size2i get_size() const;
-	void resize(const Size2i &p_new_size);
+	void add_outline(const Vector<Vector2> &p_outline);
+	void add_outline_at_index(const Vector<Vector2> &p_outline, int p_index);
+	void set_outline(int p_idx, const Vector<Vector2> &p_outline);
+	Vector<Vector2> get_outline(int p_idx) const;
+	void remove_outline(int p_idx);
+	int get_outline_count() const;
 
-	void grow_mask(int p_pixels, const Rect2i &p_rect);
-	void shrink_mask(int p_pixels, const Rect2i &p_rect);
+	void clear_outlines();
+	void make_polygons_from_outlines();
 
-	void blit(const Vector2i &p_pos, const Ref<BitMap> &p_bitmap);
-	Ref<Image> convert_to_image() const;
+	Vector<int> get_polygon(int p_idx);
+	void clear_polygons();
 
-	Vector<Vector<Vector2>> clip_opaque_to_polygons(const Rect2i &p_rect, float p_epsilon = 2.0) const;
+	Ref<NavigationMesh> get_navigation_mesh();
 
-	BitMap();
+	NavigationPolygon() {}
+	~NavigationPolygon() {}
 };
 
-#endif // BIT_MAP_H
+#endif // NAVIGATION_POLYGON_H
