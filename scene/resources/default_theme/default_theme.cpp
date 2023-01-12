@@ -84,7 +84,8 @@ static Ref<ImageTexture> generate_icon(int p_index) {
 	// with integer scales.
 	const bool upsample = !Math::is_equal_approx(Math::round(scale), scale);
 	ImageLoaderSVG img_loader;
-	img_loader.create_image_from_string(img, default_theme_icons_sources[p_index], scale, upsample, HashMap<Color, Color>());
+	Error err = img_loader.create_image_from_string(img, default_theme_icons_sources[p_index], scale, upsample, HashMap<Color, Color>());
+	ERR_FAIL_COND_V_MSG(err != OK, Ref<ImageTexture>(), "Failed generating icon, unsupported or invalid SVG data in default theme.");
 #endif
 
 	return ImageTexture::create_from_image(img);
@@ -98,6 +99,11 @@ static Ref<StyleBox> make_empty_stylebox(float p_margin_left = -1, float p_margi
 
 void fill_default_theme(Ref<Theme> &theme, const Ref<Font> &default_font, const Ref<Font> &bold_font, const Ref<Font> &bold_italics_font, const Ref<Font> &italics_font, Ref<Texture2D> &default_icon, Ref<StyleBox> &default_style, float p_scale) {
 	scale = p_scale;
+
+	// Default theme properties.
+	theme->set_default_font(default_font);
+	theme->set_default_font_size(default_font_size * scale);
+	theme->set_default_base_scale(scale);
 
 	// Font colors
 	const Color control_font_color = Color(0.875, 0.875, 0.875);
@@ -887,11 +893,64 @@ void fill_default_theme(Ref<Theme> &theme, const Ref<Font> &default_font, const 
 	theme->set_icon("shape_rect", "ColorPicker", icons["picker_shape_rectangle"]);
 	theme->set_icon("shape_rect_wheel", "ColorPicker", icons["picker_shape_rectangle_wheel"]);
 	theme->set_icon("add_preset", "ColorPicker", icons["add"]);
-	theme->set_icon("color_hue", "ColorPicker", icons["color_picker_hue"]);
 	theme->set_icon("sample_bg", "ColorPicker", icons["mini_checkerboard"]);
 	theme->set_icon("overbright_indicator", "ColorPicker", icons["color_picker_overbright"]);
 	theme->set_icon("bar_arrow", "ColorPicker", icons["color_picker_bar_arrow"]);
 	theme->set_icon("picker_cursor", "ColorPicker", icons["color_picker_cursor"]);
+
+	{
+		const int precision = 7;
+
+		Ref<Gradient> hue_gradient;
+		hue_gradient.instantiate();
+		PackedFloat32Array offsets;
+		offsets.resize(precision);
+		PackedColorArray colors;
+		colors.resize(precision);
+
+		for (int i = 0; i < precision; i++) {
+			float h = i / float(precision - 1);
+			offsets.write[i] = h;
+			colors.write[i] = Color::from_hsv(h, 1, 1);
+		}
+		hue_gradient->set_offsets(offsets);
+		hue_gradient->set_colors(colors);
+
+		Ref<GradientTexture2D> hue_texture;
+		hue_texture.instantiate();
+		hue_texture->set_width(800);
+		hue_texture->set_height(6);
+		hue_texture->set_gradient(hue_gradient);
+
+		theme->set_icon("color_hue", "ColorPicker", hue_texture);
+	}
+
+	{
+		const int precision = 7;
+
+		Ref<Gradient> hue_gradient;
+		hue_gradient.instantiate();
+		PackedFloat32Array offsets;
+		offsets.resize(precision);
+		PackedColorArray colors;
+		colors.resize(precision);
+
+		for (int i = 0; i < precision; i++) {
+			float h = i / float(precision - 1);
+			offsets.write[i] = h;
+			colors.write[i] = Color::from_ok_hsl(h, 1, 0.5);
+		}
+		hue_gradient->set_offsets(offsets);
+		hue_gradient->set_colors(colors);
+
+		Ref<GradientTexture2D> hue_texture;
+		hue_texture.instantiate();
+		hue_texture->set_width(800);
+		hue_texture->set_height(6);
+		hue_texture->set_gradient(hue_gradient);
+
+		theme->set_icon("color_okhsl_hue", "ColorPicker", hue_texture);
+	}
 
 	// ColorPickerButton
 

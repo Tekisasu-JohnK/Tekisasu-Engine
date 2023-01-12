@@ -40,6 +40,7 @@
 #include "editor/editor_settings.h"
 #include "editor/editor_undo_redo_manager.h"
 #include "filesystem_dock.h"
+#include "scene/gui/separator.h"
 #include "scene/resources/font.h"
 #include "servers/audio_server.h"
 
@@ -338,7 +339,7 @@ float EditorAudioBus::_normalized_volume_to_scaled_db(float normalized) {
 	 * values to relative decibal values.
 	 * One formula is an exponential graph which intends to counteract
 	 * the logarithmic nature of human hearing. This is an approximation
-	 * of the behaviour of a 'logarithmic potentiometer' found on most
+	 * of the behavior of a 'logarithmic potentiometer' found on most
 	 * musical instruments and also emulated in popular software.
 	 * The other two equations are hand-tuned linear tapers that intend to
 	 * try to ease the exponential equation in areas where it makes sense.*/

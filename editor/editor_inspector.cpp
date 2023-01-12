@@ -30,18 +30,19 @@
 
 #include "editor_inspector.h"
 
-#include "array_property_edit.h"
 #include "core/os/keyboard.h"
-#include "dictionary_property_edit.h"
 #include "editor/doc_tools.h"
 #include "editor/editor_feature_profile.h"
 #include "editor/editor_node.h"
 #include "editor/editor_property_name_processor.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
+#include "editor/editor_undo_redo_manager.h"
+#include "editor/inspector_dock.h"
 #include "editor/plugins/script_editor_plugin.h"
 #include "multi_node_edit.h"
-#include "scene/gui/center_container.h"
+#include "scene/gui/spin_box.h"
+#include "scene/gui/texture_rect.h"
 #include "scene/property_utils.h"
 #include "scene/resources/packed_scene.h"
 
@@ -659,6 +660,7 @@ void EditorProperty::gui_input(const Ref<InputEvent> &p_event) {
 		}
 
 		if (keying_rect.has_point(mpos)) {
+			accept_event();
 			emit_signal(SNAME("property_keyed"), property, use_keying_next());
 
 			if (use_keying_next()) {
@@ -682,10 +684,12 @@ void EditorProperty::gui_input(const Ref<InputEvent> &p_event) {
 			}
 		}
 		if (delete_rect.has_point(mpos)) {
+			accept_event();
 			emit_signal(SNAME("property_deleted"), property);
 		}
 
 		if (revert_rect.has_point(mpos)) {
+			accept_event();
 			bool is_valid_revert = false;
 			Variant revert_value = EditorPropertyRevert::get_property_revert_value(object, property, &is_valid_revert);
 			ERR_FAIL_COND(!is_valid_revert);
@@ -694,11 +698,13 @@ void EditorProperty::gui_input(const Ref<InputEvent> &p_event) {
 		}
 
 		if (check_rect.has_point(mpos)) {
+			accept_event();
 			checked = !checked;
 			queue_redraw();
 			emit_signal(SNAME("property_checked"), property, checked);
 		}
 	} else if (mb.is_valid() && mb->is_pressed() && mb->get_button_index() == MouseButton::RIGHT) {
+		accept_event();
 		_update_popup();
 		menu->set_position(get_screen_position() + get_local_mouse_position());
 		menu->reset_size();
@@ -1166,6 +1172,36 @@ void EditorInspectorSection::_test_unfold() {
 	}
 }
 
+Ref<Texture2D> EditorInspectorSection::_get_arrow() {
+	Ref<Texture2D> arrow;
+	if (foldable) {
+		if (object->editor_is_section_unfolded(section)) {
+			arrow = get_theme_icon(SNAME("arrow"), SNAME("Tree"));
+		} else {
+			if (is_layout_rtl()) {
+				arrow = get_theme_icon(SNAME("arrow_collapsed_mirrored"), SNAME("Tree"));
+			} else {
+				arrow = get_theme_icon(SNAME("arrow_collapsed"), SNAME("Tree"));
+			}
+		}
+	}
+	return arrow;
+}
+
+int EditorInspectorSection::_get_header_height() {
+	Ref<Font> font = get_theme_font(SNAME("bold"), SNAME("EditorFonts"));
+	int font_size = get_theme_font_size(SNAME("bold_size"), SNAME("EditorFonts"));
+
+	int header_height = font->get_height(font_size);
+	Ref<Texture2D> arrow = _get_arrow();
+	if (arrow.is_valid()) {
+		header_height = MAX(header_height, arrow->get_height());
+	}
+	header_height += get_theme_constant(SNAME("v_separation"), SNAME("Tree"));
+
+	return header_height;
+}
+
 void EditorInspectorSection::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
@@ -1176,30 +1212,6 @@ void EditorInspectorSection::_notification(int p_what) {
 			if (!vbox_added) {
 				return;
 			}
-			// Get the section header font.
-			Ref<Font> font = get_theme_font(SNAME("bold"), SNAME("EditorFonts"));
-			int font_size = get_theme_font_size(SNAME("bold_size"), SNAME("EditorFonts"));
-
-			// Get the right direction arrow texture, if the section is foldable.
-			Ref<Texture2D> arrow;
-			if (foldable) {
-				if (object->editor_is_section_unfolded(section)) {
-					arrow = get_theme_icon(SNAME("arrow"), SNAME("Tree"));
-				} else {
-					if (is_layout_rtl()) {
-						arrow = get_theme_icon(SNAME("arrow_collapsed_mirrored"), SNAME("Tree"));
-					} else {
-						arrow = get_theme_icon(SNAME("arrow_collapsed"), SNAME("Tree"));
-					}
-				}
-			}
-
-			// Compute the height of the section header.
-			int header_height = font->get_height(font_size);
-			if (arrow.is_valid()) {
-				header_height = MAX(header_height, arrow->get_height());
-			}
-			header_height += get_theme_constant(SNAME("v_separation"), SNAME("Tree"));
 
 			int inspector_margin = get_theme_constant(SNAME("inspector_margin"), SNAME("Editor"));
 			int section_indent_size = get_theme_constant(SNAME("indent_size"), SNAME("EditorInspectorSection"));
@@ -1212,6 +1224,7 @@ void EditorInspectorSection::_notification(int p_what) {
 			}
 
 			Size2 size = get_size() - Vector2(inspector_margin, 0);
+			int header_height = _get_header_height();
 			Vector2 offset = Vector2(is_layout_rtl() ? 0 : inspector_margin, header_height);
 			for (int i = 0; i < get_child_count(); i++) {
 				Control *c = Object::cast_to<Control>(get_child(i));
@@ -1227,36 +1240,6 @@ void EditorInspectorSection::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_DRAW: {
-			// Get the section header font.
-			Ref<Font> font = get_theme_font(SNAME("bold"), SNAME("EditorFonts"));
-			int font_size = get_theme_font_size(SNAME("bold_size"), SNAME("EditorFonts"));
-			Color font_color = get_theme_color(SNAME("font_color"), SNAME("Editor"));
-
-			// Get the right direction arrow texture, if the section is foldable.
-			Ref<Texture2D> arrow;
-			bool folded = foldable;
-			if (foldable) {
-				if (object->editor_is_section_unfolded(section)) {
-					arrow = get_theme_icon(SNAME("arrow"), SNAME("Tree"));
-					folded = false;
-				} else {
-					if (is_layout_rtl()) {
-						arrow = get_theme_icon(SNAME("arrow_collapsed_mirrored"), SNAME("Tree"));
-					} else {
-						arrow = get_theme_icon(SNAME("arrow_collapsed"), SNAME("Tree"));
-					}
-				}
-			}
-
-			bool rtl = is_layout_rtl();
-
-			// Compute the height and width of the section header.
-			int header_height = font->get_height(font_size);
-			if (arrow.is_valid()) {
-				header_height = MAX(header_height, arrow->get_height());
-			}
-			header_height += get_theme_constant(SNAME("v_separation"), SNAME("Tree"));
-
 			int section_indent = 0;
 			int section_indent_size = get_theme_constant(SNAME("indent_size"), SNAME("EditorInspectorSection"));
 			if (indent_depth > 0 && section_indent_size > 0) {
@@ -1269,11 +1252,13 @@ void EditorInspectorSection::_notification(int p_what) {
 
 			int header_width = get_size().width - section_indent;
 			int header_offset_x = 0.0;
+			bool rtl = is_layout_rtl();
 			if (!rtl) {
 				header_offset_x += section_indent;
 			}
 
 			// Draw header area.
+			int header_height = _get_header_height();
 			Rect2 header_rect = Rect2(Vector2(header_offset_x, 0.0), Vector2(header_width, header_height));
 			Color c = bg_color;
 			c.a *= 0.4;
@@ -1282,7 +1267,7 @@ void EditorInspectorSection::_notification(int p_what) {
 			}
 			draw_rect(header_rect, c);
 
-			// Draw header title, folding arrow and coutn of revertable properties.
+			// Draw header title, folding arrow and count of revertable properties.
 			{
 				int separation = Math::round(2 * EDSCALE);
 
@@ -1290,6 +1275,7 @@ void EditorInspectorSection::_notification(int p_what) {
 				int margin_end = separation;
 
 				// - Arrow.
+				Ref<Texture2D> arrow = _get_arrow();
 				if (arrow.is_valid()) {
 					Point2 arrow_position;
 					if (rtl) {
@@ -1307,6 +1293,13 @@ void EditorInspectorSection::_notification(int p_what) {
 				// - Count of revertable properties.
 				String num_revertable_str;
 				int num_revertable_width = 0;
+
+				bool folded = foldable && !object->editor_is_section_unfolded(section);
+
+				Ref<Font> font = get_theme_font(SNAME("bold"), SNAME("EditorFonts"));
+				int font_size = get_theme_font_size(SNAME("bold_size"), SNAME("EditorFonts"));
+				Color font_color = get_theme_color(SNAME("font_color"), SNAME("Editor"));
+
 				if (folded && revertable_properties.size()) {
 					int label_width = font->get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, available, font_size, TextServer::JUSTIFICATION_KASHIDA | TextServer::JUSTIFICATION_CONSTRAIN_ELLIPSIS).x;
 
@@ -1475,11 +1468,15 @@ void EditorInspectorSection::gui_input(const Ref<InputEvent> &p_event) {
 
 	Ref<InputEventMouseButton> mb = p_event;
 	if (mb.is_valid() && mb->is_pressed() && mb->get_button_index() == MouseButton::LEFT) {
-		Ref<Font> font = get_theme_font(SNAME("font"), SNAME("Tree"));
-		int font_size = get_theme_font_size(SNAME("font_size"), SNAME("Tree"));
-		if (mb->get_position().y > font->get_height(font_size)) { //clicked outside
-			return;
+		if (object->editor_is_section_unfolded(section)) {
+			int header_height = _get_header_height();
+
+			if (mb->get_position().y >= header_height) {
+				return;
+			}
 		}
+
+		accept_event();
 
 		bool should_unfold = !object->editor_is_section_unfolded(section);
 		if (should_unfold) {
@@ -1679,6 +1676,7 @@ void EditorInspectorArray::_panel_gui_input(Ref<InputEvent> p_event, int p_index
 	Ref<InputEventMouseButton> mb = p_event;
 	if (mb.is_valid()) {
 		if (movable && mb->get_button_index() == MouseButton::RIGHT) {
+			array_elements[p_index].panel->accept_event();
 			popup_array_index_pressed = begin_array_index + p_index;
 			rmb_popup->set_item_disabled(OPTION_MOVE_UP, popup_array_index_pressed == 0);
 			rmb_popup->set_item_disabled(OPTION_MOVE_DOWN, popup_array_index_pressed == count - 1);
@@ -1698,6 +1696,7 @@ void EditorInspectorArray::_move_element(int p_element_index, int p_to_pos) {
 	} else {
 		action_name = vformat("Move element %d to position %d in property array with prefix %s.", p_element_index, p_to_pos, array_element_prefix);
 	}
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(action_name);
 	if (mode == MODE_USE_MOVE_ARRAY_ELEMENT_FUNCTION) {
 		// Call the function.
@@ -1841,6 +1840,7 @@ void EditorInspectorArray::_move_element(int p_element_index, int p_to_pos) {
 }
 
 void EditorInspectorArray::_clear_array() {
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(vformat("Clear property array with prefix %s.", array_element_prefix));
 	if (mode == MODE_USE_MOVE_ARRAY_ELEMENT_FUNCTION) {
 		for (int i = count - 1; i >= 0; i--) {
@@ -1893,6 +1893,7 @@ void EditorInspectorArray::_resize_array(int p_size) {
 		return;
 	}
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(vformat("Resize property array with prefix %s.", array_element_prefix));
 	if (p_size > count) {
 		if (mode == MODE_USE_MOVE_ARRAY_ELEMENT_FUNCTION) {
@@ -2242,10 +2243,6 @@ void EditorInspectorArray::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("page_change_request"));
 }
 
-void EditorInspectorArray::set_undo_redo(Ref<EditorUndoRedoManager> p_undo_redo) {
-	undo_redo = p_undo_redo;
-}
-
 void EditorInspectorArray::setup_with_move_element_function(Object *p_object, String p_label, const StringName &p_array_element_prefix, int p_page, const Color &p_bg_color, bool p_foldable, bool p_movable, bool p_numbered, int p_page_length, const String &p_add_item_text) {
 	count_property = "";
 	mode = MODE_USE_MOVE_ARRAY_ELEMENT_FUNCTION;
@@ -2508,10 +2505,6 @@ Button *EditorInspector::create_inspector_action_button(const String &p_text) {
 	return button;
 }
 
-void EditorInspector::set_undo_redo(Ref<EditorUndoRedoManager> p_undo_redo) {
-	undo_redo = p_undo_redo;
-}
-
 String EditorInspector::get_selected_path() const {
 	return property_selected;
 }
@@ -2593,7 +2586,7 @@ bool EditorInspector::_is_property_disabled_by_feature_profile(const StringName 
 	return false;
 }
 
-void EditorInspector::update_tree() {
+void EditorInspector::_update_tree() {
 	//to update properly if all is refreshed
 	StringName current_selected = property_selected;
 	int current_focusable = -1;
@@ -3077,7 +3070,6 @@ void EditorInspector::update_tree() {
 				int page = per_array_page.has(array_element_prefix) ? per_array_page[array_element_prefix] : 0;
 				editor_inspector_array->setup_with_move_element_function(object, array_label, array_element_prefix, page, c, use_folding);
 				editor_inspector_array->connect("page_change_request", callable_mp(this, &EditorInspector::_page_change_request).bind(array_element_prefix));
-				editor_inspector_array->set_undo_redo(undo_redo);
 			} else if (p.type == Variant::INT) {
 				// Setup the array to use the count property and built-in functions to create/move/delete elements.
 				if (class_name_components.size() >= 2) {
@@ -3087,8 +3079,6 @@ void EditorInspector::update_tree() {
 
 					editor_inspector_array->setup_with_count_property(object, class_name_components[0], p.name, array_element_prefix, page, c, foldable, movable, numbered, page_size, add_button_text, swap_method);
 					editor_inspector_array->connect("page_change_request", callable_mp(this, &EditorInspector::_page_change_request).bind(array_element_prefix));
-
-					editor_inspector_array->set_undo_redo(undo_redo);
 				}
 			}
 
@@ -3121,11 +3111,24 @@ void EditorInspector::update_tree() {
 			// Build the doc hint, to use as tooltip.
 
 			// Get the class name.
-			StringName classname = doc_name == "" ? object->get_class_name() : doc_name;
+			StringName classname = doc_name;
 			if (!object_class.is_empty()) {
 				classname = object_class;
 			} else if (Object::cast_to<MultiNodeEdit>(object)) {
 				classname = Object::cast_to<MultiNodeEdit>(object)->get_edited_class_name();
+			} else if (classname == "") {
+				classname = object->get_class_name();
+				Resource *res = Object::cast_to<Resource>(object);
+				if (res && !res->get_script().is_null()) {
+					// Grab the script of this resource to get the evaluated script class.
+					Ref<Script> scr = res->get_script();
+					if (scr.is_valid()) {
+						Vector<DocData::ClassDoc> docs = scr->get_documentation();
+						if (!docs.is_empty()) {
+							classname = docs[0].name;
+						}
+					}
+				}
 			}
 
 			StringName propname = property_prefix + p.name;
@@ -3300,6 +3303,10 @@ void EditorInspector::update_tree() {
 		ped->parse_end(object);
 		_parse_added_editors(main_vbox, nullptr, ped);
 	}
+}
+
+void EditorInspector::update_tree() {
+	update_tree_pending = true;
 }
 
 void EditorInspector::update_property(const String &p_prop) {
@@ -3565,6 +3572,7 @@ void EditorInspector::_edit_set(const String &p_name, const Variant &p_value, bo
 		}
 	}
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	if (!undo_redo.is_valid() || bool(object->call("_dont_undo_redo"))) {
 		object->set(p_name, p_value);
 		if (p_refresh_all) {
@@ -3685,6 +3693,7 @@ void EditorInspector::_multiple_properties_changed(Vector<String> p_paths, Array
 		}
 		names += p_paths[i];
 	}
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(TTR("Set Multiple:") + " " + names, UndoRedo::MERGE_ENDS);
 	for (int i = 0; i < p_paths.size(); i++) {
 		_edit_set(p_paths[i], p_values[i], false, "");
@@ -3719,6 +3728,7 @@ void EditorInspector::_property_deleted(const String &p_path) {
 
 	if (p_path.begins_with("metadata/")) {
 		String name = p_path.replace_first("metadata/", "");
+		Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 		undo_redo->create_action(vformat(TTR("Remove metadata %s"), name));
 		undo_redo->add_do_method(object, "remove_meta", name);
 		undo_redo->add_undo_method(object, "set_meta", name, object->get_meta(name));
@@ -3784,6 +3794,7 @@ void EditorInspector::_property_pinned(const String &p_path, bool p_pinned) {
 	Node *node = Object::cast_to<Node>(object);
 	ERR_FAIL_COND(!node);
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	if (undo_redo.is_valid()) {
 		undo_redo->create_action(vformat(p_pinned ? TTR("Pinned %s") : TTR("Unpinned %s"), p_path));
 		undo_redo->add_do_method(node, "_set_property_pinned", p_path, p_pinned);
@@ -3892,10 +3903,9 @@ void EditorInspector::_notification(int p_what) {
 			changing++;
 
 			if (update_tree_pending) {
-				update_tree();
 				update_tree_pending = false;
 				pending.clear();
-
+				_update_tree();
 			} else {
 				while (pending.size()) {
 					StringName prop = *pending.begin();
@@ -3981,6 +3991,7 @@ void EditorInspector::_add_meta_confirm() {
 	Variant defval;
 	Callable::CallError ce;
 	Variant::construct(Variant::Type(add_meta_type->get_selected_id()), defval, nullptr, 0, ce);
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(vformat(TTR("Add metadata %s"), name));
 	undo_redo->add_do_method(object, "set_meta", name, defval);
 	undo_redo->add_undo_method(object, "remove_meta", name);

@@ -31,16 +31,23 @@
 #include "editor_properties.h"
 
 #include "core/config/project_settings.h"
+#include "core/core_string_names.h"
+#include "editor/create_dialog.h"
 #include "editor/editor_file_dialog.h"
 #include "editor/editor_node.h"
 #include "editor/editor_properties_array_dict.h"
-#include "editor/editor_resource_preview.h"
+#include "editor/editor_resource_picker.h"
 #include "editor/editor_scale.h"
-#include "editor/filesystem_dock.h"
+#include "editor/editor_settings.h"
+#include "editor/inspector_dock.h"
+#include "editor/plugins/script_editor_plugin.h"
 #include "editor/project_settings_editor.h"
+#include "editor/property_selector.h"
+#include "editor/scene_tree_editor.h"
 #include "scene/2d/gpu_particles_2d.h"
 #include "scene/3d/fog_volume.h"
 #include "scene/3d/gpu_particles_3d.h"
+#include "scene/gui/color_picker.h"
 #include "scene/main/window.h"
 #include "scene/resources/font.h"
 #include "scene/resources/mesh.h"
@@ -1045,7 +1052,6 @@ void EditorPropertyLayersGrid::_notification(int p_what) {
 			const int vofs = (grid_size.height - h) / 2;
 
 			int layer_index = 0;
-			int block_index = 0;
 
 			Point2 arrow_pos;
 
@@ -1112,8 +1118,6 @@ void EditorPropertyLayersGrid::_notification(int p_what) {
 						break;
 					}
 				}
-
-				++block_index;
 			}
 
 			if ((expansion_rows != prev_expansion_rows) && expanded) {
@@ -1172,9 +1176,9 @@ void EditorPropertyLayers::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
-			button->set_normal_texture(get_theme_icon(SNAME("GuiTabMenuHl"), SNAME("EditorIcons")));
-			button->set_pressed_texture(get_theme_icon(SNAME("GuiTabMenuHl"), SNAME("EditorIcons")));
-			button->set_disabled_texture(get_theme_icon(SNAME("GuiTabMenu"), SNAME("EditorIcons")));
+			button->set_texture_normal(get_theme_icon(SNAME("GuiTabMenuHl"), SNAME("EditorIcons")));
+			button->set_texture_pressed(get_theme_icon(SNAME("GuiTabMenuHl"), SNAME("EditorIcons")));
+			button->set_texture_disabled(get_theme_icon(SNAME("GuiTabMenu"), SNAME("EditorIcons")));
 		} break;
 	}
 }
@@ -1380,10 +1384,11 @@ void EditorPropertyInteger::update_property() {
 void EditorPropertyInteger::_bind_methods() {
 }
 
-void EditorPropertyInteger::setup(int64_t p_min, int64_t p_max, int64_t p_step, bool p_allow_greater, bool p_allow_lesser, const String &p_suffix) {
+void EditorPropertyInteger::setup(int64_t p_min, int64_t p_max, int64_t p_step, bool p_hide_slider, bool p_allow_greater, bool p_allow_lesser, const String &p_suffix) {
 	spin->set_min(p_min);
 	spin->set_max(p_max);
 	spin->set_step(p_step);
+	spin->set_hide_slider(p_hide_slider);
 	spin->set_allow_greater(p_allow_greater);
 	spin->set_allow_lesser(p_allow_lesser);
 	spin->set_suffix(p_suffix);
@@ -1814,8 +1819,8 @@ void EditorPropertyVector2::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
-			linked->set_normal_texture(get_theme_icon(SNAME("Unlinked"), SNAME("EditorIcons")));
-			linked->set_pressed_texture(get_theme_icon(SNAME("Instance"), SNAME("EditorIcons")));
+			linked->set_texture_normal(get_theme_icon(SNAME("Unlinked"), SNAME("EditorIcons")));
+			linked->set_texture_pressed(get_theme_icon(SNAME("Instance"), SNAME("EditorIcons")));
 
 			const Color *colors = _get_property_colors();
 			for (int i = 0; i < 2; i++) {
@@ -2092,8 +2097,8 @@ void EditorPropertyVector3::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
-			linked->set_normal_texture(get_theme_icon(SNAME("Unlinked"), SNAME("EditorIcons")));
-			linked->set_pressed_texture(get_theme_icon(SNAME("Instance"), SNAME("EditorIcons")));
+			linked->set_texture_normal(get_theme_icon(SNAME("Unlinked"), SNAME("EditorIcons")));
+			linked->set_texture_pressed(get_theme_icon(SNAME("Instance"), SNAME("EditorIcons")));
 
 			const Color *colors = _get_property_colors();
 			for (int i = 0; i < 3; i++) {
@@ -2227,8 +2232,8 @@ void EditorPropertyVector2i::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
-			linked->set_normal_texture(get_theme_icon(SNAME("Unlinked"), SNAME("EditorIcons")));
-			linked->set_pressed_texture(get_theme_icon(SNAME("Instance"), SNAME("EditorIcons")));
+			linked->set_texture_normal(get_theme_icon(SNAME("Unlinked"), SNAME("EditorIcons")));
+			linked->set_texture_pressed(get_theme_icon(SNAME("Instance"), SNAME("EditorIcons")));
 
 			const Color *colors = _get_property_colors();
 			for (int i = 0; i < 2; i++) {
@@ -2238,12 +2243,11 @@ void EditorPropertyVector2i::_notification(int p_what) {
 	}
 }
 
-void EditorPropertyVector2i::setup(int p_min, int p_max, bool p_hide_slider, bool p_link, const String &p_suffix) {
+void EditorPropertyVector2i::setup(int p_min, int p_max, bool p_link, const String &p_suffix) {
 	for (int i = 0; i < 2; i++) {
 		spin[i]->set_min(p_min);
 		spin[i]->set_max(p_max);
 		spin[i]->set_step(1);
-		spin[i]->set_hide_slider(p_hide_slider);
 		spin[i]->set_allow_greater(true);
 		spin[i]->set_allow_lesser(true);
 		spin[i]->set_suffix(p_suffix);
@@ -2348,12 +2352,11 @@ void EditorPropertyRect2i::_notification(int p_what) {
 void EditorPropertyRect2i::_bind_methods() {
 }
 
-void EditorPropertyRect2i::setup(int p_min, int p_max, bool p_hide_slider, const String &p_suffix) {
+void EditorPropertyRect2i::setup(int p_min, int p_max, const String &p_suffix) {
 	for (int i = 0; i < 4; i++) {
 		spin[i]->set_min(p_min);
 		spin[i]->set_max(p_max);
 		spin[i]->set_step(1);
-		spin[i]->set_hide_slider(p_hide_slider);
 		spin[i]->set_allow_greater(true);
 		spin[i]->set_allow_lesser(true);
 		spin[i]->set_suffix(p_suffix);
@@ -2478,8 +2481,8 @@ void EditorPropertyVector3i::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
-			linked->set_normal_texture(get_theme_icon(SNAME("Unlinked"), SNAME("EditorIcons")));
-			linked->set_pressed_texture(get_theme_icon(SNAME("Instance"), SNAME("EditorIcons")));
+			linked->set_texture_normal(get_theme_icon(SNAME("Unlinked"), SNAME("EditorIcons")));
+			linked->set_texture_pressed(get_theme_icon(SNAME("Instance"), SNAME("EditorIcons")));
 
 			const Color *colors = _get_property_colors();
 			for (int i = 0; i < 3; i++) {
@@ -2492,12 +2495,12 @@ void EditorPropertyVector3i::_notification(int p_what) {
 void EditorPropertyVector3i::_bind_methods() {
 }
 
-void EditorPropertyVector3i::setup(int p_min, int p_max, bool p_hide_slider, bool p_link, const String &p_suffix) {
+void EditorPropertyVector3i::setup(int p_min, int p_max, bool p_link, const String &p_suffix) {
 	for (int i = 0; i < 3; i++) {
 		spin[i]->set_min(p_min);
 		spin[i]->set_max(p_max);
 		spin[i]->set_step(1);
-		spin[i]->set_hide_slider(p_hide_slider);
+		spin[i]->set_hide_slider(false);
 		spin[i]->set_allow_greater(true);
 		spin[i]->set_allow_lesser(true);
 		spin[i]->set_suffix(p_suffix);
@@ -2688,7 +2691,7 @@ void EditorPropertyQuaternion::_custom_value_changed(double val) {
 	v.y = Math::deg_to_rad(edit_euler.y);
 	v.z = Math::deg_to_rad(edit_euler.z);
 
-	Quaternion temp_q = Quaternion(v);
+	Quaternion temp_q = Quaternion::from_euler(v);
 	spin[0]->set_value(temp_q.x);
 	spin[1]->set_value(temp_q.y);
 	spin[2]->set_value(temp_q.z);
@@ -2725,7 +2728,7 @@ void EditorPropertyQuaternion::update_property() {
 	spin[2]->set_value(val.z);
 	spin[3]->set_value(val.w);
 	if (!is_grabbing_euler()) {
-		Vector3 v = val.normalized().get_euler_yxz();
+		Vector3 v = val.normalized().get_euler();
 		edit_euler.x = Math::rad_to_deg(v.x);
 		edit_euler.y = Math::rad_to_deg(v.y);
 		edit_euler.z = Math::rad_to_deg(v.z);
@@ -3000,11 +3003,11 @@ void EditorPropertyVector4i::_notification(int p_what) {
 void EditorPropertyVector4i::_bind_methods() {
 }
 
-void EditorPropertyVector4i::setup(double p_min, double p_max, bool p_hide_slider, const String &p_suffix) {
+void EditorPropertyVector4i::setup(double p_min, double p_max, const String &p_suffix) {
 	for (int i = 0; i < 4; i++) {
 		spin[i]->set_min(p_min);
 		spin[i]->set_max(p_max);
-		spin[i]->set_hide_slider(p_hide_slider);
+		spin[i]->set_step(1);
 		spin[i]->set_allow_greater(true);
 		spin[i]->set_allow_lesser(true);
 		spin[i]->set_suffix(p_suffix);
@@ -3847,8 +3850,11 @@ void EditorPropertyResource::_resource_selected(const Ref<Resource> &p_resource,
 void EditorPropertyResource::_resource_changed(const Ref<Resource> &p_resource) {
 	// Make visual script the correct type.
 	Ref<Script> s = p_resource;
+
+	// The bool is_script applies only to an object's main script.
+	// Changing the value of Script-type exported variables of the main script should not trigger saving/reloading properties.
 	bool is_script = false;
-	if (get_edited_object() && s.is_valid()) {
+	if (get_edited_object() && s.is_valid() && get_edited_property() == CoreStringNames::get_singleton()->_script) {
 		is_script = true;
 		InspectorDock::get_singleton()->store_script_properties(get_edited_object());
 		s->call("set_instance_base_type", get_edited_object()->get_class());
@@ -4097,7 +4103,6 @@ void EditorPropertyResource::update_property() {
 				sub_inspector->set_keying(is_keying());
 				sub_inspector->set_read_only(is_read_only());
 				sub_inspector->set_use_folding(is_using_folding());
-				sub_inspector->set_undo_redo(EditorNode::get_undo_redo());
 
 				sub_inspector_vbox = memnew(VBoxContainer);
 				add_child(sub_inspector_vbox);
@@ -4341,7 +4346,7 @@ EditorProperty *EditorInspectorDefaultPlugin::get_editor_for_property(Object *p_
 				EditorPropertyInteger *editor = memnew(EditorPropertyInteger);
 
 				EditorPropertyRangeHint hint = _parse_range_hint(p_hint, p_hint_text, 1);
-				editor->setup(hint.min, hint.max, hint.step, hint.or_greater, hint.or_less, hint.suffix);
+				editor->setup(hint.min, hint.max, hint.step, hint.hide_slider, hint.or_greater, hint.or_less, hint.suffix);
 
 				return editor;
 			}
@@ -4469,7 +4474,7 @@ EditorProperty *EditorInspectorDefaultPlugin::get_editor_for_property(Object *p_
 		case Variant::VECTOR2I: {
 			EditorPropertyVector2i *editor = memnew(EditorPropertyVector2i(p_wide));
 			EditorPropertyRangeHint hint = _parse_range_hint(p_hint, p_hint_text, 1);
-			editor->setup(hint.min, hint.max, hint.hide_slider, p_hint == PROPERTY_HINT_LINK, hint.suffix);
+			editor->setup(hint.min, hint.max, p_hint == PROPERTY_HINT_LINK, hint.suffix);
 			return editor;
 
 		} break;
@@ -4482,7 +4487,7 @@ EditorProperty *EditorInspectorDefaultPlugin::get_editor_for_property(Object *p_
 		case Variant::RECT2I: {
 			EditorPropertyRect2i *editor = memnew(EditorPropertyRect2i(p_wide));
 			EditorPropertyRangeHint hint = _parse_range_hint(p_hint, p_hint_text, 1);
-			editor->setup(hint.min, hint.max, hint.hide_slider, hint.suffix);
+			editor->setup(hint.min, hint.max, hint.suffix);
 
 			return editor;
 		} break;
@@ -4496,7 +4501,7 @@ EditorProperty *EditorInspectorDefaultPlugin::get_editor_for_property(Object *p_
 		case Variant::VECTOR3I: {
 			EditorPropertyVector3i *editor = memnew(EditorPropertyVector3i(p_wide));
 			EditorPropertyRangeHint hint = _parse_range_hint(p_hint, p_hint_text, 1);
-			editor->setup(hint.min, hint.max, hint.hide_slider, p_hint == PROPERTY_HINT_LINK, hint.suffix);
+			editor->setup(hint.min, hint.max, p_hint == PROPERTY_HINT_LINK, hint.suffix);
 			return editor;
 
 		} break;
@@ -4510,7 +4515,7 @@ EditorProperty *EditorInspectorDefaultPlugin::get_editor_for_property(Object *p_
 		case Variant::VECTOR4I: {
 			EditorPropertyVector4i *editor = memnew(EditorPropertyVector4i);
 			EditorPropertyRangeHint hint = _parse_range_hint(p_hint, p_hint_text, 1);
-			editor->setup(hint.min, hint.max, hint.hide_slider, hint.suffix);
+			editor->setup(hint.min, hint.max, hint.suffix);
 			return editor;
 
 		} break;

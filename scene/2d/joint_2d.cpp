@@ -112,7 +112,7 @@ void Joint2D::_update_joint(bool p_only_free) {
 
 	ERR_FAIL_COND_MSG(!joint.is_valid(), "Failed to configure the joint.");
 
-	PhysicsServer2D::get_singleton()->get_singleton()->joint_set_param(joint, PhysicsServer2D::JOINT_PARAM_BIAS, bias);
+	PhysicsServer2D::get_singleton()->joint_set_param(joint, PhysicsServer2D::JOINT_PARAM_BIAS, bias);
 
 	ba = body_a->get_rid();
 	bb = body_b->get_rid();
@@ -133,7 +133,13 @@ void Joint2D::set_node_a(const NodePath &p_node_a) {
 	}
 
 	a = p_node_a;
-	_update_joint();
+	if (Engine::get_singleton()->is_editor_hint()) {
+		// When in editor, the setter may be called as a result of node rename.
+		// It happens before the node actually changes its name, which triggers false warning.
+		callable_mp(this, &Joint2D::_update_joint).call_deferred();
+	} else {
+		_update_joint();
+	}
 }
 
 NodePath Joint2D::get_node_a() const {
@@ -150,7 +156,11 @@ void Joint2D::set_node_b(const NodePath &p_node_b) {
 	}
 
 	b = p_node_b;
-	_update_joint();
+	if (Engine::get_singleton()->is_editor_hint()) {
+		callable_mp(this, &Joint2D::_update_joint).call_deferred();
+	} else {
+		_update_joint();
+	}
 }
 
 NodePath Joint2D::get_node_b() const {
@@ -178,7 +188,7 @@ void Joint2D::_notification(int p_what) {
 void Joint2D::set_bias(real_t p_bias) {
 	bias = p_bias;
 	if (joint.is_valid()) {
-		PhysicsServer2D::get_singleton()->get_singleton()->joint_set_param(joint, PhysicsServer2D::JOINT_PARAM_BIAS, bias);
+		PhysicsServer2D::get_singleton()->joint_set_param(joint, PhysicsServer2D::JOINT_PARAM_BIAS, bias);
 	}
 }
 

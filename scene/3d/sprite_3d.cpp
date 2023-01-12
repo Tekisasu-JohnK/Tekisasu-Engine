@@ -191,9 +191,7 @@ void SpriteBase3D::draw_texture_rect(Ref<Texture2D> p_texture, Rect2 p_dst_rect,
 
 	uint32_t v_normal;
 	{
-		Vector3 n = normal * Vector3(0.5, 0.5, 0.5) + Vector3(0.5, 0.5, 0.5);
-
-		Vector2 res = n.octahedron_encode();
+		Vector2 res = normal.octahedron_encode();
 		uint32_t value = 0;
 		value |= (uint16_t)CLAMP(res.x * 65535, 0, 65535);
 		value |= (uint16_t)CLAMP(res.y * 65535, 0, 65535) << 16;
@@ -680,6 +678,7 @@ void Sprite3D::set_region_enabled(bool p_region) {
 
 	region = p_region;
 	_queue_redraw();
+	notify_property_list_changed();
 }
 
 bool Sprite3D::is_region_enabled() const {
@@ -780,6 +779,10 @@ void Sprite3D::_validate_property(PropertyInfo &p_property) const {
 
 	if (p_property.name == "frame_coords") {
 		p_property.usage |= PROPERTY_USAGE_KEYING_INCREMENTS;
+	}
+
+	if (!region && (p_property.name == "region_rect")) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 }
 

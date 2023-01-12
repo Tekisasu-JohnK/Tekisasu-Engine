@@ -245,7 +245,7 @@ public class GodotInputHandler implements InputManager.InputDeviceListener {
 				}
 				return true;
 			}
-		} else if (isMouseEvent(event)) {
+		} else {
 			return handleMouseEvent(event);
 		}
 
@@ -422,7 +422,7 @@ public class GodotInputHandler implements InputManager.InputDeviceListener {
 	}
 
 	private static boolean isMouseEvent(int eventSource) {
-		boolean mouseSource = ((eventSource & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) || ((eventSource & InputDevice.SOURCE_STYLUS) == InputDevice.SOURCE_STYLUS);
+		boolean mouseSource = ((eventSource & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) || ((eventSource & (InputDevice.SOURCE_TOUCHSCREEN | InputDevice.SOURCE_STYLUS)) == InputDevice.SOURCE_STYLUS);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 			mouseSource = mouseSource || ((eventSource & InputDevice.SOURCE_MOUSE_RELATIVE) == InputDevice.SOURCE_MOUSE_RELATIVE);
 		}
@@ -473,6 +473,9 @@ public class GodotInputHandler implements InputManager.InputDeviceListener {
 	}
 
 	static boolean handleMouseEvent(int eventAction, int buttonsMask, float x, float y, float deltaX, float deltaY, boolean doubleClick, boolean sourceMouseRelative) {
+		// We don't handle ACTION_BUTTON_PRESS and ACTION_BUTTON_RELEASE events as they typically
+		// follow ACTION_DOWN and ACTION_UP events. As such, handling them would result in duplicate
+		// stream of events to the engine.
 		switch (eventAction) {
 			case MotionEvent.ACTION_CANCEL:
 			case MotionEvent.ACTION_UP:

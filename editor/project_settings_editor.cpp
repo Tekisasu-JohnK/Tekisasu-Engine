@@ -114,6 +114,7 @@ void ProjectSettingsEditor::_add_setting() {
 	Variant value;
 	Variant::construct(Variant::Type(type_box->get_selected_id()), value, nullptr, 0, ce);
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(TTR("Add Project Setting"));
 	undo_redo->add_do_property(ps, setting, value);
 	undo_redo->add_undo_property(ps, setting, ps->has_setting(setting) ? ps->get(setting) : Variant());
@@ -133,6 +134,7 @@ void ProjectSettingsEditor::_delete_setting() {
 	Variant value = ps->get(setting);
 	int order = ps->get_order(setting);
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(TTR("Delete Item"));
 
 	undo_redo->add_do_method(ps, "clear", setting);
@@ -221,9 +223,9 @@ void ProjectSettingsEditor::_select_type(Variant::Type p_type) {
 
 void ProjectSettingsEditor::shortcut_input(const Ref<InputEvent> &p_event) {
 	ERR_FAIL_COND(p_event.is_null());
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 
 	const Ref<InputEventKey> k = p_event;
-
 	if (k.is_valid() && k->is_pressed()) {
 		bool handled = false;
 
@@ -272,10 +274,14 @@ void ProjectSettingsEditor::_add_feature_overrides() {
 	presets.insert("s3tc");
 	presets.insert("etc");
 	presets.insert("etc2");
+	presets.insert("editor");
+	presets.insert("template_debug");
+	presets.insert("template_release");
 	presets.insert("debug");
 	presets.insert("release");
-	presets.insert("editor");
-	presets.insert("standalone");
+	presets.insert("template");
+	presets.insert("double");
+	presets.insert("single");
 	presets.insert("32");
 	presets.insert("64");
 	presets.insert("movie");
@@ -339,6 +345,7 @@ void ProjectSettingsEditor::_action_added(const String &p_name) {
 	action["events"] = Array();
 	action["deadzone"] = 0.5f;
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(TTR("Add Input Action"));
 	undo_redo->add_do_method(ProjectSettings::get_singleton(), "set", name, action);
 	undo_redo->add_undo_method(ProjectSettings::get_singleton(), "clear", name);
@@ -354,6 +361,7 @@ void ProjectSettingsEditor::_action_edited(const String &p_name, const Dictionar
 	const String property_name = "input/" + p_name;
 	Dictionary old_val = GLOBAL_GET(property_name);
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	if (old_val["deadzone"] != p_action["deadzone"]) {
 		// Deadzone Changed
 		undo_redo->create_action(TTR("Change Action deadzone"));
@@ -390,6 +398,7 @@ void ProjectSettingsEditor::_action_removed(const String &p_name) {
 	Dictionary old_val = GLOBAL_GET(property_name);
 	int order = ProjectSettings::get_singleton()->get_order(property_name);
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(TTR("Erase Input Action"));
 	undo_redo->add_do_method(ProjectSettings::get_singleton(), "clear", property_name);
 	undo_redo->add_undo_method(ProjectSettings::get_singleton(), "set", property_name, old_val);
@@ -412,6 +421,7 @@ void ProjectSettingsEditor::_action_renamed(const String &p_old_name, const Stri
 	int order = ProjectSettings::get_singleton()->get_order(old_property_name);
 	Dictionary action = GLOBAL_GET(old_property_name);
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(TTR("Rename Input Action Event"));
 	// Do: clear old, set new
 	undo_redo->add_do_method(ProjectSettings::get_singleton(), "clear", old_property_name);
@@ -441,6 +451,7 @@ void ProjectSettingsEditor::_action_reordered(const String &p_action_name, const
 	HashMap<String, Variant> action_values;
 	ProjectSettings::get_singleton()->get_property_list(&props);
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(TTR("Update Input Action Order"));
 
 	for (const PropertyInfo &prop : props) {
@@ -542,6 +553,14 @@ void ProjectSettingsEditor::_update_theme() {
 	}
 }
 
+void ProjectSettingsEditor::_input_filter_focused() {
+	set_close_on_escape(false);
+}
+
+void ProjectSettingsEditor::_input_filter_unfocused() {
+	set_close_on_escape(true);
+}
+
 void ProjectSettingsEditor::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_VISIBILITY_CHANGED: {
@@ -573,7 +592,6 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	set_title(TTR("Project Settings (project.godot)"));
 
 	ps = ProjectSettings::get_singleton();
-	undo_redo = p_data->get_undo_redo();
 	data = p_data;
 
 	tab_container = memnew(TabContainer);
@@ -632,7 +650,6 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	custom_properties->add_child(del_button);
 
 	general_settings_inspector = memnew(SectionedInspector);
-	general_settings_inspector->get_inspector()->set_undo_redo(EditorNode::get_undo_redo());
 	general_settings_inspector->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	general_settings_inspector->register_search_box(search_box);
 	general_settings_inspector->get_inspector()->set_use_filter(true);
@@ -674,6 +691,8 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	action_map_editor->connect("action_removed", callable_mp(this, &ProjectSettingsEditor::_action_removed));
 	action_map_editor->connect("action_renamed", callable_mp(this, &ProjectSettingsEditor::_action_renamed));
 	action_map_editor->connect("action_reordered", callable_mp(this, &ProjectSettingsEditor::_action_reordered));
+	action_map_editor->connect(SNAME("filter_focused"), callable_mp(this, &ProjectSettingsEditor::_input_filter_focused));
+	action_map_editor->connect(SNAME("filter_unfocused"), callable_mp(this, &ProjectSettingsEditor::_input_filter_unfocused));
 	tab_container->add_child(action_map_editor);
 
 	localization_editor = memnew(LocalizationEditor);

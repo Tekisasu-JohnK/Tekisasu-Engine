@@ -41,7 +41,6 @@
 #include "scene/gui/texture_button.h"
 #include "scene/gui/tree.h"
 
-class EditorUndoRedoManager;
 class AnimationPlayerEditorPlugin;
 
 class AnimationPlayerEditor : public VBoxContainer {
@@ -101,7 +100,6 @@ class AnimationPlayerEditor : public VBoxContainer {
 	LineEdit *name = nullptr;
 	OptionButton *library = nullptr;
 	Label *name_title = nullptr;
-	Ref<EditorUndoRedoManager> undo_redo;
 
 	Ref<Texture2D> autoplay_icon;
 	Ref<Texture2D> reset_icon;
@@ -164,7 +162,7 @@ class AnimationPlayerEditor : public VBoxContainer {
 	} onion;
 
 	void _select_anim_by_name(const String &p_anim);
-	double _get_editor_step() const;
+	float _get_editor_step() const;
 	void _play_pressed();
 	void _play_from_pressed();
 	void _play_bw_pressed();
@@ -214,6 +212,8 @@ class AnimationPlayerEditor : public VBoxContainer {
 	void _start_onion_skinning();
 	void _stop_onion_skinning();
 
+	bool _validate_tracks(const Ref<Animation> p_anim);
+
 	void _pin_pressed();
 	String _get_current() const;
 
@@ -237,7 +237,6 @@ public:
 
 	void ensure_visibility();
 
-	void set_undo_redo(Ref<EditorUndoRedoManager> p_undo_redo);
 	void edit(AnimationPlayer *p_player);
 	void forward_force_draw_over_viewport(Control *p_overlay);
 
@@ -271,6 +270,32 @@ public:
 
 	AnimationPlayerEditorPlugin();
 	~AnimationPlayerEditorPlugin();
+};
+
+// AnimationTrackKeyEditEditorPlugin
+
+class EditorInspectorPluginAnimationTrackKeyEdit : public EditorInspectorPlugin {
+	GDCLASS(EditorInspectorPluginAnimationTrackKeyEdit, EditorInspectorPlugin);
+
+	AnimationTrackKeyEditEditor *atk_editor = nullptr;
+
+public:
+	virtual bool can_handle(Object *p_object) override;
+	virtual void parse_begin(Object *p_object) override;
+};
+
+class AnimationTrackKeyEditEditorPlugin : public EditorPlugin {
+	GDCLASS(AnimationTrackKeyEditEditorPlugin, EditorPlugin);
+
+	EditorInspectorPluginAnimationTrackKeyEdit *atk_plugin = nullptr;
+
+public:
+	bool has_main_screen() const override { return false; }
+	virtual bool handles(Object *p_object) const override;
+
+	virtual String get_name() const override { return "AnimationTrackKeyEdit"; }
+
+	AnimationTrackKeyEditEditorPlugin();
 };
 
 #endif // ANIMATION_PLAYER_EDITOR_PLUGIN_H

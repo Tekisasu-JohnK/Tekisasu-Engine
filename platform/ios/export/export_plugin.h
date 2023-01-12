@@ -43,6 +43,7 @@
 #include "editor/editor_settings.h"
 #include "editor/export/editor_export_platform.h"
 #include "main/splash.gen.h"
+#include "platform/ios/logo.gen.h"
 #include "string.h"
 
 #include "godot_plugin_config.h"

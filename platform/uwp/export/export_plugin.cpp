@@ -30,14 +30,8 @@
 
 #include "export_plugin.h"
 
-#include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
-#include "platform/uwp/logo_svg.gen.h"
-
- #include "modules/modules_enabled.gen.h" // For svg and regex.
- #ifdef MODULE_SVG_ENABLED
- #include "modules/svg/image_loader_svg.h"
- #endif
+#include "platform/uwp/logo.gen.h"
 
 String EditorExportPlatformUWP::get_name() const {
 	return "UWP";
@@ -510,13 +504,5 @@ void EditorExportPlatformUWP::resolve_platform_feature_priorities(const Ref<Edit
 }
 
 EditorExportPlatformUWP::EditorExportPlatformUWP() {
-#ifdef MODULE_SVG_ENABLED
- 	Ref<Image> img = memnew(Image);
- 	const bool upsample = !Math::is_equal_approx(Math::round(EDSCALE), EDSCALE);
-
- 	ImageLoaderSVG img_loader;
- 	img_loader.create_image_from_string(img, _uwp_logo_svg, EDSCALE, upsample, false);
-
- 	logo = ImageTexture::create_from_image(img);
- #endif
+	logo = ImageTexture::create_from_image(memnew(Image(_uwp_logo)));
 }

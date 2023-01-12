@@ -31,6 +31,7 @@
 #include "connections_dialog.h"
 
 #include "editor/doc_tools.h"
+#include "editor/editor_help.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
@@ -684,6 +685,7 @@ void ConnectionsDock::_connect(ConnectDialog::ConnectionData p_cd) {
 	}
 
 	Callable callable = p_cd.get_callable();
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(vformat(TTR("Connect '%s' to '%s'"), String(p_cd.signal), String(p_cd.method)));
 	undo_redo->add_do_method(source, "connect", p_cd.signal, callable, p_cd.flags);
 	undo_redo->add_undo_method(source, "disconnect", p_cd.signal, callable);
@@ -704,6 +706,7 @@ void ConnectionsDock::_disconnect(TreeItem &p_item) {
 
 	ERR_FAIL_COND(cd.source != selected_node); // Shouldn't happen but... Bugcheck.
 
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(vformat(TTR("Disconnect '%s' from '%s'"), cd.signal, cd.method));
 
 	Callable callable = cd.get_callable();
@@ -730,6 +733,7 @@ void ConnectionsDock::_disconnect_all() {
 
 	TreeItem *child = item->get_first_child();
 	String signal_name = item->get_metadata(0).operator Dictionary()["name"];
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 	undo_redo->create_action(vformat(TTR("Disconnect all from signal: '%s'"), signal_name));
 
 	while (child) {
@@ -784,23 +788,7 @@ bool ConnectionsDock::_is_item_signal(TreeItem &p_item) {
 }
 
 bool ConnectionsDock::_is_connection_inherited(Connection &p_connection) {
-	Node *scene_root = EditorNode::get_singleton()->get_edited_scene();
-	Ref<PackedScene> scn = ResourceLoader::load(scene_root->get_scene_file_path());
-	ERR_FAIL_NULL_V(scn, false);
-
-	Ref<SceneState> state = scn->get_state();
-	ERR_FAIL_NULL_V(state, false);
-
-	Node *source = Object::cast_to<Node>(p_connection.signal.get_object());
-	Node *target = Object::cast_to<Node>(p_connection.callable.get_object());
-
-	const NodePath source_path = scene_root->get_path_to(source);
-	const NodePath target_path = scene_root->get_path_to(target);
-	const StringName signal_name = p_connection.signal.get_name();
-	const StringName method_name = p_connection.callable.get_method();
-
-	// If it cannot be found in PackedScene, this connection was inherited.
-	return !state->has_connection(source_path, signal_name, target_path, method_name, true);
+	return bool(p_connection.flags & CONNECT_INHERITED);
 }
 
 /*
@@ -989,10 +977,6 @@ void ConnectionsDock::_notification(int p_what) {
 
 void ConnectionsDock::_bind_methods() {
 	ClassDB::bind_method("update_tree", &ConnectionsDock::update_tree);
-}
-
-void ConnectionsDock::set_undo_redo(Ref<EditorUndoRedoManager> p_undo_redo) {
-	undo_redo = p_undo_redo;
 }
 
 void ConnectionsDock::set_node(Node *p_node) {

@@ -30,6 +30,7 @@
 
 #include "editor_log.h"
 
+#include "core/object/undo_redo.h"
 #include "core/os/keyboard.h"
 #include "core/version.h"
 #include "editor/editor_node.h"
@@ -226,7 +227,7 @@ void EditorLog::add_message(const String &p_msg, MessageType p_type) {
 	// Make text split by new lines their own message.
 	// See #41321 for reasoning. At time of writing, multiple print()'s in running projects
 	// get grouped together and sent to the editor log as one message. This can mess with the
-	// search functionality (see the comments on the PR above for more details). This behaviour
+	// search functionality (see the comments on the PR above for more details). This behavior
 	// also matches that of other IDE's.
 	Vector<String> lines = p_msg.split("\n", true);
 
@@ -285,7 +286,7 @@ void EditorLog::_add_log_line(LogMessage &p_message, bool p_replace_previous) {
 		// Remove last line if replacing, as it will be replace by the next added line.
 		// Why "- 2"? RichTextLabel is weird. When you add a line with add_newline(), it also adds an element to the list of lines which is null/blank,
 		// but it still counts as a line. So if you remove the last line (count - 1) you are actually removing nothing...
-		log->remove_line(log->get_paragraph_count() - 2);
+		log->remove_paragraph(log->get_paragraph_count() - 2);
 	}
 
 	switch (p_message.type) {

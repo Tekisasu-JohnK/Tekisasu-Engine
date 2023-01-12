@@ -45,7 +45,7 @@ void OpenXRInterface::_bind_methods() {
 	// Display refresh rate
 	ClassDB::bind_method(D_METHOD("get_display_refresh_rate"), &OpenXRInterface::get_display_refresh_rate);
 	ClassDB::bind_method(D_METHOD("set_display_refresh_rate", "refresh_rate"), &OpenXRInterface::set_display_refresh_rate);
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "display_refresh_rate"), "set_display_refresh_rate", "get_display_refresh_rate");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "display_refresh_rate"), "set_display_refresh_rate", "get_display_refresh_rate");
 
 	ClassDB::bind_method(D_METHOD("get_available_display_refresh_rates"), &OpenXRInterface::get_available_display_refresh_rates);
 }
@@ -96,7 +96,7 @@ void OpenXRInterface::_load_action_map() {
 
 	// This may seem a bit duplicitous to a little bit of background info here.
 	// OpenXRActionMap (with all its sub resource classes) is a class that allows us to configure and store an action map in.
-	// This gives the user the ability to edit the action map in a UI and customise the actions.
+	// This gives the user the ability to edit the action map in a UI and customize the actions.
 	// OpenXR however requires us to submit an action map and it takes over from that point and we can no longer change it.
 	// This system does that push and we store the info needed to then work with this action map going forward.
 
@@ -158,7 +158,7 @@ void OpenXRInterface::_load_action_map() {
 
 				for (int k = 0; k < toplevel_paths.size(); k++) {
 					// Only check for our tracker if our path is supported.
-					if (openxr_api->is_path_supported(toplevel_paths[k])) {
+					if (openxr_api->is_top_level_path_supported(toplevel_paths[k])) {
 						Tracker *tracker = find_tracker(toplevel_paths[k], true);
 						if (tracker) {
 							trackers_for_action.push_back(tracker);
@@ -166,7 +166,7 @@ void OpenXRInterface::_load_action_map() {
 					}
 				}
 
-				// Only add our action if we have atleast one valid toplevel path
+				// Only add our action if we have at least one valid toplevel path
 				if (trackers_for_action.size() > 0) {
 					Action *action = create_action(action_set, xr_action->get_name(), xr_action->get_localized_name(), xr_action->get_action_type(), trackers_for_action);
 					if (action) {
@@ -345,7 +345,7 @@ OpenXRInterface::Tracker *OpenXRInterface::find_tracker(const String &p_tracker_
 		return nullptr;
 	}
 
-	ERR_FAIL_COND_V(!openxr_api->is_path_supported(p_tracker_name), nullptr);
+	ERR_FAIL_COND_V(!openxr_api->is_top_level_path_supported(p_tracker_name), nullptr);
 
 	// Create our RID
 	RID tracker_rid = openxr_api->tracker_create(p_tracker_name);
@@ -355,7 +355,7 @@ OpenXRInterface::Tracker *OpenXRInterface::find_tracker(const String &p_tracker_
 	Ref<XRPositionalTracker> positional_tracker;
 	positional_tracker.instantiate();
 
-	// We have standardised some names to make things nicer to the user so lets recognise the toplevel paths related to these.
+	// We have standardized some names to make things nicer to the user so lets recognize the toplevel paths related to these.
 	if (p_tracker_name == "/user/hand/left") {
 		positional_tracker->set_tracker_type(XRServer::TRACKER_CONTROLLER);
 		positional_tracker->set_tracker_name("left_hand");
@@ -666,6 +666,7 @@ Transform3D OpenXRInterface::get_camera_transform() {
 Transform3D OpenXRInterface::get_transform_for_view(uint32_t p_view, const Transform3D &p_cam_transform) {
 	XRServer *xr_server = XRServer::get_singleton();
 	ERR_FAIL_NULL_V(xr_server, Transform3D());
+	ERR_FAIL_UNSIGNED_INDEX_V_MSG(p_view, get_view_count(), Transform3D(), "View index outside bounds.");
 
 	Transform3D t;
 	if (openxr_api && openxr_api->get_view_transform(p_view, t)) {
@@ -685,6 +686,7 @@ Transform3D OpenXRInterface::get_transform_for_view(uint32_t p_view, const Trans
 
 Projection OpenXRInterface::get_projection_for_view(uint32_t p_view, double p_aspect, double p_z_near, double p_z_far) {
 	Projection cm;
+	ERR_FAIL_UNSIGNED_INDEX_V_MSG(p_view, get_view_count(), cm, "View index outside bounds.");
 
 	if (openxr_api) {
 		if (openxr_api->get_view_projection(p_view, p_z_near, p_z_far, cm)) {

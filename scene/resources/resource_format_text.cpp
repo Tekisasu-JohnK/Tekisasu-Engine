@@ -144,6 +144,7 @@ Error ResourceLoaderText::_parse_ext_resource(VariantParser::Stream *p_stream, R
 	}
 
 	String id = token.value;
+	Error err = OK;
 
 	if (!ignore_resource_parsing) {
 		if (!ext_resources.has(id)) {
@@ -163,7 +164,7 @@ Error ResourceLoaderText::_parse_ext_resource(VariantParser::Stream *p_stream, R
 					error = ERR_FILE_MISSING_DEPENDENCIES;
 					error_text = "[ext_resource] referenced nonexistent resource at: " + path;
 					_printerr();
-					return error;
+					err = error;
 				} else {
 					ResourceLoader::notify_dependency_error(local_path, path, type);
 				}
@@ -175,7 +176,7 @@ Error ResourceLoaderText::_parse_ext_resource(VariantParser::Stream *p_stream, R
 			error = ERR_FILE_MISSING_DEPENDENCIES;
 			error_text = "[ext_resource] referenced non-loaded resource at: " + path;
 			_printerr();
-			return error;
+			err = error;
 		}
 	} else {
 		r_res = Ref<Resource>();
@@ -187,7 +188,7 @@ Error ResourceLoaderText::_parse_ext_resource(VariantParser::Stream *p_stream, R
 		return ERR_PARSE_ERROR;
 	}
 
-	return OK;
+	return err;
 }
 
 Ref<PackedScene> ResourceLoaderText::_parse_node_tag(VariantParser::ResourceParser &parser) {
@@ -217,7 +218,7 @@ Ref<PackedScene> ResourceLoaderText::_parse_node_tag(VariantParser::ResourcePars
 			if (next_tag.fields.has("type")) {
 				type = packed_scene->get_state()->add_name(next_tag.fields["type"]);
 			} else {
-				type = SceneState::TYPE_INSTANCED; //no type? assume this was instantiated
+				type = SceneState::TYPE_INSTANTIATED; //no type? assume this was instantiated
 			}
 
 			HashSet<StringName> path_properties;
@@ -256,7 +257,7 @@ Ref<PackedScene> ResourceLoaderText::_parse_node_tag(VariantParser::ResourcePars
 			if (next_tag.fields.has("owner")) {
 				owner = packed_scene->get_state()->add_node_path(next_tag.fields["owner"]);
 			} else {
-				if (parent != -1 && !(type == SceneState::TYPE_INSTANCED && instance == -1)) {
+				if (parent != -1 && !(type == SceneState::TYPE_INSTANTIATED && instance == -1)) {
 					owner = 0; //if no owner, owner is root
 				}
 			}
@@ -511,6 +512,7 @@ Error ResourceLoaderText::load() {
 
 		if (error) {
 			_printerr();
+			return error;
 		}
 
 		resource_current++;
@@ -600,9 +602,13 @@ Error ResourceLoaderText::load() {
 		resource_current++;
 
 		int_resources[id] = res; //always assign int resources
-		if (do_assign && cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE) {
-			res->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE);
-			res->set_scene_unique_id(id);
+		if (do_assign) {
+			if (cache_mode == ResourceFormatLoader::CACHE_MODE_IGNORE) {
+				res->set_path(path);
+			} else {
+				res->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE);
+				res->set_scene_unique_id(id);
+			}
 		}
 
 		Dictionary missing_resource_properties;
@@ -830,7 +836,8 @@ void ResourceLoaderText::set_translation_remapped(bool p_remapped) {
 	translation_remapped = p_remapped;
 }
 
-ResourceLoaderText::ResourceLoaderText() {}
+ResourceLoaderText::ResourceLoaderText() :
+		stream(false) {}
 
 void ResourceLoaderText::get_dependencies(Ref<FileAccess> p_f, List<String> *p_dependencies, bool p_add_types) {
 	open(p_f);
@@ -884,6 +891,7 @@ void ResourceLoaderText::get_dependencies(Ref<FileAccess> p_f, List<String> *p_d
 			error_text = "Unexpected end of file";
 			_printerr();
 			error = ERR_FILE_CORRUPT;
+			return;
 		}
 	}
 }
@@ -974,15 +982,26 @@ Error ResourceLoaderText::rename_dependencies(Ref<FileAccess> p_f, const String 
 
 	f->seek(tag_end);
 
-	uint8_t c = f->get_8();
-	if (c == '\n' && !f->eof_reached()) {
-		// Skip first newline character since we added one
-		c = f->get_8();
+	const uint32_t buffer_size = 2048;
+	uint8_t *buffer = (uint8_t *)alloca(buffer_size);
+	uint32_t num_read;
+
+	num_read = f->get_buffer(buffer, buffer_size);
+	ERR_FAIL_COND_V_MSG(num_read == UINT32_MAX, ERR_CANT_CREATE, "Failed to allocate memory for buffer.");
+	ERR_FAIL_COND_V(num_read == 0, ERR_FILE_CORRUPT);
+
+	if (*buffer == '\n') {
+		// Skip first newline character since we added one.
+		if (num_read > 1) {
+			fw->store_buffer(buffer + 1, num_read - 1);
+		}
+	} else {
+		fw->store_buffer(buffer, num_read);
 	}
 
 	while (!f->eof_reached()) {
-		fw->store_8(c);
-		c = f->get_8();
+		num_read = f->get_buffer(buffer, buffer_size);
+		fw->store_buffer(buffer, num_read);
 	}
 
 	bool all_ok = fw->get_error() == OK;
@@ -1349,7 +1368,7 @@ Error ResourceLoaderText::save_as_binary(const String &p_path) {
 
 	wf->seek_end();
 
-	Vector<uint8_t> data = FileAccess::get_file_as_array(temp_file);
+	Vector<uint8_t> data = FileAccess::get_file_as_bytes(temp_file);
 	wf->store_buffer(data.ptr(), data.size());
 	{
 		Ref<DirAccess> dar = DirAccess::open(temp_file.get_base_dir());

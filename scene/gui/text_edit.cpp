@@ -680,7 +680,7 @@ void TextEdit::_notification(int p_what) {
 				}
 			}
 
-			bool draw_placeholder = text.size() == 1 && text[0].length() == 0;
+			bool draw_placeholder = text.size() == 1 && text[0].is_empty() && ime_text.is_empty();
 
 			// Get the highlighted words.
 			String highlighted_text = get_selected_text(0);
@@ -833,7 +833,7 @@ void TextEdit::_notification(int p_what) {
 									continue;
 								}
 
-								// If we've changed colour we are at the start of a new section, therefore we need to go back to the end
+								// If we've changed color we are at the start of a new section, therefore we need to go back to the end
 								// of the previous section to draw it, we'll also add the character back on.
 								if (color != previous_color) {
 									characters--;
@@ -1108,8 +1108,9 @@ void TextEdit::_notification(int p_what) {
 					int start = TS->shaped_text_get_range(rid).x;
 					if (!clipped && !search_text.is_empty()) { // Search highhlight
 						int search_text_col = _get_column_pos_of_word(search_text, str, search_flags, 0);
+						int search_text_len = search_text.length();
 						while (search_text_col != -1) {
-							Vector<Vector2> sel = TS->shaped_text_get_selection(rid, search_text_col + start, search_text_col + search_text.length() + start);
+							Vector<Vector2> sel = TS->shaped_text_get_selection(rid, search_text_col + start, search_text_col + search_text_len + start);
 							for (int j = 0; j < sel.size(); j++) {
 								Rect2 rect = Rect2(sel[j].x + char_margin + ofs_x, ofs_y, sel[j].y - sel[j].x, row_height);
 								if (rect.position.x + rect.size.x <= xmargin_beg || rect.position.x > xmargin_end) {
@@ -1125,14 +1126,15 @@ void TextEdit::_notification(int p_what) {
 								draw_rect(rect, search_result_border_color, false);
 							}
 
-							search_text_col = _get_column_pos_of_word(search_text, str, search_flags, search_text_col + 1);
+							search_text_col = _get_column_pos_of_word(search_text, str, search_flags, search_text_col + search_text_len);
 						}
 					}
 
 					if (!clipped && highlight_all_occurrences && !only_whitespaces_highlighted && !highlighted_text.is_empty()) { // Highlight
 						int highlighted_text_col = _get_column_pos_of_word(highlighted_text, str, SEARCH_MATCH_CASE | SEARCH_WHOLE_WORDS, 0);
+						int highlighted_text_len = highlighted_text.length();
 						while (highlighted_text_col != -1) {
-							Vector<Vector2> sel = TS->shaped_text_get_selection(rid, highlighted_text_col + start, highlighted_text_col + highlighted_text.length() + start);
+							Vector<Vector2> sel = TS->shaped_text_get_selection(rid, highlighted_text_col + start, highlighted_text_col + highlighted_text_len + start);
 							for (int j = 0; j < sel.size(); j++) {
 								Rect2 rect = Rect2(sel[j].x + char_margin + ofs_x, ofs_y, sel[j].y - sel[j].x, row_height);
 								if (rect.position.x + rect.size.x <= xmargin_beg || rect.position.x > xmargin_end) {
@@ -1147,15 +1149,16 @@ void TextEdit::_notification(int p_what) {
 								draw_rect(rect, word_highlighted_color);
 							}
 
-							highlighted_text_col = _get_column_pos_of_word(highlighted_text, str, SEARCH_MATCH_CASE | SEARCH_WHOLE_WORDS, highlighted_text_col + 1);
+							highlighted_text_col = _get_column_pos_of_word(highlighted_text, str, SEARCH_MATCH_CASE | SEARCH_WHOLE_WORDS, highlighted_text_col + highlighted_text_len);
 						}
 					}
 
 					if (!clipped && lookup_symbol_word.length() != 0) { // Highlight word
 						if (is_ascii_char(lookup_symbol_word[0]) || lookup_symbol_word[0] == '_' || lookup_symbol_word[0] == '.') {
-							int highlighted_word_col = _get_column_pos_of_word(lookup_symbol_word, str, SEARCH_MATCH_CASE | SEARCH_WHOLE_WORDS, 0);
-							while (highlighted_word_col != -1) {
-								Vector<Vector2> sel = TS->shaped_text_get_selection(rid, highlighted_word_col + start, highlighted_word_col + lookup_symbol_word.length() + start);
+							int lookup_symbol_word_col = _get_column_pos_of_word(lookup_symbol_word, str, SEARCH_MATCH_CASE | SEARCH_WHOLE_WORDS, 0);
+							int lookup_symbol_word_len = lookup_symbol_word.length();
+							while (lookup_symbol_word_col != -1) {
+								Vector<Vector2> sel = TS->shaped_text_get_selection(rid, lookup_symbol_word_col + start, lookup_symbol_word_col + lookup_symbol_word_len + start);
 								for (int j = 0; j < sel.size(); j++) {
 									Rect2 rect = Rect2(sel[j].x + char_margin + ofs_x, ofs_y + (line_spacing / 2), sel[j].y - sel[j].x, row_height);
 									if (rect.position.x + rect.size.x <= xmargin_beg || rect.position.x > xmargin_end) {
@@ -1172,7 +1175,7 @@ void TextEdit::_notification(int p_what) {
 									draw_rect(rect, color);
 								}
 
-								highlighted_word_col = _get_column_pos_of_word(lookup_symbol_word, str, SEARCH_MATCH_CASE | SEARCH_WHOLE_WORDS, highlighted_word_col + 1);
+								lookup_symbol_word_col = _get_column_pos_of_word(lookup_symbol_word, str, SEARCH_MATCH_CASE | SEARCH_WHOLE_WORDS, lookup_symbol_word_col + lookup_symbol_word_len);
 							}
 						}
 					}
@@ -1854,6 +1857,12 @@ void TextEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
 		} else {
 			if (mb->get_button_index() == MouseButton::LEFT) {
 				if (selection_drag_attempt && is_mouse_over_selection()) {
+					remove_secondary_carets();
+
+					Point2i pos = get_line_column_at_pos(get_local_mouse_pos());
+					set_caret_line(pos.y, false, true, 0, 0);
+					set_caret_column(pos.x, true, 0);
+
 					deselect();
 				}
 				dragging_minimap = false;
@@ -2051,7 +2060,8 @@ void TextEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
 		}
 
 		if (is_shortcut_keys_enabled()) {
-			// SELECT ALL, SELECT WORD UNDER CARET, ADD SELECTION FOR NEXT OCCURRENCE, CUT, COPY, PASTE.
+			// SELECT ALL, SELECT WORD UNDER CARET, ADD SELECTION FOR NEXT OCCURRENCE,
+			// CLEAR CARETS AND SELECTIONS, CUT, COPY, PASTE.
 			if (k->is_action("ui_text_select_all", true)) {
 				select_all();
 				accept_event();
@@ -2067,10 +2077,12 @@ void TextEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
 				accept_event();
 				return;
 			}
-			if (k->is_action("ui_text_remove_secondary_carets", true) && _should_remove_secondary_carets()) {
-				remove_secondary_carets();
-				accept_event();
-				return;
+			if (k->is_action("ui_text_clear_carets_and_selection", true)) {
+				// Since the default shortcut is ESC, accepts the event only if it's actually performed.
+				if (_clear_carets_and_selection()) {
+					accept_event();
+					return;
+				}
 			}
 			if (k->is_action("ui_cut", true)) {
 				cut();
@@ -2656,7 +2668,7 @@ void TextEdit::_do_backspace(bool p_word, bool p_all_to_left) {
 			set_caret_line(get_caret_line(caret_idx), false, true, 0, caret_idx);
 			set_caret_column(column, caret_idx == 0, caret_idx);
 
-			// Now we can clean up the overlaping caret.
+			// Now we can clean up the overlapping caret.
 			if (overlapping_caret_index != -1) {
 				backspace(overlapping_caret_index);
 				i++;
@@ -2824,8 +2836,18 @@ void TextEdit::_move_caret_document_end(bool p_select) {
 	}
 }
 
-bool TextEdit::_should_remove_secondary_carets() {
-	return carets.size() > 1;
+bool TextEdit::_clear_carets_and_selection() {
+	if (get_caret_count() > 1) {
+		remove_secondary_carets();
+		return true;
+	}
+
+	if (has_selection()) {
+		deselect();
+		return true;
+	}
+
+	return false;
 }
 
 void TextEdit::_get_above_below_caret_line_column(int p_old_line, int p_old_wrap_index, int p_old_column, bool p_below, int &p_new_line, int &p_new_column, int p_last_fit_x) const {
@@ -4215,7 +4237,7 @@ Point2i TextEdit::get_line_column_at_pos(const Point2i &p_pos, bool p_allow_out_
 		if (!p_allow_out_of_bounds) {
 			return Point2i(-1, -1);
 		}
-		return Point2i(text[row].size(), row);
+		return Point2i(text[row].length(), row);
 	}
 
 	int col = 0;
@@ -6547,7 +6569,7 @@ void TextEdit::_cut_internal(int p_caret) {
 		int indent_level = get_indent_level(cl);
 		double hscroll = get_h_scroll();
 
-		// Check for overlaping carets.
+		// Check for overlapping carets.
 		// We don't need to worry about selections as that is caught before this entire section.
 		for (int j = i - 1; j >= 0; j--) {
 			if (get_caret_line(caret_edit_order[j]) == cl) {
@@ -7019,8 +7041,8 @@ void TextEdit::_update_selection_mode_word() {
 		if ((col <= carets[caret_idx].selection.selected_word_origin && line == get_selection_line(caret_idx)) || line < get_selection_line(caret_idx)) {
 			carets.write[caret_idx].selection.selecting_column = carets[caret_idx].selection.selected_word_end;
 			select(line, beg, get_selection_line(caret_idx), carets[caret_idx].selection.selected_word_end, caret_idx);
-			set_caret_line(get_selection_from_line(caret_idx), false, true, 0, caret_idx);
-			set_caret_column(get_selection_from_column(caret_idx), true, caret_idx);
+			set_caret_line(line, false, true, 0, caret_idx);
+			set_caret_column(beg, true, caret_idx);
 		} else {
 			carets.write[caret_idx].selection.selecting_column = carets[caret_idx].selection.selected_word_beg;
 			select(get_selection_line(caret_idx), carets[caret_idx].selection.selected_word_beg, line, end, caret_idx);

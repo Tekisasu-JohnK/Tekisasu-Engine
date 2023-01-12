@@ -194,7 +194,7 @@ void EditorAutoloadSettings::_autoload_edited() {
 	TreeItem *ti = tree->get_edited();
 	int column = tree->get_edited_column();
 
-	Ref<EditorUndoRedoManager> undo_redo = EditorNode::get_undo_redo();
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 
 	if (column == 0) {
 		String name = ti->get_text(0);
@@ -289,7 +289,7 @@ void EditorAutoloadSettings::_autoload_button_pressed(Object *p_item, int p_colu
 
 	String name = "autoload/" + ti->get_text(0);
 
-	Ref<EditorUndoRedoManager> undo_redo = EditorNode::get_undo_redo();
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 
 	switch (p_button) {
 		case BUTTON_OPEN: {
@@ -400,27 +400,38 @@ void EditorAutoloadSettings::_autoload_text_changed(const String p_name) {
 }
 
 Node *EditorAutoloadSettings::_create_autoload(const String &p_path) {
-	Ref<Resource> res = ResourceLoader::load(p_path);
-	ERR_FAIL_COND_V_MSG(res.is_null(), nullptr, "Can't autoload: " + p_path + ".");
 	Node *n = nullptr;
-	Ref<PackedScene> scn = res;
-	Ref<Script> scr = res;
-	if (scn.is_valid()) {
-		n = scn->instantiate();
-	} else if (scr.is_valid()) {
-		StringName ibt = scr->get_instance_base_type();
-		bool valid_type = ClassDB::is_parent_class(ibt, "Node");
-		ERR_FAIL_COND_V_MSG(!valid_type, nullptr, "Script does not inherit from Node: " + p_path + ".");
+	if (ResourceLoader::get_resource_type(p_path) == "PackedScene") {
+		// Cache the scene reference before loading it (for cyclic references)
+		Ref<PackedScene> scn;
+		scn.instantiate();
+		scn->set_path(p_path);
+		scn->reload_from_file();
+		ERR_FAIL_COND_V_MSG(!scn.is_valid(), nullptr, vformat("Can't autoload: %s.", p_path));
 
-		Object *obj = ClassDB::instantiate(ibt);
+		if (scn.is_valid()) {
+			n = scn->instantiate();
+		}
+	} else {
+		Ref<Resource> res = ResourceLoader::load(p_path);
+		ERR_FAIL_COND_V_MSG(res.is_null(), nullptr, vformat("Can't autoload: %s.", p_path));
 
-		ERR_FAIL_COND_V_MSG(!obj, nullptr, "Cannot instance script for Autoload, expected 'Node' inheritance, got: " + String(ibt) + ".");
+		Ref<Script> scr = res;
+		if (scr.is_valid()) {
+			StringName ibt = scr->get_instance_base_type();
+			bool valid_type = ClassDB::is_parent_class(ibt, "Node");
+			ERR_FAIL_COND_V_MSG(!valid_type, nullptr, vformat("Script does not inherit from Node: %s.", p_path));
 
-		n = Object::cast_to<Node>(obj);
-		n->set_script(scr);
+			Object *obj = ClassDB::instantiate(ibt);
+
+			ERR_FAIL_COND_V_MSG(!obj, nullptr, vformat("Cannot instance script for Autoload, expected 'Node' inheritance, got: %s.", ibt));
+
+			n = Object::cast_to<Node>(obj);
+			n->set_script(scr);
+		}
 	}
 
-	ERR_FAIL_COND_V_MSG(!n, nullptr, "Path in Autoload not a node or script: " + p_path + ".");
+	ERR_FAIL_COND_V_MSG(!n, nullptr, vformat("Path in Autoload not a node or script: %s.", p_path));
 
 	return n;
 }
@@ -530,8 +541,6 @@ void EditorAutoloadSettings::update_autoload() {
 			info.node->queue_free();
 			info.node = nullptr;
 		}
-
-		ProjectSettings::get_singleton()->remove_autoload(info.name);
 	}
 
 	// Load new/changed autoloads
@@ -555,12 +564,6 @@ void EditorAutoloadSettings::update_autoload() {
 				ScriptServer::get_language(i)->add_named_global_constant(info->name, info->node);
 			}
 		}
-
-		ProjectSettings::AutoloadInfo prop_info;
-		prop_info.name = info->name;
-		prop_info.path = info->path;
-		prop_info.is_singleton = info->is_singleton;
-		ProjectSettings::get_singleton()->add_autoload(prop_info);
 
 		if (!info->in_editor && !info->is_singleton) {
 			// No reason to keep this node
@@ -714,7 +717,7 @@ void EditorAutoloadSettings::drop_data_fw(const Point2 &p_point, const Variant &
 
 	orders.sort();
 
-	Ref<EditorUndoRedoManager> undo_redo = EditorNode::get_undo_redo();
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 
 	undo_redo->create_action(TTR("Rearrange Autoloads"));
 
@@ -757,7 +760,7 @@ bool EditorAutoloadSettings::autoload_add(const String &p_name, const String &p_
 
 	name = "autoload/" + name;
 
-	Ref<EditorUndoRedoManager> undo_redo = EditorNode::get_undo_redo();
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 
 	undo_redo->create_action(TTR("Add Autoload"));
 	// Singleton autoloads are represented with a leading "*" in their path.
@@ -783,7 +786,7 @@ bool EditorAutoloadSettings::autoload_add(const String &p_name, const String &p_
 void EditorAutoloadSettings::autoload_remove(const String &p_name) {
 	String name = "autoload/" + p_name;
 
-	Ref<EditorUndoRedoManager> undo_redo = EditorNode::get_undo_redo();
+	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
 
 	int order = ProjectSettings::get_singleton()->get_order(name);
 

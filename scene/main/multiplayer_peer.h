@@ -82,9 +82,12 @@ public:
 	virtual TransferMode get_packet_mode() const = 0;
 	virtual int get_packet_channel() const = 0;
 
+	virtual void disconnect_peer(int p_peer, bool p_force = false) = 0;
+
 	virtual bool is_server() const = 0;
 
 	virtual void poll() = 0;
+	virtual void close() = 0;
 
 	virtual int get_unique_id() const = 0;
 
@@ -109,11 +112,11 @@ protected:
 public:
 	/* PacketPeer extension */
 	virtual Error get_packet(const uint8_t **r_buffer, int &r_buffer_size) override; ///< buffer is GONE after next get_packet
-	GDVIRTUAL2R(Error, _get_packet, GDNativeConstPtr<const uint8_t *>, GDNativePtr<int>);
+	GDVIRTUAL2R(Error, _get_packet, GDExtensionConstPtr<const uint8_t *>, GDExtensionPtr<int>);
 	GDVIRTUAL0R(PackedByteArray, _get_packet_script); // For GDScript.
 
 	virtual Error put_packet(const uint8_t *p_buffer, int p_buffer_size) override;
-	GDVIRTUAL2R(Error, _put_packet, GDNativeConstPtr<const uint8_t>, int);
+	GDVIRTUAL2R(Error, _put_packet, GDExtensionConstPtr<const uint8_t>, int);
 	GDVIRTUAL1R(Error, _put_packet_script, PackedByteArray); // For GDScript.
 
 	EXBIND0RC(int, get_available_packet_count);
@@ -139,6 +142,8 @@ public:
 	EXBIND0RC(int, get_packet_channel);
 	EXBIND0RC(bool, is_server);
 	EXBIND0(poll);
+	EXBIND0(close);
+	EXBIND2(disconnect_peer, int, bool);
 	EXBIND0RC(int, get_unique_id);
 	EXBIND0RC(ConnectionStatus, get_connection_status);
 };

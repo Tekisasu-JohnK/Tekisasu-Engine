@@ -4,7 +4,7 @@
 		Multiline text control intended for editing code.
 	</brief_description>
 	<description>
-		CodeEdit is a specialised [TextEdit] designed for editing plain text code files. It contains a bunch of features commonly found in code editors such as line numbers, line folding, code completion, indent management and string / comment management.
+		CodeEdit is a specialized [TextEdit] designed for editing plain text code files. It contains a bunch of features commonly found in code editors such as line numbers, line folding, code completion, indent management and string / comment management.
 		[b]Note:[/b] By default [CodeEdit] always use left-to-right text direction to correctly display source code.
 	</description>
 	<tutorials>
@@ -651,6 +651,7 @@
 		</theme_item>
 		<theme_item name="outline_size" data_type="constant" type="int" default="0">
 			The size of the text outline.
+			[b]Note:[/b] If using a font with [member FontFile.multichannel_signed_distance_field] enabled, its [member FontFile.msdf_pixel_range] must be set to at least [i]twice[/i] the value of [theme_item outline_size] for outline rendering to look correct. Otherwise, the outline may appear to be cut off earlier than intended.
 		</theme_item>
 		<theme_item name="font" data_type="font" type="Font">
 			Sets the default [Font].

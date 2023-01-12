@@ -241,6 +241,7 @@
 			<param index="4" name="modulate" type="Color" default="Color(1, 1, 1, 1)" />
 			<param index="5" name="outline_size" type="int" default="0" />
 			<param index="6" name="px_range" type="float" default="1.0" />
+			<param index="7" name="scale" type="float" default="1.0" />
 			<description>
 			</description>
 		</method>
@@ -497,6 +498,14 @@
 			<param index="1" name="enabled" type="bool" />
 			<description>
 				Sets if the [CanvasItem] uses its parent's material.
+			</description>
+		</method>
+		<method name="canvas_item_set_visibility_layer">
+			<return type="void" />
+			<param index="0" name="item" type="RID" />
+			<param index="1" name="visibility_layer" type="int" />
+			<description>
+				Sets the rendering visibility layer associated with this [CanvasItem]. Only [Viewport] nodes with a matching rendering mask will render this [CanvasItem].
 			</description>
 		</method>
 		<method name="canvas_item_set_visibility_notifier">
@@ -830,6 +839,8 @@
 		<method name="create_local_rendering_device" qualifiers="const">
 			<return type="RenderingDevice" />
 			<description>
+				Creates a RenderingDevice that can be used to do draw and compute operations on a separate thread. Cannot draw to the screen nor share data with the global RenderingDevice.
+				[b]Note:[/b] When using the OpenGL backend or when running in headless mode, this function always returns [code]null[/code].
 			</description>
 		</method>
 		<method name="decal_create">
@@ -947,12 +958,6 @@
 			</description>
 		</method>
 		<method name="environment_glow_set_use_bicubic_upscale">
-			<return type="void" />
-			<param index="0" name="enable" type="bool" />
-			<description>
-			</description>
-		</method>
-		<method name="environment_glow_set_use_high_quality">
 			<return type="void" />
 			<param index="0" name="enable" type="bool" />
 			<description>
@@ -1265,6 +1270,8 @@
 		<method name="get_rendering_device" qualifiers="const">
 			<return type="RenderingDevice" />
 			<description>
+				Returns the global RenderingDevice.
+				[b]Note:[/b] When using the OpenGL backend or when running in headless mode, this function always returns [code]null[/code].
 			</description>
 		</method>
 		<method name="get_rendering_info">
@@ -1283,13 +1290,13 @@
 		<method name="get_test_cube">
 			<return type="RID" />
 			<description>
-				Returns the id of the test cube. Creates one if none exists.
+				Returns the ID of the test cube. Creates one if none exists.
 			</description>
 		</method>
 		<method name="get_test_texture">
 			<return type="RID" />
 			<description>
-				Returns the id of the test texture. Creates one if none exists.
+				Returns the ID of the test texture. Creates one if none exists.
 			</description>
 		</method>
 		<method name="get_video_adapter_api_version" qualifiers="const">
@@ -1323,7 +1330,7 @@
 		<method name="get_white_texture">
 			<return type="RID" />
 			<description>
-				Returns the id of a white texture. Creates one if none exists.
+				Returns the ID of a white texture. Creates one if none exists.
 			</description>
 		</method>
 		<method name="gi_set_use_half_resolution">
@@ -1553,7 +1560,7 @@
 			<param index="0" name="instance" type="RID" />
 			<param index="1" name="aabb" type="AABB" />
 			<description>
-				Sets a custom AABB to use when culling objects from the view frustum. Equivalent to [method GeometryInstance3D.set_custom_aabb].
+				Sets a custom AABB to use when culling objects from the view frustum. Equivalent to setting [member GeometryInstance3D.custom_aabb].
 			</description>
 		</method>
 		<method name="instance_set_extra_visibility_margin">
@@ -1577,6 +1584,15 @@
 			<param index="1" name="mask" type="int" />
 			<description>
 				Sets the render layers that this instance will be drawn to. Equivalent to [member VisualInstance3D.layers].
+			</description>
+		</method>
+		<method name="instance_set_pivot_data">
+			<return type="void" />
+			<param index="0" name="instance" type="RID" />
+			<param index="1" name="sorting_offset" type="float" />
+			<param index="2" name="use_aabb_center" type="bool" />
+			<description>
+				Sets the sorting offset and switches between using the bounding box or instance origin for depth sorting.
 			</description>
 		</method>
 		<method name="instance_set_scenario">
@@ -3016,6 +3032,14 @@
 			<description>
 			</description>
 		</method>
+		<method name="texture_get_rd_texture" qualifiers="const">
+			<return type="RID" />
+			<param index="0" name="texture" type="RID" />
+			<param index="1" name="srgb" type="bool" default="false" />
+			<description>
+				Returns a texture [RID] that can be used with [RenderingDevice].
+			</description>
+		</method>
 		<method name="texture_proxy_create">
 			<return type="RID" />
 			<param index="0" name="base" type="RID" />
@@ -3141,6 +3165,14 @@
 			<param index="1" name="active" type="bool" />
 			<description>
 				If [code]true[/code], sets the viewport active, else sets it inactive.
+			</description>
+		</method>
+		<method name="viewport_set_canvas_cull_mask">
+			<return type="void" />
+			<param index="0" name="viewport" type="RID" />
+			<param index="1" name="canvas_cull_mask" type="int" />
+			<description>
+				Sets the rendering mask associated with this [Viewport]. Only [CanvasItem] nodes with a matching rendering visibility layer will be rendered by this [Viewport].
 			</description>
 		</method>
 		<method name="viewport_set_canvas_stacking">

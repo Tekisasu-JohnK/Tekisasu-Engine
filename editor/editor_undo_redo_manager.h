@@ -41,10 +41,10 @@ class EditorUndoRedoManager : public RefCounted {
 public:
 	enum SpecialHistory {
 		GLOBAL_HISTORY = 0,
+		REMOTE_HISTORY = -9,
 		INVALID_HISTORY = -99,
 	};
 
-private:
 	struct Action {
 		int history_id = INVALID_HISTORY;
 		double timestamp = 0;
@@ -60,10 +60,13 @@ private:
 		List<Action> redo_stack;
 	};
 
+private:
 	HashMap<int, History> history_map;
 	Action pending_action;
 
 	bool is_committing = false;
+
+	History *_get_newest_undo();
 
 protected:
 	static void _bind_methods();
@@ -114,7 +117,9 @@ public:
 	bool is_committing_action() const;
 
 	bool undo();
+	bool undo_history(int p_id);
 	bool redo();
+	bool redo_history(int p_id);
 	void clear_history(bool p_increase_version = true, int p_idx = INVALID_HISTORY);
 
 	void set_history_as_saved(int p_idx);
@@ -124,6 +129,7 @@ public:
 	bool has_redo();
 
 	String get_current_action_name();
+	int get_current_action_history_id();
 
 	void discard_history(int p_idx, bool p_erase_from_map = true);
 	~EditorUndoRedoManager();

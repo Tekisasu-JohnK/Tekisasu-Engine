@@ -300,13 +300,6 @@
 				Searches the array for a value and returns its index or [code]-1[/code] if not found. Optionally, the initial search index can be passed.
 			</description>
 		</method>
-		<method name="find_last" qualifiers="const">
-			<return type="int" />
-			<param index="0" name="value" type="Variant" />
-			<description>
-				Searches the array in reverse order for a value and returns its index or [code]-1[/code] if not found.
-			</description>
-		</method>
 		<method name="front" qualifiers="const">
 			<return type="Variant" />
 			<description>
@@ -317,13 +310,13 @@
 		<method name="get_typed_builtin" qualifiers="const">
 			<return type="int" />
 			<description>
-				Returns the [code]TYPE[/code] constant for a typed array. If the [Array] is not typed, returns [constant @GlobalScope.TYPE_NIL].
+				Returns the [enum Variant.Type] constant for a typed array. If the [Array] is not typed, returns [constant TYPE_NIL].
 			</description>
 		</method>
 		<method name="get_typed_class_name" qualifiers="const">
 			<return type="StringName" />
 			<description>
-				Returns a class name of a typed [Array] of type [constant @GlobalScope.TYPE_OBJECT].
+				Returns a class name of a typed [Array] of type [constant TYPE_OBJECT].
 			</description>
 		</method>
 		<method name="get_typed_script" qualifiers="const">
@@ -353,7 +346,6 @@
 				GD.Print(arr.Contains("7")); // False
 				[/csharp]
 				[/codeblocks]
-
 				[b]Note:[/b] This is equivalent to using the [code]in[/code] operator as follows:
 				[codeblocks]
 				[gdscript]
@@ -543,7 +535,7 @@
 			<param index="1" name="class_name" type="StringName" />
 			<param index="2" name="script" type="Variant" />
 			<description>
-				Makes the [Array] typed. The [param type] should be one of the [@GlobalScope] [code]TYPE[/code] constants. [param class_name] is optional and can only be provided for [constant @GlobalScope.TYPE_OBJECT]. [param script] can only be provided if [param class_name] is not empty.
+				Makes the [Array] typed. The [param type] should be one of the [enum Variant.Type] constants. [param class_name] is optional and can only be provided for [constant TYPE_OBJECT]. [param script] can only be provided if [param class_name] is not empty.
 				The method fails if an array is already typed.
 			</description>
 		</method>

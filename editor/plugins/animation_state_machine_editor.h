@@ -31,16 +31,16 @@
 #ifndef ANIMATION_STATE_MACHINE_EDITOR_H
 #define ANIMATION_STATE_MACHINE_EDITOR_H
 
-#include "editor/editor_plugin.h"
 #include "editor/plugins/animation_tree_editor_plugin.h"
 #include "scene/animation/animation_node_state_machine.h"
-#include "scene/gui/button.h"
 #include "scene/gui/graph_edit.h"
 #include "scene/gui/popup.h"
 #include "scene/gui/tree.h"
 
+class ConfirmationDialog;
 class EditorFileDialog;
-class EditorUndoRedoManager;
+class OptionButton;
+class PanelContainer;
 
 class AnimationNodeStateMachineEditor : public AnimationTreeNodeEditorPlugin {
 	GDCLASS(AnimationNodeStateMachineEditor, AnimationTreeNodeEditorPlugin);
@@ -52,15 +52,18 @@ class AnimationNodeStateMachineEditor : public AnimationTreeNodeEditorPlugin {
 	Button *tool_select = nullptr;
 	Button *tool_create = nullptr;
 	Button *tool_connect = nullptr;
-	Button *tool_group = nullptr;
-	Button *tool_ungroup = nullptr;
 	Popup *name_edit_popup = nullptr;
 	LineEdit *name_edit = nullptr;
 
-	HBoxContainer *tool_erase_hb = nullptr;
+	HBoxContainer *selection_tools_hb = nullptr;
+	Button *tool_group = nullptr;
+	Button *tool_ungroup = nullptr;
 	Button *tool_erase = nullptr;
 
-	OptionButton *transition_mode = nullptr;
+	HBoxContainer *transition_tools_hb = nullptr;
+	OptionButton *switch_mode = nullptr;
+	Button *auto_advance = nullptr;
+
 	OptionButton *play_mode = nullptr;
 
 	PanelContainer *panel = nullptr;
@@ -78,8 +81,6 @@ class AnimationNodeStateMachineEditor : public AnimationTreeNodeEditorPlugin {
 	Label *error_label = nullptr;
 
 	bool updating = false;
-
-	Ref<EditorUndoRedoManager> undo_redo;
 
 	static AnimationNodeStateMachineEditor *singleton;
 

@@ -71,6 +71,11 @@ Utilities::~Utilities() {
 
 Vector<uint8_t> Utilities::buffer_get_data(GLenum p_target, GLuint p_buffer, uint32_t p_buffer_size) {
 	Vector<uint8_t> ret;
+
+	if (p_buffer_size == 0) {
+		return ret;
+	}
+
 	ret.resize(p_buffer_size);
 	glBindBuffer(p_target, p_buffer);
 
@@ -103,6 +108,10 @@ RS::InstanceType Utilities::get_base_type(RID p_rid) const {
 		return RS::INSTANCE_LIGHT;
 	} else if (GLES3::LightStorage::get_singleton()->owns_lightmap(p_rid)) {
 		return RS::INSTANCE_LIGHTMAP;
+	} else if (GLES3::ParticlesStorage::get_singleton()->owns_particles(p_rid)) {
+		return RS::INSTANCE_PARTICLES;
+	} else if (GLES3::ParticlesStorage::get_singleton()->owns_particles_collision(p_rid)) {
+		return RS::INSTANCE_PARTICLES_COLLISION;
 	}
 	return RS::INSTANCE_NONE;
 }
@@ -138,53 +147,21 @@ bool Utilities::free(RID p_rid) {
 	} else if (GLES3::LightStorage::get_singleton()->owns_lightmap(p_rid)) {
 		GLES3::LightStorage::get_singleton()->lightmap_free(p_rid);
 		return true;
+	} else if (GLES3::ParticlesStorage::get_singleton()->owns_particles(p_rid)) {
+		GLES3::ParticlesStorage::get_singleton()->particles_free(p_rid);
+		return true;
+	} else if (GLES3::ParticlesStorage::get_singleton()->owns_particles_collision(p_rid)) {
+		GLES3::ParticlesStorage::get_singleton()->particles_collision_free(p_rid);
+		return true;
+	} else if (GLES3::ParticlesStorage::get_singleton()->owns_particles_collision_instance(p_rid)) {
+		GLES3::ParticlesStorage::get_singleton()->particles_collision_instance_free(p_rid);
+		return true;
+	} else if (GLES3::MeshStorage::get_singleton()->owns_skeleton(p_rid)) {
+		GLES3::MeshStorage::get_singleton()->skeleton_free(p_rid);
+		return true;
 	} else {
 		return false;
 	}
-	/*
-	else if (reflection_probe_owner.owns(p_rid)) {
-		// delete the texture
-		ReflectionProbe *reflection_probe = reflection_probe_owner.get_or_null(p_rid);
-		reflection_probe->instance_remove_deps();
-
-		reflection_probe_owner.free(p_rid);
-		memdelete(reflection_probe);
-
-		return true;
-	} else if (lightmap_capture_data_owner.owns(p_rid)) {
-		// delete the texture
-		LightmapCapture *lightmap_capture = lightmap_capture_data_owner.get_or_null(p_rid);
-		lightmap_capture->instance_remove_deps();
-
-		lightmap_capture_data_owner.free(p_rid);
-		memdelete(lightmap_capture);
-		return true;
-
-	} else if (canvas_occluder_owner.owns(p_rid)) {
-		CanvasOccluder *co = canvas_occluder_owner.get_or_null(p_rid);
-		if (co->index_id) {
-			glDeleteBuffers(1, &co->index_id);
-		}
-		if (co->vertex_id) {
-			glDeleteBuffers(1, &co->vertex_id);
-		}
-
-		canvas_occluder_owner.free(p_rid);
-		memdelete(co);
-
-		return true;
-
-	} else if (canvas_light_shadow_owner.owns(p_rid)) {
-		CanvasLightShadow *cls = canvas_light_shadow_owner.get_or_null(p_rid);
-		glDeleteFramebuffers(1, &cls->fbo);
-		glDeleteRenderbuffers(1, &cls->depth);
-		glDeleteTextures(1, &cls->distance);
-		canvas_light_shadow_owner.free(p_rid);
-		memdelete(cls);
-
-		return true;
-	}
-	*/
 }
 
 /* DEPENDENCIES */
@@ -202,6 +179,12 @@ void Utilities::base_update_dependency(RID p_base, DependencyTracker *p_instance
 	} else if (LightStorage::get_singleton()->owns_light(p_base)) {
 		Light *l = LightStorage::get_singleton()->get_light(p_base);
 		p_instance->update_dependency(&l->dependency);
+	} else if (ParticlesStorage::get_singleton()->owns_particles(p_base)) {
+		Dependency *dependency = ParticlesStorage::get_singleton()->particles_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
+	} else if (ParticlesStorage::get_singleton()->owns_particles_collision(p_base)) {
+		Dependency *dependency = ParticlesStorage::get_singleton()->particles_collision_get_dependency(p_base);
+		p_instance->update_dependency(dependency);
 	}
 }
 
@@ -301,7 +284,7 @@ String Utilities::get_captured_timestamp_name(uint32_t p_index) const {
 void Utilities::update_dirty_resources() {
 	MaterialStorage::get_singleton()->_update_global_shader_uniforms();
 	MaterialStorage::get_singleton()->_update_queued_materials();
-	//MeshStorage::get_singleton()->_update_dirty_skeletons();
+	MeshStorage::get_singleton()->_update_dirty_skeletons();
 	MeshStorage::get_singleton()->_update_dirty_multimeshes();
 	TextureStorage::get_singleton()->update_texture_atlas();
 }
@@ -363,7 +346,7 @@ Size2i Utilities::get_maximum_viewport_size() const {
 		return Size2i();
 	}
 
-	return Size2i(config->max_viewport_size, config->max_viewport_size);
+	return Size2i(config->max_viewport_size[0], config->max_viewport_size[1]);
 }
 
 #endif // GLES3_ENABLED

@@ -490,6 +490,7 @@ public:
 	}
 
 	// Only enum classes that need to be bound need this to be defined.
+	VARIANT_ENUM_CLASS_CONSTRUCTOR(EulerOrder)
 	VARIANT_ENUM_CLASS_CONSTRUCTOR(JoyAxis)
 	VARIANT_ENUM_CLASS_CONSTRUCTOR(JoyButton)
 	VARIANT_ENUM_CLASS_CONSTRUCTOR(Key)
@@ -794,6 +795,10 @@ struct VariantHasher {
 
 struct VariantComparator {
 	static _FORCE_INLINE_ bool compare(const Variant &p_lhs, const Variant &p_rhs) { return p_lhs.hash_compare(p_rhs); }
+};
+
+struct StringLikeVariantComparator {
+	static bool compare(const Variant &p_lhs, const Variant &p_rhs);
 };
 
 Variant::ObjData &Variant::_get_obj() {
