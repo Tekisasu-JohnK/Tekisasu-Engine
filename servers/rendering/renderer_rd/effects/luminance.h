@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  bokeh_dof.h                                                           */
+/*  luminance.h                                                           */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,98 +28,93 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef BOKEH_DOF_RD_H
-#define BOKEH_DOF_RD_H
+#ifndef LUMINANCE_RD_H
+#define LUMINANCE_RD_H
 
 #include "servers/rendering/renderer_rd/pipeline_cache_rd.h"
-#include "servers/rendering/renderer_rd/shaders/effects/bokeh_dof.glsl.gen.h"
-#include "servers/rendering/renderer_rd/shaders/effects/bokeh_dof_raster.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/luminance_reduce.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/luminance_reduce_raster.glsl.gen.h"
+#include "servers/rendering/renderer_rd/storage_rd/render_scene_buffers_rd.h"
 #include "servers/rendering/renderer_scene_render.h"
 
 #include "servers/rendering_server.h"
 
+#define RB_LUMINANCE_BUFFERS SNAME("luminance_buffers")
+
 namespace RendererRD {
 
-class BokehDOF {
+class Luminance {
 private:
 	bool prefer_raster_effects;
 
-	struct BokehPushConstant {
-		uint32_t size[2];
-		float z_far;
-		float z_near;
-
-		uint32_t orthogonal;
-		float blur_size;
-		float blur_scale;
-		uint32_t steps;
-
-		uint32_t blur_near_active;
-		float blur_near_begin;
-		float blur_near_end;
-		uint32_t blur_far_active;
-
-		float blur_far_begin;
-		float blur_far_end;
-		uint32_t second_pass;
-		uint32_t half_size;
-
-		uint32_t use_jitter;
-		float jitter_seed;
-		uint32_t use_physical_near;
-		uint32_t use_physical_far;
-
-		float blur_size_near;
-		float blur_size_far;
-		uint32_t pad[2];
+	enum LuminanceReduceMode {
+		LUMINANCE_REDUCE_READ,
+		LUMINANCE_REDUCE,
+		LUMINANCE_REDUCE_WRITE,
+		LUMINANCE_REDUCE_MAX
 	};
 
-	enum BokehMode {
-		BOKEH_GEN_BLUR_SIZE,
-		BOKEH_GEN_BOKEH_BOX,
-		BOKEH_GEN_BOKEH_BOX_NOWEIGHT,
-		BOKEH_GEN_BOKEH_HEXAGONAL,
-		BOKEH_GEN_BOKEH_HEXAGONAL_NOWEIGHT,
-		BOKEH_GEN_BOKEH_CIRCULAR,
-		BOKEH_COMPOSITE,
-		BOKEH_MAX
+	struct LuminanceReducePushConstant {
+		int32_t source_size[2];
+		float max_luminance;
+		float min_luminance;
+		float exposure_adjust;
+		float pad[3];
 	};
 
-	struct Bokeh {
-		BokehPushConstant push_constant;
-		BokehDofShaderRD compute_shader;
-		BokehDofRasterShaderRD raster_shader;
+	struct LuminanceReduce {
+		LuminanceReduceShaderRD shader;
 		RID shader_version;
-		RID compute_pipelines[BOKEH_MAX];
-		PipelineCacheRD raster_pipelines[BOKEH_MAX];
-	} bokeh;
+		RID pipelines[LUMINANCE_REDUCE_MAX];
+	} luminance_reduce;
+
+	enum LuminanceReduceRasterMode {
+		LUMINANCE_REDUCE_FRAGMENT_FIRST,
+		LUMINANCE_REDUCE_FRAGMENT,
+		LUMINANCE_REDUCE_FRAGMENT_FINAL,
+		LUMINANCE_REDUCE_FRAGMENT_MAX
+	};
+
+	struct LuminanceReduceRasterPushConstant {
+		int32_t source_size[2];
+		int32_t dest_size[2];
+		float exposure_adjust;
+		float min_luminance;
+		float max_luminance;
+		uint32_t pad1;
+	};
+
+	struct LuminanceReduceFragment {
+		LuminanceReduceRasterShaderRD shader;
+		RID shader_version;
+		PipelineCacheRD pipelines[LUMINANCE_REDUCE_FRAGMENT_MAX];
+	} luminance_reduce_raster;
 
 public:
-	struct BokehBuffers {
-		// bokeh buffers
+	class LuminanceBuffers : public RenderBufferCustomDataRD {
+		GDCLASS(LuminanceBuffers, RenderBufferCustomDataRD);
 
-		// textures
-		Size2i base_texture_size;
-		RID base_texture;
-		RID depth_texture;
-		RID secondary_texture;
-		RID half_texture[2];
+	private:
+		bool prefer_raster_effects;
 
-		// raster only
-		RID base_fb;
-		RID secondary_fb; // with weights
-		RID half_fb[2]; // with weights
-		RID base_weight_fb;
-		RID weight_texture[4];
+	public:
+		Vector<RID> reduce;
+		RID current;
+
+		virtual void configure(RenderSceneBuffersRD *p_render_buffers) override;
+		virtual void free_data() override;
+
+		void set_prefer_raster_effects(bool p_prefer_raster_effects);
 	};
 
-	BokehDOF(bool p_prefer_raster_effects);
-	~BokehDOF();
+	Ref<LuminanceBuffers> get_luminance_buffers(Ref<RenderSceneBuffersRD> p_render_buffers);
+	RID get_current_luminance_buffer(Ref<RenderSceneBuffersRD> p_render_buffers);
+	void luminance_reduction(RID p_source_texture, const Size2i p_source_size, Ref<LuminanceBuffers> p_luminance_buffers, float p_min_luminance, float p_max_luminance, float p_adjust, bool p_set = false);
 
-	void bokeh_dof_compute(const BokehBuffers &p_buffers, RID p_camera_attributes, float p_cam_znear, float p_cam_zfar, bool p_cam_orthogonal);
-	void bokeh_dof_raster(const BokehBuffers &p_buffers, RID p_camera_attributes, float p_cam_znear, float p_cam_zfar, bool p_cam_orthogonal);
+	Luminance(bool p_prefer_raster_effects);
+	~Luminance();
 };
 
 } // namespace RendererRD
 
-#endif // BOKEH_DOF_RD_H
+#endif // LUMINANCE_RD_H
