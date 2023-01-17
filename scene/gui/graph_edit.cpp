@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  graph_edit.cpp                                                       */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  graph_edit.cpp                                                        */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "graph_edit.h"
 
@@ -404,8 +404,8 @@ void GraphEdit::add_child_notify(Node *p_child) {
 	if (gn) {
 		gn->set_scale(Vector2(zoom, zoom));
 		gn->connect("position_offset_changed", callable_mp(this, &GraphEdit::_graph_node_moved).bind(gn));
-		gn->connect("selected", callable_mp(this, &GraphEdit::_graph_node_selected).bind(gn));
-		gn->connect("deselected", callable_mp(this, &GraphEdit::_graph_node_deselected).bind(gn));
+		gn->connect("node_selected", callable_mp(this, &GraphEdit::_graph_node_selected).bind(gn));
+		gn->connect("node_deselected", callable_mp(this, &GraphEdit::_graph_node_deselected).bind(gn));
 		gn->connect("slot_updated", callable_mp(this, &GraphEdit::_graph_node_slot_updated).bind(gn));
 		gn->connect("raise_request", callable_mp(this, &GraphEdit::_graph_node_raised).bind(gn));
 		gn->connect("item_rect_changed", callable_mp((CanvasItem *)connections_layer, &CanvasItem::queue_redraw));
@@ -432,8 +432,8 @@ void GraphEdit::remove_child_notify(Node *p_child) {
 	GraphNode *gn = Object::cast_to<GraphNode>(p_child);
 	if (gn) {
 		gn->disconnect("position_offset_changed", callable_mp(this, &GraphEdit::_graph_node_moved));
-		gn->disconnect("selected", callable_mp(this, &GraphEdit::_graph_node_selected));
-		gn->disconnect("deselected", callable_mp(this, &GraphEdit::_graph_node_deselected));
+		gn->disconnect("node_selected", callable_mp(this, &GraphEdit::_graph_node_selected));
+		gn->disconnect("node_deselected", callable_mp(this, &GraphEdit::_graph_node_deselected));
 		gn->disconnect("slot_updated", callable_mp(this, &GraphEdit::_graph_node_slot_updated));
 		gn->disconnect("raise_request", callable_mp(this, &GraphEdit::_graph_node_raised));
 
@@ -1496,6 +1496,7 @@ float GraphEdit::get_zoom() const {
 
 void GraphEdit::set_zoom_step(float p_zoom_step) {
 	p_zoom_step = abs(p_zoom_step);
+	ERR_FAIL_COND(!isfinite(p_zoom_step));
 	if (zoom_step == p_zoom_step) {
 		return;
 	}
@@ -2134,6 +2135,7 @@ void GraphEdit::arrange_nodes() {
 	Dictionary node_names;
 	HashSet<StringName> selected_nodes;
 
+	bool arrange_entire_graph = true;
 	for (int i = get_child_count() - 1; i >= 0; i--) {
 		GraphNode *gn = Object::cast_to<GraphNode>(get_child(i));
 		if (!gn) {
@@ -2141,6 +2143,10 @@ void GraphEdit::arrange_nodes() {
 		}
 
 		node_names[gn->get_name()] = gn;
+
+		if (gn->is_selected()) {
+			arrange_entire_graph = false;
+		}
 	}
 
 	HashMap<StringName, HashSet<StringName>> upper_neighbours;
@@ -2156,12 +2162,12 @@ void GraphEdit::arrange_nodes() {
 			continue;
 		}
 
-		if (gn->is_selected()) {
+		if (gn->is_selected() || arrange_entire_graph) {
 			selected_nodes.insert(gn->get_name());
 			HashSet<StringName> s;
 			for (List<Connection>::Element *E = connections.front(); E; E = E->next()) {
 				GraphNode *p_from = Object::cast_to<GraphNode>(node_names[E->get().from]);
-				if (E->get().to == gn->get_name() && p_from->is_selected() && E->get().to != E->get().from) {
+				if (E->get().to == gn->get_name() && (p_from->is_selected() || arrange_entire_graph) && E->get().to != E->get().from) {
 					if (!s.has(p_from->get_name())) {
 						s.insert(p_from->get_name());
 					}

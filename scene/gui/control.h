@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  control.h                                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  control.h                                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef CONTROL_H
 #define CONTROL_H
@@ -165,10 +165,12 @@ private:
 
 		List<Control *>::Element *RI = nullptr;
 
-		Control *parent = nullptr;
+		Control *parent_control = nullptr;
 		Window *parent_window = nullptr;
 		CanvasItem *parent_canvas_item = nullptr;
-		ObjectID drag_owner;
+		Callable forward_drag;
+		Callable forward_can_drop;
+		Callable forward_drop;
 
 		// Positioning and sizing.
 
@@ -198,8 +200,8 @@ private:
 
 		// Container sizing.
 
-		int h_size_flags = SIZE_FILL;
-		int v_size_flags = SIZE_FILL;
+		BitField<SizeFlags> h_size_flags = SIZE_FILL;
+		BitField<SizeFlags> v_size_flags = SIZE_FILL;
 		real_t expand = 1.0;
 		Point2 custom_minimum_size;
 
@@ -280,6 +282,7 @@ private:
 	void _compute_anchors(Rect2 p_rect, const real_t p_offsets[4], real_t (&r_anchors)[4]);
 
 	void _set_layout_mode(LayoutMode p_mode);
+	void _update_layout_mode();
 	LayoutMode _get_layout_mode() const;
 	LayoutMode _get_default_layout_mode() const;
 	void _set_anchors_layout_preset(int p_preset);
@@ -387,6 +390,7 @@ public:
 
 	virtual Size2 _edit_get_minimum_size() const override;
 #endif
+	virtual void reparent(Node *p_parent, bool p_keep_global_transform = true) override;
 
 	// Editor integration.
 
@@ -470,10 +474,10 @@ public:
 
 	// Container sizing.
 
-	void set_h_size_flags(int p_flags);
-	int get_h_size_flags() const;
-	void set_v_size_flags(int p_flags);
-	int get_v_size_flags() const;
+	void set_h_size_flags(BitField<SizeFlags> p_flags);
+	BitField<SizeFlags> get_h_size_flags() const;
+	void set_v_size_flags(BitField<SizeFlags> p_flags);
+	BitField<SizeFlags> get_v_size_flags() const;
 	void set_stretch_ratio(real_t p_ratio);
 	real_t get_stretch_ratio() const;
 
@@ -498,7 +502,8 @@ public:
 
 	// Drag and drop handling.
 
-	virtual void set_drag_forwarding(Object *p_target);
+	virtual void set_drag_forwarding(const Callable &p_drag, const Callable &p_can_drop, const Callable &p_drop);
+	virtual void set_drag_forwarding_compat(Object *p_base);
 	virtual Variant get_drag_data(const Point2 &p_point);
 	virtual bool can_drop_data(const Point2 &p_point, const Variant &p_data) const;
 	virtual void drop_data(const Point2 &p_point, const Variant &p_data);
@@ -618,7 +623,7 @@ public:
 };
 
 VARIANT_ENUM_CAST(Control::FocusMode);
-VARIANT_ENUM_CAST(Control::SizeFlags);
+VARIANT_BITFIELD_CAST(Control::SizeFlags);
 VARIANT_ENUM_CAST(Control::CursorShape);
 VARIANT_ENUM_CAST(Control::LayoutPreset);
 VARIANT_ENUM_CAST(Control::LayoutPresetMode);

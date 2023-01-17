@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  animation_player.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  animation_player.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "animation_player.h"
 
@@ -745,7 +745,7 @@ void AnimationPlayer::_animation_process_animation(AnimationData *p_anim, double
 
 			} break;
 			case Animation::TYPE_METHOD: {
-				if (!nc->node) {
+				if (!nc->node || is_stopping) {
 					continue;
 				}
 				if (!p_is_current) {
@@ -808,7 +808,7 @@ void AnimationPlayer::_animation_process_animation(AnimationData *p_anim, double
 
 			} break;
 			case Animation::TYPE_AUDIO: {
-				if (!nc->node) {
+				if (!nc->node || is_stopping) {
 					continue;
 				}
 
@@ -915,6 +915,10 @@ void AnimationPlayer::_animation_process_animation(AnimationData *p_anim, double
 
 			} break;
 			case Animation::TYPE_ANIMATION: {
+				if (is_stopping) {
+					continue;
+				}
+
 				AnimationPlayer *player = Object::cast_to<AnimationPlayer>(nc->node);
 				if (!player) {
 					continue;
@@ -1658,7 +1662,7 @@ void AnimationPlayer::play(const StringName &p_name, double p_custom_blend, floa
 	}
 
 	if (get_current_animation() != p_name) {
-		_stop_playing_caches();
+		_stop_playing_caches(false);
 	}
 
 	c.current.from = &animation_set[name];
@@ -1731,18 +1735,12 @@ String AnimationPlayer::get_assigned_animation() const {
 	return playback.assigned;
 }
 
-void AnimationPlayer::stop(bool p_reset) {
-	_stop_playing_caches();
-	Playback &c = playback;
-	c.blend.clear();
-	if (p_reset) {
-		c.current.from = nullptr;
-		c.current.speed_scale = 1;
-		c.current.pos = 0;
-	}
-	_set_process(false);
-	queued.clear();
-	playing = false;
+void AnimationPlayer::pause() {
+	_stop_internal(false);
+}
+
+void AnimationPlayer::stop() {
+	_stop_internal(true);
 }
 
 void AnimationPlayer::set_speed_scale(float p_speed) {
@@ -1814,7 +1812,7 @@ void AnimationPlayer::_animation_changed(const StringName &p_name) {
 	}
 }
 
-void AnimationPlayer::_stop_playing_caches() {
+void AnimationPlayer::_stop_playing_caches(bool p_reset) {
 	for (TrackNodeCache *E : playing_caches) {
 		if (E->node && E->audio_playing) {
 			E->node->call(SNAME("stop"));
@@ -1824,7 +1822,12 @@ void AnimationPlayer::_stop_playing_caches() {
 			if (!player) {
 				continue;
 			}
-			player->stop();
+
+			if (p_reset) {
+				player->stop();
+			} else {
+				player->pause();
+			}
 		}
 	}
 
@@ -1836,7 +1839,7 @@ void AnimationPlayer::_node_removed(Node *p_node) {
 }
 
 void AnimationPlayer::clear_caches() {
-	_stop_playing_caches();
+	_stop_playing_caches(true);
 
 	node_cache_map.clear();
 
@@ -1955,6 +1958,22 @@ void AnimationPlayer::_set_process(bool p_process, bool p_force) {
 	}
 
 	processing = p_process;
+}
+
+void AnimationPlayer::_stop_internal(bool p_reset) {
+	_stop_playing_caches(p_reset);
+	Playback &c = playback;
+	c.blend.clear();
+	if (p_reset) {
+		is_stopping = true;
+		seek(0, true);
+		is_stopping = false;
+		c.current.from = nullptr;
+		c.current.speed_scale = 1;
+	}
+	_set_process(false);
+	queued.clear();
+	playing = false;
 }
 
 void AnimationPlayer::animation_set_next(const StringName &p_animation, const StringName &p_next) {
@@ -2081,7 +2100,7 @@ Ref<AnimatedValuesBackup> AnimationPlayer::apply_reset(bool p_user_initiated) {
 		Ref<AnimatedValuesBackup> new_values = aux_player->backup_animated_values();
 		old_values->restore();
 
-		Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
+		EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 		ur->create_action(TTR("Animation Apply Reset"));
 		ur->add_do_method(new_values.ptr(), "restore");
 		ur->add_undo_method(old_values.ptr(), "restore");
@@ -2119,7 +2138,8 @@ void AnimationPlayer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("play", "name", "custom_blend", "custom_speed", "from_end"), &AnimationPlayer::play, DEFVAL(""), DEFVAL(-1), DEFVAL(1.0), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("play_backwards", "name", "custom_blend"), &AnimationPlayer::play_backwards, DEFVAL(""), DEFVAL(-1));
-	ClassDB::bind_method(D_METHOD("stop", "reset"), &AnimationPlayer::stop, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("pause"), &AnimationPlayer::pause);
+	ClassDB::bind_method(D_METHOD("stop"), &AnimationPlayer::stop);
 	ClassDB::bind_method(D_METHOD("is_playing"), &AnimationPlayer::is_playing);
 
 	ClassDB::bind_method(D_METHOD("set_current_animation", "anim"), &AnimationPlayer::set_current_animation);
