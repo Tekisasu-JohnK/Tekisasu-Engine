@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  gdscript.cpp                                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  gdscript.cpp                                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "gdscript.h"
 
@@ -629,6 +629,10 @@ void GDScript::_update_doc() {
 		}
 	}
 
+	for (KeyValue<StringName, Ref<GDScript>> &E : subclasses) {
+		E.value->_update_doc();
+	}
+
 	_add_doc(doc);
 }
 #endif
@@ -1033,7 +1037,7 @@ String GDScript::get_script_path() const {
 }
 
 Error GDScript::load_source_code(const String &p_path) {
-	if (p_path.is_empty() || ResourceLoader::get_resource_type(p_path.get_slice("::", 0)) == "PackedScene") {
+	if (p_path.is_empty() || p_path.begins_with("gdscript://") || ResourceLoader::get_resource_type(p_path.get_slice("::", 0)) == "PackedScene") {
 		return OK;
 	}
 
@@ -1303,7 +1307,7 @@ GDScript *GDScript::_get_gdscript_from_variant(const Variant &p_variant) {
 }
 
 void GDScript::_get_dependencies(RBSet<GDScript *> &p_dependencies, const GDScript *p_except) {
-	if (skip_dependencies || p_dependencies.has(this)) {
+	if (p_dependencies.has(this)) {
 		return;
 	}
 	p_dependencies.insert(this);
@@ -1359,9 +1363,11 @@ GDScript::GDScript() :
 
 		GDScriptLanguage::get_singleton()->script_list.add(&script_list);
 	}
+
+	path = vformat("gdscript://%d.gd", get_instance_id());
 }
 
-void GDScript::_save_orphaned_subclasses() {
+void GDScript::_save_orphaned_subclasses(GDScript::ClearData *p_clear_data) {
 	struct ClassRefWithName {
 		ObjectID id;
 		String fully_qualified_name;
@@ -1377,8 +1383,17 @@ void GDScript::_save_orphaned_subclasses() {
 	}
 
 	// clear subclasses to allow unused subclasses to be deleted
+	for (KeyValue<StringName, Ref<GDScript>> &E : subclasses) {
+		p_clear_data->scripts.insert(E.value);
+	}
 	subclasses.clear();
 	// subclasses are also held by constants, clear those as well
+	for (KeyValue<StringName, Variant> &E : constants) {
+		GDScript *gdscr = _get_gdscript_from_variant(E.value);
+		if (gdscr != nullptr) {
+			p_clear_data->scripts.insert(gdscr);
+		}
+	}
 	constants.clear();
 
 	// keep orphan subclass only for subclasses that are still in use
@@ -1409,60 +1424,50 @@ void GDScript::_init_rpc_methods_properties() {
 	}
 }
 
-void GDScript::clear() {
+void GDScript::clear(GDScript::ClearData *p_clear_data) {
 	if (clearing) {
 		return;
 	}
 	clearing = true;
 
+	GDScript::ClearData data;
+	GDScript::ClearData *clear_data = p_clear_data;
+	bool is_root = false;
+
+	// If `clear_data` is `nullptr`, it means that it's the root.
+	// The root is in charge to clear functions and scripts of itself and its dependencies
+	if (clear_data == nullptr) {
+		clear_data = &data;
+		is_root = true;
+	}
+
 	RBSet<GDScript *> must_clear_dependencies = get_must_clear_dependencies();
-	HashMap<GDScript *, ObjectID> must_clear_dependencies_objectids;
-
-	// Log the objectids before clearing, as a cascade of clear could
-	// remove instances that are still in the clear loop
 	for (GDScript *E : must_clear_dependencies) {
-		must_clear_dependencies_objectids.insert(E, E->get_instance_id());
+		clear_data->scripts.insert(E);
+		E->clear(clear_data);
 	}
 
-	for (GDScript *E : must_clear_dependencies) {
-		Object *obj = ObjectDB::get_instance(must_clear_dependencies_objectids[E]);
-		if (obj == nullptr) {
-			continue;
-		}
-
-		E->skip_dependencies = true;
-		E->clear();
-		E->skip_dependencies = false;
-		GDScriptCache::remove_script(E->get_path());
-	}
-
-	RBSet<StringName> member_function_names;
 	for (const KeyValue<StringName, GDScriptFunction *> &E : member_functions) {
-		member_function_names.insert(E.key);
+		clear_data->functions.insert(E.value);
 	}
-	for (const StringName &E : member_function_names) {
-		if (member_functions.has(E)) {
-			memdelete(member_functions[E]);
-		}
-	}
-	member_function_names.clear();
 	member_functions.clear();
 
 	for (KeyValue<StringName, GDScript::MemberInfo> &E : member_indices) {
+		clear_data->scripts.insert(E.value.data_type.script_type_ref);
 		E.value.data_type.script_type_ref = Ref<Script>();
 	}
 
 	if (implicit_initializer) {
-		memdelete(implicit_initializer);
+		clear_data->functions.insert(implicit_initializer);
+		implicit_initializer = nullptr;
 	}
-	implicit_initializer = nullptr;
 
 	if (implicit_ready) {
-		memdelete(implicit_ready);
+		clear_data->functions.insert(implicit_ready);
+		implicit_ready = nullptr;
 	}
-	implicit_ready = nullptr;
 
-	_save_orphaned_subclasses();
+	_save_orphaned_subclasses(clear_data);
 
 #ifdef TOOLS_ENABLED
 	// Clearing inner class doc, script doc only cleared when the script source deleted.
@@ -1470,7 +1475,21 @@ void GDScript::clear() {
 		_clear_doc();
 	}
 #endif
-	clearing = false;
+
+	// If it's not the root, skip clearing the data
+	if (is_root) {
+		// All dependencies have been accounted for
+		for (GDScriptFunction *E : clear_data->functions) {
+			memdelete(E);
+		}
+		for (Ref<Script> &E : clear_data->scripts) {
+			Ref<GDScript> gdscr = E;
+			if (gdscr.is_valid()) {
+				GDScriptCache::remove_script(gdscr->get_path());
+			}
+		}
+		clear_data->clear();
+	}
 }
 
 GDScript::~GDScript() {
@@ -2550,8 +2569,7 @@ GDScriptLanguage::GDScriptLanguage() {
 	script_frame_time = 0;
 
 	_debug_call_stack_pos = 0;
-	int dmcs = GLOBAL_DEF("debug/settings/gdscript/max_call_stack", 1024);
-	ProjectSettings::get_singleton()->set_custom_property_info("debug/settings/gdscript/max_call_stack", PropertyInfo(Variant::INT, "debug/settings/gdscript/max_call_stack", PROPERTY_HINT_RANGE, "1024,4096,1,or_greater")); //minimum is 1024
+	int dmcs = GLOBAL_DEF(PropertyInfo(Variant::INT, "debug/settings/gdscript/max_call_stack", PROPERTY_HINT_RANGE, "1024,4096,1,or_greater"), 1024);
 
 	if (EngineDebugger::is_active()) {
 		//debugging enabled!
@@ -2572,10 +2590,7 @@ GDScriptLanguage::GDScriptLanguage() {
 		GDScriptWarning::Code code = (GDScriptWarning::Code)i;
 		Variant default_enabled = GDScriptWarning::get_default_value(code);
 		String path = GDScriptWarning::get_settings_path_from_code(code);
-		GLOBAL_DEF(path, default_enabled);
-
-		PropertyInfo property_info = GDScriptWarning::get_property_info(code);
-		ProjectSettings::get_singleton()->set_custom_property_info(path, property_info);
+		GLOBAL_DEF(GDScriptWarning::get_property_info(code), default_enabled);
 	}
 #endif // DEBUG_ENABLED
 }

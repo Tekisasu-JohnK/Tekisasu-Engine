@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  scene_replication_interface.cpp                                      */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  scene_replication_interface.cpp                                       */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "scene_replication_interface.h"
 
@@ -125,6 +125,20 @@ void SceneReplicationInterface::on_reset() {
 }
 
 void SceneReplicationInterface::on_network_process() {
+	// Prevent endless stalling in case of unforseen spawn errors.
+	if (spawn_queue.size()) {
+		ERR_PRINT("An error happened during last spawn, this usually means the 'ready' signal was not emitted by the spawned node.");
+		for (const ObjectID &oid : spawn_queue) {
+			Node *node = get_id_as<Node>(oid);
+			ERR_CONTINUE(!node);
+			if (node->is_connected(SceneStringNames::get_singleton()->ready, callable_mp(this, &SceneReplicationInterface::_node_ready))) {
+				node->disconnect(SceneStringNames::get_singleton()->ready, callable_mp(this, &SceneReplicationInterface::_node_ready));
+			}
+		}
+		spawn_queue.clear();
+	}
+
+	// Process timed syncs.
 	uint64_t msec = OS::get_singleton()->get_ticks_msec();
 	for (KeyValue<int, PeerInfo> &E : peers_info) {
 		const HashSet<ObjectID> to_sync = E.value.sync_nodes;
@@ -144,17 +158,39 @@ Error SceneReplicationInterface::on_spawn(Object *p_obj, Variant p_config) {
 	// Track node.
 	const ObjectID oid = node->get_instance_id();
 	TrackedNode &tobj = _track(oid);
+
+	// Spawn state needs to be callected after "ready", but the spawn order follows "enter_tree".
 	ERR_FAIL_COND_V(tobj.spawner != ObjectID(), ERR_ALREADY_IN_USE);
 	tobj.spawner = spawner->get_instance_id();
-	spawned_nodes.insert(oid);
-
-	if (multiplayer->has_multiplayer_peer() && spawner->is_multiplayer_authority()) {
-		if (tobj.net_id == 0) {
-			tobj.net_id = ++last_net_id;
-		}
-		_update_spawn_visibility(0, oid);
-	}
+	spawn_queue.insert(oid);
+	node->connect(SceneStringNames::get_singleton()->ready, callable_mp(this, &SceneReplicationInterface::_node_ready).bind(oid), Node::CONNECT_ONE_SHOT);
 	return OK;
+}
+
+void SceneReplicationInterface::_node_ready(const ObjectID &p_oid) {
+	ERR_FAIL_COND(!spawn_queue.has(p_oid)); // Bug.
+
+	// If we are a nested spawn, we need to wait until the parent is ready.
+	if (p_oid != *(spawn_queue.begin())) {
+		return;
+	}
+
+	for (const ObjectID &oid : spawn_queue) {
+		ERR_CONTINUE(!tracked_nodes.has(oid));
+
+		TrackedNode &tobj = tracked_nodes[oid];
+		MultiplayerSpawner *spawner = get_id_as<MultiplayerSpawner>(tobj.spawner);
+		ERR_CONTINUE(!spawner);
+
+		spawned_nodes.insert(oid);
+		if (multiplayer->has_multiplayer_peer() && spawner->is_multiplayer_authority()) {
+			if (tobj.net_id == 0) {
+				tobj.net_id = ++last_net_id;
+			}
+			_update_spawn_visibility(0, oid);
+		}
+	}
+	spawn_queue.clear();
 }
 
 Error SceneReplicationInterface::on_despawn(Object *p_obj, Variant p_config) {
