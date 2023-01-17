@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  editor_properties.h                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_properties.h                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef EDITOR_PROPERTIES_H
 #define EDITOR_PROPERTIES_H
@@ -201,40 +201,6 @@ public:
 	void setup(const String &p_base_type, const String &p_selected_type);
 	virtual void update_property() override;
 	EditorPropertyClassName();
-};
-
-class EditorPropertyMember : public EditorProperty {
-	GDCLASS(EditorPropertyMember, EditorProperty);
-
-public:
-	enum Type {
-		MEMBER_METHOD_OF_VARIANT_TYPE, ///< a method of a type
-		MEMBER_METHOD_OF_BASE_TYPE, ///< a method of a base type
-		MEMBER_METHOD_OF_INSTANCE, ///< a method of an instance
-		MEMBER_METHOD_OF_SCRIPT, ///< a method of a script & base
-		MEMBER_PROPERTY_OF_VARIANT_TYPE, ///< a property of a type
-		MEMBER_PROPERTY_OF_BASE_TYPE, ///< a property of a base type
-		MEMBER_PROPERTY_OF_INSTANCE, ///< a property of an instance
-		MEMBER_PROPERTY_OF_SCRIPT, ///< a property of a script & base
-	};
-
-private:
-	Type hint;
-	PropertySelector *selector = nullptr;
-	Button *property = nullptr;
-	String hint_text;
-
-	void _property_selected(const String &p_selected);
-	void _property_select();
-
-protected:
-	virtual void _set_read_only(bool p_read_only) override;
-	static void _bind_methods();
-
-public:
-	void setup(Type p_hint, const String &p_hint_text);
-	virtual void update_property() override;
-	EditorPropertyMember();
 };
 
 class EditorPropertyCheck : public EditorProperty {

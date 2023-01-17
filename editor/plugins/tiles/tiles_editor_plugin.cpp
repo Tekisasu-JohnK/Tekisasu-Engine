@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  tiles_editor_plugin.cpp                                              */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  tiles_editor_plugin.cpp                                               */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "tiles_editor_plugin.h"
 
@@ -185,24 +185,32 @@ void TilesEditorPlugin::_notification(int p_what) {
 }
 
 void TilesEditorPlugin::make_visible(bool p_visible) {
-	is_visible = p_visible;
-
-	if (is_visible) {
+	if (p_visible || is_tile_map_selected()) {
 		// Disable and hide invalid editors.
 		TileMap *tile_map = Object::cast_to<TileMap>(ObjectDB::get_instance(tile_map_id));
 		tileset_editor_button->set_visible(tile_set.is_valid());
 		tilemap_editor_button->set_visible(tile_map);
-		if (tile_map && !is_editing_tile_set) {
+		if (tile_map && (!is_editing_tile_set || !p_visible)) {
 			EditorNode::get_singleton()->make_bottom_panel_item_visible(tilemap_editor);
 		} else {
 			EditorNode::get_singleton()->make_bottom_panel_item_visible(tileset_editor);
 		}
-
+		is_visible = true;
 	} else {
 		tileset_editor_button->hide();
 		tilemap_editor_button->hide();
 		EditorNode::get_singleton()->hide_bottom_panel();
+		is_visible = false;
 	}
+}
+
+bool TilesEditorPlugin::is_tile_map_selected() {
+	TypedArray<Node> selection = get_editor_interface()->get_selection()->get_selected_nodes();
+	if (selection.size() == 1 && Object::cast_to<TileMap>(selection[0])) {
+		return true;
+	}
+
+	return false;
 }
 
 void TilesEditorPlugin::queue_pattern_preview(Ref<TileSet> p_tile_set, Ref<TileMapPattern> p_pattern, Callable p_callback) {
@@ -362,18 +370,23 @@ void TilesEditorPlugin::edit(Object *p_object) {
 		} else if (p_object->is_class("TileSet")) {
 			tile_set = Ref<TileSet>(p_object);
 			if (tile_map) {
-				if (tile_map->get_tileset() != tile_set || !tile_map->is_inside_tree()) {
+				if (tile_map->get_tileset() != tile_set || !tile_map->is_inside_tree() || !is_tile_map_selected()) {
 					tile_map = nullptr;
 					tile_map_id = ObjectID();
 				}
 			}
 			is_editing_tile_set = true;
-			EditorNode::get_singleton()->make_bottom_panel_item_visible(tileset_editor);
 		}
 	}
 
 	// Update the editors.
 	_update_editors();
+
+	// If the tileset is being edited, the visibility function must be called
+	// here after _update_editors has been called.
+	if (is_editing_tile_set) {
+		EditorNode::get_singleton()->make_bottom_panel_item_visible(tileset_editor);
+	}
 
 	// Add change listener.
 	if (tile_map) {

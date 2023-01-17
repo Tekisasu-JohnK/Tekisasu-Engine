@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  skeleton_3d_editor_plugin.cpp                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  skeleton_3d_editor_plugin.cpp                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "skeleton_3d_editor_plugin.h"
 
@@ -116,7 +116,7 @@ void BoneTransformEditor::_value_changed(const String &p_property, Variant p_val
 		return;
 	}
 	if (skeleton) {
-		Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 		undo_redo->create_action(TTR("Set Bone Transform"), UndoRedo::MERGE_ENDS);
 		undo_redo->add_undo_property(skeleton, p_property, skeleton->get(p_property));
 		undo_redo->add_do_property(skeleton, p_property, p_value);
@@ -271,7 +271,7 @@ void Skeleton3DEditor::reset_pose(const bool p_all_bones) {
 		return;
 	}
 
-	Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 	ur->create_action(TTR("Set Bone Transform"), UndoRedo::MERGE_ENDS);
 	if (p_all_bones) {
 		for (int i = 0; i < bone_len; i++) {
@@ -338,7 +338,7 @@ void Skeleton3DEditor::pose_to_rest(const bool p_all_bones) {
 		return;
 	}
 
-	Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 	ur->create_action(TTR("Set Bone Rest"), UndoRedo::MERGE_ENDS);
 	if (p_all_bones) {
 		for (int i = 0; i < bone_len; i++) {
@@ -358,7 +358,7 @@ void Skeleton3DEditor::pose_to_rest(const bool p_all_bones) {
 }
 
 void Skeleton3DEditor::create_physical_skeleton() {
-	Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 	ERR_FAIL_COND(!get_tree());
 	Node *owner = get_tree()->get_edited_scene_root();
 
@@ -593,7 +593,7 @@ void Skeleton3DEditor::move_skeleton_bone(NodePath p_skeleton_path, int32_t p_se
 	Node *node = get_node_or_null(p_skeleton_path);
 	Skeleton3D *skeleton_node = Object::cast_to<Skeleton3D>(node);
 	ERR_FAIL_NULL(skeleton_node);
-	Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 	ur->create_action(TTR("Set Bone Parentage"));
 	// If the target is a child of ourselves, we move only *us* and not our children.
 	if (skeleton_node->is_bone_parent_of(p_target_boneidx, p_selected_boneidx)) {
@@ -813,7 +813,7 @@ void Skeleton3DEditor::create_editors() {
 	joint_tree->set_v_size_flags(SIZE_EXPAND_FILL);
 	joint_tree->set_h_size_flags(SIZE_EXPAND_FILL);
 	joint_tree->set_allow_rmb_select(true);
-	joint_tree->set_drag_forwarding(this);
+	joint_tree->set_drag_forwarding_compat(this);
 	s_con->add_child(joint_tree);
 
 	pose_editor = memnew(BoneTransformEditor(skeleton));
@@ -1323,7 +1323,7 @@ void Skeleton3DGizmoPlugin::commit_subgizmos(const EditorNode3DGizmo *p_gizmo, c
 	Skeleton3DEditor *se = Skeleton3DEditor::get_singleton();
 	Node3DEditor *ne = Node3DEditor::get_singleton();
 
-	Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 	ur->create_action(TTR("Set Bone Transform"));
 	if (ne->get_tool_mode() == Node3DEditor::TOOL_MODE_SELECT || ne->get_tool_mode() == Node3DEditor::TOOL_MODE_MOVE) {
 		for (int i = 0; i < p_ids.size(); i++) {

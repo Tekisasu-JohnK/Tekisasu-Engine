@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  tile_set_scenes_collection_source_editor.cpp                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  tile_set_scenes_collection_source_editor.cpp                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "tile_set_scenes_collection_source_editor.h"
 
@@ -237,7 +237,7 @@ void TileSetScenesCollectionSourceEditor::_scenes_list_item_activated(int p_inde
 
 void TileSetScenesCollectionSourceEditor::_source_add_pressed() {
 	int scene_id = tile_set_scenes_collection_source->get_next_scene_tile_id();
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(TTR("Add a Scene Tile"));
 	undo_redo->add_do_method(tile_set_scenes_collection_source, "create_scene_tile", Ref<PackedScene>(), scene_id);
 	undo_redo->add_undo_method(tile_set_scenes_collection_source, "remove_scene_tile", scene_id);
@@ -252,7 +252,7 @@ void TileSetScenesCollectionSourceEditor::_source_delete_pressed() {
 	ERR_FAIL_COND(selected_indices.size() <= 0);
 	int scene_id = scene_tiles_list->get_item_metadata(selected_indices[0]);
 
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(TTR("Remove a Scene Tile"));
 	undo_redo->add_do_method(tile_set_scenes_collection_source, "remove_scene_tile", scene_id);
 	undo_redo->add_undo_method(tile_set_scenes_collection_source, "create_scene_tile", tile_set_scenes_collection_source->get_scene_tile_scene(scene_id), scene_id);
@@ -404,7 +404,7 @@ void TileSetScenesCollectionSourceEditor::_drop_data_fw(const Point2 &p_point, c
 			Ref<PackedScene> resource = ResourceLoader::load(files[i]);
 			if (resource.is_valid()) {
 				int scene_id = tile_set_scenes_collection_source->get_next_scene_tile_id();
-				Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+				EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 				undo_redo->create_action(TTR("Add a Scene Tile"));
 				undo_redo->add_do_method(tile_set_scenes_collection_source, "create_scene_tile", resource, scene_id);
 				undo_redo->add_undo_method(tile_set_scenes_collection_source, "remove_scene_tile", scene_id);
@@ -509,7 +509,7 @@ TileSetScenesCollectionSourceEditor::TileSetScenesCollectionSourceEditor() {
 	scene_tiles_list = memnew(ItemList);
 	scene_tiles_list->set_h_size_flags(SIZE_EXPAND_FILL);
 	scene_tiles_list->set_v_size_flags(SIZE_EXPAND_FILL);
-	scene_tiles_list->set_drag_forwarding(this);
+	scene_tiles_list->set_drag_forwarding_compat(this);
 	scene_tiles_list->connect("item_selected", callable_mp(this, &TileSetScenesCollectionSourceEditor::_update_tile_inspector).unbind(1));
 	scene_tiles_list->connect("item_selected", callable_mp(this, &TileSetScenesCollectionSourceEditor::_update_action_buttons).unbind(1));
 	scene_tiles_list->connect("item_activated", callable_mp(this, &TileSetScenesCollectionSourceEditor::_scenes_list_item_activated));

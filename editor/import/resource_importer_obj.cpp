@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  resource_importer_obj.cpp                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  resource_importer_obj.cpp                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "resource_importer_obj.h"
 
@@ -217,7 +217,9 @@ static Error _parse_obj(const String &p_path, List<Ref<Mesh>> &r_meshes, bool p_
 	Vector<Vector3> vertices;
 	Vector<Vector3> normals;
 	Vector<Vector2> uvs;
-	String name;
+	Vector<Color> colors;
+	const String default_name = "Mesh";
+	String name = default_name;
 
 	HashMap<String, HashMap<String, Ref<StandardMaterial3D>>> material_map;
 
@@ -249,6 +251,19 @@ static Error _parse_obj(const String &p_path, List<Ref<Mesh>> &r_meshes, bool p_
 			vtx.y = v[2].to_float() * scale_mesh.y + offset_mesh.y;
 			vtx.z = v[3].to_float() * scale_mesh.z + offset_mesh.z;
 			vertices.push_back(vtx);
+			//vertex color
+			if (v.size() == 7) {
+				while (colors.size() < vertices.size() - 1) {
+					colors.push_back(Color(1.0, 1.0, 1.0));
+				}
+				Color c;
+				c.r = v[4].to_float();
+				c.g = v[5].to_float();
+				c.b = v[6].to_float();
+				colors.push_back(c);
+			} else if (!colors.is_empty()) {
+				colors.push_back(Color(1.0, 1.0, 1.0));
+			}
 		} else if (l.begins_with("vt ")) {
 			//uv
 			Vector<String> v = l.split(" ", false);
@@ -317,6 +332,9 @@ static Error _parse_obj(const String &p_path, List<Ref<Mesh>> &r_meshes, bool p_
 					ERR_FAIL_INDEX_V(vtx, vertices.size(), ERR_FILE_CORRUPT);
 
 					Vector3 vertex = vertices[vtx];
+					if (!colors.is_empty()) {
+						surf_tool->set_color(colors[vtx]);
+					}
 					if (!smoothing) {
 						smooth_group++;
 					}
@@ -356,7 +374,11 @@ static Error _parse_obj(const String &p_path, List<Ref<Mesh>> &r_meshes, bool p_
 				print_verbose("OBJ: Current material " + current_material + " has " + itos(material_map.has(current_material_library) && material_map[current_material_library].has(current_material)));
 
 				if (material_map.has(current_material_library) && material_map[current_material_library].has(current_material)) {
-					surf_tool->set_material(material_map[current_material_library][current_material]);
+					Ref<StandardMaterial3D> &material = material_map[current_material_library][current_material];
+					if (!colors.is_empty()) {
+						material->set_flag(StandardMaterial3D::FLAG_SRGB_VERTEX_COLOR, true);
+					}
+					surf_tool->set_material(material);
 				}
 
 				mesh = surf_tool->commit(mesh, mesh_flags);
@@ -374,9 +396,12 @@ static Error _parse_obj(const String &p_path, List<Ref<Mesh>> &r_meshes, bool p_
 
 			if (l.begins_with("o ") || f->eof_reached()) {
 				if (!p_single_mesh) {
-					mesh->set_name(name);
-					r_meshes.push_back(mesh);
-					mesh.instantiate();
+					if (mesh->get_surface_count() > 0) {
+						mesh->set_name(name);
+						r_meshes.push_back(mesh);
+						mesh.instantiate();
+					}
+					name = default_name;
 					current_group = "";
 					current_material = "";
 				}
@@ -439,6 +464,7 @@ Node *EditorOBJImporter::import_scene(const String &p_path, uint32_t p_flags, co
 	for (const Ref<Mesh> &m : meshes) {
 		Ref<ImporterMesh> mesh;
 		mesh.instantiate();
+		mesh->set_name(m->get_name());
 		for (int i = 0; i < m->get_surface_count(); i++) {
 			mesh->add_surface(m->surface_get_primitive_type(i), m->surface_get_arrays(i), Array(), Dictionary(), m->surface_get_material(i));
 		}

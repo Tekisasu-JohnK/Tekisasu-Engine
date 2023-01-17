@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  scene_tree_dock.cpp                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  scene_tree_dock.cpp                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "scene_tree_dock.h"
 
@@ -134,6 +134,8 @@ void SceneTreeDock::shortcut_input(const Ref<InputEvent> &p_event) {
 		_tool_selected(TOOL_MOVE_DOWN);
 	} else if (ED_IS_SHORTCUT("scene_tree/reparent", p_event)) {
 		_tool_selected(TOOL_REPARENT);
+	} else if (ED_IS_SHORTCUT("scene_tree/reparent_to_new_node", p_event)) {
+		_tool_selected(TOOL_REPARENT_TO_NEW_NODE);
 	} else if (ED_IS_SHORTCUT("scene_tree/save_branch_as_scene", p_event)) {
 		_tool_selected(TOOL_NEW_SCENE_FROM);
 	} else if (ED_IS_SHORTCUT("scene_tree/delete_no_confirm", p_event)) {
@@ -229,7 +231,7 @@ void SceneTreeDock::_perform_instantiate_scenes(const Vector<String> &p_files, N
 		return;
 	}
 
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(TTR("Instantiate Scene(s)"));
 
 	for (int i = 0; i < instances.size(); i++) {
@@ -273,7 +275,7 @@ void SceneTreeDock::_replace_with_branch_scene(const String &p_file, Node *base)
 		return;
 	}
 
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(TTR("Replace with Branch Scene"));
 
 	Node *parent = base->get_parent();
@@ -538,7 +540,7 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 				return;
 			}
 
-			Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 			undo_redo->create_action(TTR("Detach Script"), UndoRedo::MERGE_DISABLE, EditorNode::get_singleton()->get_edited_scene());
 			undo_redo->add_do_method(EditorNode::get_singleton(), "push_item", (Script *)nullptr);
 
@@ -609,7 +611,7 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 				break; // one or more nodes can not be moved
 			}
 
-			Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 			if (selection.size() == 1) {
 				undo_redo->create_action(TTR("Move Node In Parent"));
 			}
@@ -659,7 +661,7 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 				break;
 			}
 
-			Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 			undo_redo->create_action(TTR("Duplicate Node(s)"), UndoRedo::MERGE_DISABLE, selection.front()->get());
 			undo_redo->add_do_method(editor_selection, "clear");
 
@@ -776,7 +778,7 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 				return;
 			}
 
-			Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 			undo_redo->create_action(TTR("Make node as Root"));
 			undo_redo->add_do_method(node->get_parent(), "remove_child", node);
 			undo_redo->add_do_method(EditorNode::get_singleton(), "set_edited_scene", node);
@@ -1021,7 +1023,7 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 				Node *node = e->get();
 				if (node) {
 					Node *root = EditorNode::get_singleton()->get_edited_scene();
-					Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+					EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 					if (!root) {
 						break;
 					}
@@ -1097,7 +1099,7 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 			bool enabling = !first_selected->get()->is_unique_name_in_owner();
 
 			List<Node *> full_selection = editor_selection->get_full_selected_node_list();
-			Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 
 			if (enabling) {
 				Vector<Node *> new_unique_nodes;
@@ -1182,7 +1184,9 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 						break;
 					case TOOL_CREATE_USER_INTERFACE: {
 						Control *node = memnew(Control);
-						node->set_anchors_and_offsets_preset(PRESET_FULL_RECT); //more useful for resizable UIs.
+						// Making the root control full rect by default is more useful for resizable UIs.
+						node->set_anchors_and_offsets_preset(PRESET_FULL_RECT);
+						node->set_grow_direction_preset(PRESET_FULL_RECT);
 						new_node = node;
 
 					} break;
@@ -1222,7 +1226,7 @@ void SceneTreeDock::_property_selected(int p_idx) {
 }
 
 void SceneTreeDock::_perform_property_drop(Node *p_node, String p_property, Ref<Resource> p_res) {
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(vformat(TTR("Set %s"), p_property));
 	undo_redo->add_do_property(p_node, p_property, p_res);
 	undo_redo->add_undo_property(p_node, p_property, p_node->get(p_property));
@@ -1230,7 +1234,7 @@ void SceneTreeDock::_perform_property_drop(Node *p_node, String p_property, Ref<
 }
 
 void SceneTreeDock::add_root_node(Node *p_node) {
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action_for_history(TTR("New Scene Root"), editor_data->get_current_edited_scene_history_id());
 	undo_redo->add_do_method(EditorNode::get_singleton(), "set_edited_scene", p_node);
 	undo_redo->add_do_method(scene_tree, "update_tree");
@@ -1381,7 +1385,7 @@ void SceneTreeDock::_notification(int p_what) {
 
 void SceneTreeDock::_node_replace_owner(Node *p_base, Node *p_node, Node *p_root, ReplaceOwnerMode p_mode) {
 	if (p_node->get_owner() == p_base && p_node != p_root) {
-		Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 		switch (p_mode) {
 			case MODE_BIDI: {
 				bool disable_unique = p_node->is_unique_name_in_owner() && p_root->get_node_or_null(UNIQUE_NODE_PREFIX + String(p_node->get_name())) != nullptr;
@@ -1615,7 +1619,7 @@ void SceneTreeDock::perform_node_renames(Node *p_base, HashMap<Node *, NodePath>
 		Variant old_variant = p_base->get(propertyname);
 		Variant updated_variant = old_variant;
 		if (_check_node_path_recursive(p_base, updated_variant, p_renames)) {
-			Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 			undo_redo->add_do_property(p_base, propertyname, updated_variant);
 			undo_redo->add_undo_property(p_base, propertyname, old_variant);
 			p_base->set(propertyname, updated_variant);
@@ -1662,7 +1666,7 @@ void SceneTreeDock::perform_node_renames(Node *p_base, HashMap<Node *, NodePath>
 						}
 
 						HashMap<Node *, NodePath>::Iterator found_path = p_renames->find(n);
-						Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+						EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 						if (found_path) {
 							if (found_path->value == NodePath()) {
 								//will be erased
@@ -1829,7 +1833,7 @@ void SceneTreeDock::_do_reparent(Node *p_new_parent, int p_position_in_parent, V
 	// Sort by tree order, so re-adding is easy.
 	p_nodes.sort_custom<Node::Comparator>();
 
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(TTR("Reparent Node"), UndoRedo::MERGE_DISABLE, p_nodes[0]);
 
 	HashMap<Node *, NodePath> path_renames;
@@ -1964,7 +1968,7 @@ void SceneTreeDock::_script_created(Ref<Script> p_script) {
 		return;
 	}
 
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(TTR("Attach Script"), UndoRedo::MERGE_DISABLE, selected.front()->get());
 	for (Node *E : selected) {
 		Ref<Script> existing = E->get_script();
@@ -1990,7 +1994,7 @@ void SceneTreeDock::_shader_created(Ref<Shader> p_shader) {
 
 	Ref<Shader> existing = selected_shader_material->get_shader();
 
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(TTR("Set Shader"));
 	undo_redo->add_do_method(selected_shader_material.ptr(), "set_shader", p_shader);
 	undo_redo->add_undo_method(selected_shader_material.ptr(), "set_shader", existing);
@@ -2059,7 +2063,7 @@ void SceneTreeDock::_delete_confirm(bool p_cut) {
 
 	EditorNode::get_singleton()->get_editor_plugins_over()->make_visible(false);
 
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action(p_cut ? TTR("Cut Node(s)") : TTR("Remove Node(s)"), UndoRedo::MERGE_DISABLE, remove_list.front()->get());
 
 	bool entire_scene = false;
@@ -2189,7 +2193,7 @@ void SceneTreeDock::_do_create(Node *p_parent) {
 	}
 	child->set_name(new_name);
 
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	undo_redo->create_action_for_history(TTR("Create Node"), editor_data->get_current_edited_scene_history_id());
 
 	if (edited_scene) {
@@ -2258,7 +2262,7 @@ void SceneTreeDock::_create() {
 		List<Node *> selection = editor_selection->get_selected_node_list();
 		ERR_FAIL_COND(selection.size() <= 0);
 
-		Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
+		EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 		ur->create_action(TTR("Change type of node(s)"), UndoRedo::MERGE_DISABLE, selection.front()->get());
 
 		for (Node *n : selection) {
@@ -2392,7 +2396,7 @@ void SceneTreeDock::replace_node(Node *p_node, Node *p_by_node, bool p_keep_prop
 	}
 	//p_remove_old was added to support undo
 	if (p_remove_old) {
-		EditorNode::get_undo_redo()->clear_history();
+		EditorUndoRedoManager::get_singleton()->clear_history();
 	}
 	newnode->set_name(newname);
 
@@ -2614,7 +2618,7 @@ void SceneTreeDock::_script_dropped(String p_file, NodePath p_to) {
 		return;
 	}
 
-	Ref<EditorUndoRedoManager> &undo_redo = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	if (Input::get_singleton()->is_key_pressed(Key::CTRL)) {
 		Object *obj = ClassDB::instantiate(scr->get_instance_base_type());
 		ERR_FAIL_NULL(obj);
@@ -3186,7 +3190,7 @@ List<Node *> SceneTreeDock::paste_nodes() {
 		owner = paste_parent;
 	}
 
-	Ref<EditorUndoRedoManager> &ur = EditorNode::get_undo_redo();
+	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
 	ur->create_action(TTR("Paste Node(s)"), UndoRedo::MERGE_DISABLE, EditorNode::get_singleton()->get_edited_scene());
 	ur->add_do_method(editor_selection, "clear");
 
@@ -3217,6 +3221,7 @@ List<Node *> SceneTreeDock::paste_nodes() {
 		if (!paste_parent) {
 			paste_parent = dup;
 			owner = dup;
+			dup->set_scene_file_path(String()); // Make sure the scene path is empty, to avoid accidental references.
 			ur->add_do_method(EditorNode::get_singleton(), "set_edited_scene", dup);
 		} else {
 			ur->add_do_method(paste_parent, "add_child", dup, true);

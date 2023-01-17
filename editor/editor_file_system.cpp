@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  editor_file_system.cpp                                               */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_file_system.cpp                                                */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "editor_file_system.h"
 
@@ -433,7 +433,7 @@ bool EditorFileSystem::_test_for_reimport(const String &p_path, bool p_only_impo
 	}
 
 	if (!found_uid) {
-		return true; //UUID not found, old format, reimport.
+		return true; //UID not found, old format, reimport.
 	}
 
 	Ref<ResourceImporter> importer = ResourceFormatImporter::get_singleton()->get_importer_by_name(importer_name);
@@ -868,7 +868,7 @@ void EditorFileSystem::_scan_new_dir(EditorFileSystemDirectory *p_dir, Ref<DirAc
 				}
 
 				if (fc->uid == ResourceUID::INVALID_ID) {
-					// imported files should always have a UUID, so attempt to fetch it.
+					// imported files should always have a UID, so attempt to fetch it.
 					fi->uid = ResourceLoader::get_resource_uid(path);
 				}
 
@@ -1527,6 +1527,7 @@ void EditorFileSystem::update_script_classes() {
 
 	ScriptServer::save_global_classes();
 	EditorNode::get_editor_data().script_class_save_icon_paths();
+	emit_signal("script_classes_updated");
 
 	// Rescan custom loaders and savers.
 	// Doing the following here because the `filesystem_changed` signal fires multiple times and isn't always followed by script classes update.
@@ -2319,14 +2320,14 @@ ResourceUID::ID EditorFileSystem::_resource_saver_get_resource_id_for_path(const
 		}
 
 		if (p_generate) {
-			return ResourceUID::get_singleton()->create_id(); // Just create a new one, we will be notified of save anyway and fetch the right UUID at that time, to keep things simple.
+			return ResourceUID::get_singleton()->create_id(); // Just create a new one, we will be notified of save anyway and fetch the right UID at that time, to keep things simple.
 		} else {
 			return ResourceUID::INVALID_ID;
 		}
 	} else if (fs->files[cpos]->uid != ResourceUID::INVALID_ID) {
 		return fs->files[cpos]->uid;
 	} else if (p_generate) {
-		return ResourceUID::get_singleton()->create_id(); // Just create a new one, we will be notified of save anyway and fetch the right UUID at that time, to keep things simple.
+		return ResourceUID::get_singleton()->create_id(); // Just create a new one, we will be notified of save anyway and fetch the right UID at that time, to keep things simple.
 	} else {
 		return ResourceUID::INVALID_ID;
 	}
@@ -2417,6 +2418,7 @@ void EditorFileSystem::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("reimport_files", "files"), &EditorFileSystem::reimport_files);
 
 	ADD_SIGNAL(MethodInfo("filesystem_changed"));
+	ADD_SIGNAL(MethodInfo("script_classes_updated"));
 	ADD_SIGNAL(MethodInfo("sources_changed", PropertyInfo(Variant::BOOL, "exist")));
 	ADD_SIGNAL(MethodInfo("resources_reimported", PropertyInfo(Variant::PACKED_STRING_ARRAY, "resources")));
 	ADD_SIGNAL(MethodInfo("resources_reload", PropertyInfo(Variant::PACKED_STRING_ARRAY, "resources")));
