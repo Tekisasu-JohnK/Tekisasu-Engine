@@ -6,31 +6,31 @@ export SCRIPT_AES256_ENCRYPTION_KEY=$(cat godot.gdkey)
 action=$1
 command=$2
 value=$2
+#if [[ "$action" == "build" ]]; then
+
+
+#elif [[ "$action" == "clean"]]; then
+
+
+#elif [[ "$action" == "package" ]]; then
+
+
+#else
+#	echo "txbuild: you need to specifiy what build state to run."
+#	echo "	Examples for Tekisasu-Engine editor"
+#	echo "		# txbuild_mac.bash build"
+#	echo "		# txbuild_mac.bash build clean"
+#	echo "  Examples for Tekisasu-Engine exports"
+#	echo "		# txbuild_mac.bash exports"
+#	echo "		# txbuild_mac.bash exports clean"
+#	echo "	Examples for Tekisasu-Engine packaging"
+#	echo "		# txbuild_mac.bash package"
+#fi
+
+
+
 if [[ "$action" == "build" ]]; then
-
-
-elif [[ "$action" == "clean"]]; then
-
-
-elif [[ "$action" == "package" ]]; then
-
-
-else
-	echo "txbuild: you need to specifiy what build state to run."
-	echo "	Examples for Tekisasu-Engine editor"
-	echo "		# txbuild_mac.bash build"
-	echo "		# txbuild_mac.bash build clean"
-	echo "  Examples for Tekisasu-Engine exports"
-	echo "		# txbuild_mac.bash exports"
-	echo "		# txbuild_mac.bash exports clean"
-	echo "	Examples for Tekisasu-Engine packaging"
-	echo "		# txbuild_mac.bash package"
-fi
-
-
-
-if [[ "$action" == "build" ]]; then
-	if [[ "$command" != "clean" ]]; then
+	if [[ "$command" == "" ]]; then
 		scons platform=macos arch=arm64 --jobs=$(sysctl -n hw.logicalcpu) target=editor bits=64
 		scons platform=macos arch=x86_64 --jobs=$(sysctl -n hw.logicalcpu) target=editor bits=64
 		if [[ -f bin/godot.macos.editor.x86_64 ]] && [[ -f bin/godot.macos.editor.arm64 ]]; then
