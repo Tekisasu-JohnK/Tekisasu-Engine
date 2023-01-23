@@ -1582,10 +1582,6 @@ void Control::set_block_minimum_size_adjust(bool p_block) {
 	data.block_minimum_size_adjust = p_block;
 }
 
-bool Control::is_minimum_size_adjust_blocked() const {
-	return data.block_minimum_size_adjust;
-}
-
 Size2 Control::get_minimum_size() const {
 	Vector2 ms;
 	GDVIRTUAL_CALL(_get_minimum_size, ms);
@@ -1822,19 +1818,6 @@ bool Control::is_focus_owner_in_shortcut_context() const {
 }
 
 // Drag and drop handling.
-
-void Control::set_drag_forwarding_compat(Object *p_base) {
-	if (p_base != nullptr) {
-		data.forward_drag = Callable(p_base, "_get_drag_data_fw").bind(this);
-		data.forward_can_drop = Callable(p_base, "_can_drop_data_fw").bind(this);
-		data.forward_drop = Callable(p_base, "_drop_data_fw").bind(this);
-
-	} else {
-		data.forward_drag = Callable();
-		data.forward_can_drop = Callable();
-		data.forward_drop = Callable();
-	}
-}
 
 void Control::set_drag_forwarding(const Callable &p_drag, const Callable &p_can_drop, const Callable &p_drop) {
 	data.forward_drag = p_drag;
@@ -2782,9 +2765,9 @@ void Control::end_bulk_theme_override() {
 
 // Internationalization.
 
-TypedArray<Vector2i> Control::structured_text_parser(TextServer::StructuredTextParser p_parser_type, const Array &p_args, const String &p_text) const {
+TypedArray<Vector3i> Control::structured_text_parser(TextServer::StructuredTextParser p_parser_type, const Array &p_args, const String &p_text) const {
 	if (p_parser_type == TextServer::STRUCTURED_TEXT_CUSTOM) {
-		TypedArray<Vector2i> ret;
+		TypedArray<Vector3i> ret;
 		GDVIRTUAL_CALL(_structured_text_parser, p_args, p_text, ret);
 		return ret;
 	} else {

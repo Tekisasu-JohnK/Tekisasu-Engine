@@ -1,10 +1,10 @@
-short_name = "tekisasu-engine"
-name = "Tekisasu Engine"
+short_name = "godot"
+name = "Godot Engine"
 major = 4
 minor = 0
 patch = 0
-status = "b13"
+status = "beta"
 module_config = ""
-year = 2023
-website = "https://dev.tekisasu.com"
+year = 2022
+website = "https://godotengine.org"
 docs = "latest"
