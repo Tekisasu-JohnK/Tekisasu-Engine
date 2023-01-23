@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  test_code_edit.h                                                     */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  test_code_edit.h                                                      */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef TEST_CODE_EDIT_H
 #define TEST_CODE_EDIT_H
@@ -1954,7 +1954,7 @@ TEST_CASE("[SceneTree][CodeEdit] indent") {
 
 		code_edit->set_editable(false);
 
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "\t");
 
 		code_edit->unindent_lines();
@@ -1963,15 +1963,8 @@ TEST_CASE("[SceneTree][CodeEdit] indent") {
 		code_edit->set_editable(true);
 
 		/* Simple unindent. */
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "");
-
-		/* Should inindent inplace. */
-		code_edit->set_text("");
-		code_edit->insert_text_at_caret("test\t");
-
-		code_edit->do_unindent();
-		CHECK(code_edit->get_line(0) == "test");
 
 		/* Backspace does a simple unindent. */
 		code_edit->set_text("");
@@ -1987,7 +1980,7 @@ TEST_CASE("[SceneTree][CodeEdit] indent") {
 
 		/* Caret on col zero unindent line. */
 		code_edit->set_text("\t\ttest");
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "\ttest");
 
 		/* Check input action. */
@@ -1998,34 +1991,34 @@ TEST_CASE("[SceneTree][CodeEdit] indent") {
 		/* Selection does entire line. */
 		code_edit->set_text("\t\ttest");
 		code_edit->select_all();
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "\ttest");
 
 		/* Handles multiple lines. */
 		code_edit->set_text("\ttest\n\ttext");
 		code_edit->select_all();
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "test");
 		CHECK(code_edit->get_line(1) == "text");
 
 		/* Do not unindent line if last col is zero. */
 		code_edit->set_text("\ttest\n\ttext");
 		code_edit->select(0, 0, 1, 0);
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "test");
 		CHECK(code_edit->get_line(1) == "\ttext");
 
 		/* Unindent even if last column of first line. */
 		code_edit->set_text("\ttest\n\ttext");
 		code_edit->select(0, 5, 1, 1);
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "test");
 		CHECK(code_edit->get_line(1) == "text");
 
 		/* Check selection is adjusted. */
 		code_edit->set_text("\ttest");
 		code_edit->select(0, 1, 0, 2);
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_selection_from_column() == 0);
 		CHECK(code_edit->get_selection_to_column() == 1);
 		CHECK(code_edit->get_line(0) == "test");
@@ -2041,7 +2034,7 @@ TEST_CASE("[SceneTree][CodeEdit] indent") {
 
 		code_edit->set_editable(false);
 
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "    ");
 
 		code_edit->unindent_lines();
@@ -2050,15 +2043,8 @@ TEST_CASE("[SceneTree][CodeEdit] indent") {
 		code_edit->set_editable(true);
 
 		/* Simple unindent. */
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "");
-
-		/* Should inindent inplace. */
-		code_edit->set_text("");
-		code_edit->insert_text_at_caret("test    ");
-
-		code_edit->do_unindent();
-		CHECK(code_edit->get_line(0) == "test");
 
 		/* Backspace does a simple unindent. */
 		code_edit->set_text("");
@@ -2080,12 +2066,12 @@ TEST_CASE("[SceneTree][CodeEdit] indent") {
 
 		/* Caret on col zero unindent line. */
 		code_edit->set_text("        test");
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "    test");
 
 		/* Only as far as needed */
 		code_edit->set_text("       test");
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "    test");
 
 		/* Check input action. */
@@ -2096,34 +2082,34 @@ TEST_CASE("[SceneTree][CodeEdit] indent") {
 		/* Selection does entire line. */
 		code_edit->set_text("        test");
 		code_edit->select_all();
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "    test");
 
 		/* Handles multiple lines. */
 		code_edit->set_text("    test\n    text");
 		code_edit->select_all();
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "test");
 		CHECK(code_edit->get_line(1) == "text");
 
 		/* Do not unindent line if last col is zero. */
 		code_edit->set_text("    test\n    text");
 		code_edit->select(0, 0, 1, 0);
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "test");
 		CHECK(code_edit->get_line(1) == "    text");
 
 		/* Unindent even if last column of first line. */
 		code_edit->set_text("    test\n    text");
 		code_edit->select(0, 5, 1, 1);
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_line(0) == "test");
 		CHECK(code_edit->get_line(1) == "text");
 
 		/* Check selection is adjusted. */
 		code_edit->set_text("    test");
 		code_edit->select(0, 4, 0, 5);
-		code_edit->do_unindent();
+		code_edit->unindent_lines();
 		CHECK(code_edit->get_selection_from_column() == 0);
 		CHECK(code_edit->get_selection_to_column() == 1);
 		CHECK(code_edit->get_line(0) == "test");
@@ -2894,7 +2880,7 @@ TEST_CASE("[SceneTree][CodeEdit] completion") {
 		CHECK(code_edit->get_caret_column() == 6);
 		code_edit->undo();
 
-		// brace completion disbaled
+		// brace completion disabled
 		code_edit->set_auto_brace_completion_enabled(false);
 
 		// Full completion.
@@ -2930,11 +2916,11 @@ TEST_CASE("[SceneTree][CodeEdit] completion") {
 		code_edit->add_code_completion_option(CodeEdit::CodeCompletionKind::KIND_NODE_PATH, "\"test", "\"test");
 		code_edit->update_code_completion_options();
 		code_edit->confirm_code_completion();
-		CHECK(code_edit->get_line(0) == "\"\"test\"\"");
+		CHECK(code_edit->get_line(0) == "\"\"test\"");
 		CHECK(code_edit->get_caret_column() == 7);
 		code_edit->undo();
 
-		// brace completion disbaled
+		// brace completion disabled
 		code_edit->set_auto_brace_completion_enabled(false);
 
 		// Full completion.
@@ -3111,15 +3097,15 @@ TEST_CASE("[SceneTree][CodeEdit] completion") {
 
 			Point2 caret_pos = code_edit->get_caret_draw_pos();
 			caret_pos.y += code_edit->get_line_height();
-			SEND_GUI_MOUSE_BUTTON_EVENT(code_edit, caret_pos, MouseButton::WHEEL_DOWN, MouseButton::NONE, Key::NONE);
+			SEND_GUI_MOUSE_BUTTON_EVENT(code_edit, caret_pos, MouseButton::WHEEL_DOWN, 0, Key::NONE);
 			CHECK(code_edit->get_code_completion_selected_index() == 1);
 
-			SEND_GUI_MOUSE_BUTTON_EVENT(code_edit, caret_pos, MouseButton::WHEEL_UP, MouseButton::NONE, Key::NONE);
+			SEND_GUI_MOUSE_BUTTON_EVENT(code_edit, caret_pos, MouseButton::WHEEL_UP, 0, Key::NONE);
 			CHECK(code_edit->get_code_completion_selected_index() == 0);
 
 			/* Single click selects. */
 			caret_pos.y += code_edit->get_line_height() * 2;
-			SEND_GUI_MOUSE_BUTTON_EVENT(code_edit, caret_pos, MouseButton::LEFT, MouseButton::MASK_LEFT, Key::NONE);
+			SEND_GUI_MOUSE_BUTTON_EVENT(code_edit, caret_pos, MouseButton::LEFT, MouseButtonMask::LEFT, Key::NONE);
 			CHECK(code_edit->get_code_completion_selected_index() == 2);
 
 			/* Double click inserts. */
@@ -3330,7 +3316,7 @@ TEST_CASE("[SceneTree][CodeEdit] symbol lookup") {
 
 		Point2 caret_pos = code_edit->get_caret_draw_pos();
 		caret_pos.x += 60;
-		SEND_GUI_MOUSE_BUTTON_EVENT(code_edit, caret_pos, MouseButton::NONE, MouseButton::NONE, Key::NONE);
+		SEND_GUI_MOUSE_BUTTON_EVENT(code_edit, caret_pos, MouseButton::NONE, 0, Key::NONE);
 		CHECK(code_edit->get_text_for_symbol_lookup() == "this is s" + String::chr(0xFFFF) + "ome text");
 
 		SIGNAL_WATCH(code_edit, "symbol_validate");

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  geometry_3d.cpp                                                      */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  geometry_3d.cpp                                                       */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "geometry_3d.h"
 
@@ -197,149 +197,6 @@ struct _FaceClassify {
 	Face3 face;
 	_FaceClassify() {}
 };
-
-static bool _connect_faces(_FaceClassify *p_faces, int len, int p_group) {
-	// Connect faces, error will occur if an edge is shared between more than 2 faces.
-	// Clear connections.
-
-	bool error = false;
-
-	for (int i = 0; i < len; i++) {
-		for (int j = 0; j < 3; j++) {
-			p_faces[i].links[j].clear();
-		}
-	}
-
-	for (int i = 0; i < len; i++) {
-		if (p_faces[i].group != p_group) {
-			continue;
-		}
-		for (int j = i + 1; j < len; j++) {
-			if (p_faces[j].group != p_group) {
-				continue;
-			}
-
-			for (int k = 0; k < 3; k++) {
-				Vector3 vi1 = p_faces[i].face.vertex[k];
-				Vector3 vi2 = p_faces[i].face.vertex[(k + 1) % 3];
-
-				for (int l = 0; l < 3; l++) {
-					Vector3 vj2 = p_faces[j].face.vertex[l];
-					Vector3 vj1 = p_faces[j].face.vertex[(l + 1) % 3];
-
-					if (vi1.distance_to(vj1) < 0.00001f &&
-							vi2.distance_to(vj2) < 0.00001f) {
-						if (p_faces[i].links[k].face != -1) {
-							ERR_PRINT("already linked\n");
-							error = true;
-							break;
-						}
-						if (p_faces[j].links[l].face != -1) {
-							ERR_PRINT("already linked\n");
-							error = true;
-							break;
-						}
-
-						p_faces[i].links[k].face = j;
-						p_faces[i].links[k].edge = l;
-						p_faces[j].links[l].face = i;
-						p_faces[j].links[l].edge = k;
-					}
-				}
-				if (error) {
-					break;
-				}
-			}
-			if (error) {
-				break;
-			}
-		}
-		if (error) {
-			break;
-		}
-	}
-
-	for (int i = 0; i < len; i++) {
-		p_faces[i].valid = true;
-		for (int j = 0; j < 3; j++) {
-			if (p_faces[i].links[j].face == -1) {
-				p_faces[i].valid = false;
-			}
-		}
-	}
-	return error;
-}
-
-static bool _group_face(_FaceClassify *p_faces, int len, int p_index, int p_group) {
-	if (p_faces[p_index].group >= 0) {
-		return false;
-	}
-
-	p_faces[p_index].group = p_group;
-
-	for (int i = 0; i < 3; i++) {
-		ERR_FAIL_INDEX_V(p_faces[p_index].links[i].face, len, true);
-		_group_face(p_faces, len, p_faces[p_index].links[i].face, p_group);
-	}
-
-	return true;
-}
-
-Vector<Vector<Face3>> Geometry3D::separate_objects(Vector<Face3> p_array) {
-	Vector<Vector<Face3>> objects;
-
-	int len = p_array.size();
-
-	const Face3 *arrayptr = p_array.ptr();
-
-	Vector<_FaceClassify> fc;
-
-	fc.resize(len);
-
-	_FaceClassify *_fcptr = fc.ptrw();
-
-	for (int i = 0; i < len; i++) {
-		_fcptr[i].face = arrayptr[i];
-	}
-
-	bool error = _connect_faces(_fcptr, len, -1);
-
-	ERR_FAIL_COND_V_MSG(error, Vector<Vector<Face3>>(), "Invalid geometry.");
-
-	// Group connected faces in separate objects.
-
-	int group = 0;
-	for (int i = 0; i < len; i++) {
-		if (!_fcptr[i].valid) {
-			continue;
-		}
-		if (_group_face(_fcptr, len, i, group)) {
-			group++;
-		}
-	}
-
-	// Group connected faces in separate objects.
-
-	for (int i = 0; i < len; i++) {
-		_fcptr[i].face = arrayptr[i];
-	}
-
-	if (group >= 0) {
-		objects.resize(group);
-		Vector<Face3> *group_faces = objects.ptrw();
-
-		for (int i = 0; i < len; i++) {
-			if (!_fcptr[i].valid) {
-				continue;
-			}
-			if (_fcptr[i].group >= 0 && _fcptr[i].group < group) {
-				group_faces[_fcptr[i].group].push_back(_fcptr[i].face);
-			}
-		}
-	}
-
-	return objects;
-}
 
 /*** GEOMETRY WRAPPER ***/
 
@@ -748,7 +605,7 @@ Geometry3D::MeshData Geometry3D::build_convex_mesh(const Vector<Plane> &p_planes
 		Vector3 right = p.normal.cross(ref).normalized();
 		Vector3 up = p.normal.cross(right).normalized();
 
-		Vector3 center = p.center();
+		Vector3 center = p.get_center();
 
 		// make a quad clockwise
 		LocalVector<Vector3> vertices = {

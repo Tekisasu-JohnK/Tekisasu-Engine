@@ -1,38 +1,39 @@
-/*************************************************************************/
-/*  project_settings.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  project_settings.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "project_settings.h"
 
 #include "core/core_bind.h" // For Compression enum.
 #include "core/core_string_names.h"
 #include "core/input/input_map.h"
+#include "core/io/config_file.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/io/file_access_network.h"
@@ -291,31 +292,26 @@ bool ProjectSettings::_set(const StringName &p_name, const Variant &p_value) {
 			return true;
 		}
 
-		if (!disable_feature_overrides) {
+		{ // Feature overrides.
 			int dot = p_name.operator String().find(".");
 			if (dot != -1) {
 				Vector<String> s = p_name.operator String().split(".");
 
-				bool override_valid = false;
 				for (int i = 1; i < s.size(); i++) {
 					String feature = s[i].strip_edges();
-					if (OS::get_singleton()->has_feature(feature) || custom_features.has(feature)) {
-						override_valid = true;
-						break;
-					}
-				}
+					Pair<StringName, StringName> fo(feature, p_name);
 
-				if (override_valid) {
-					feature_overrides[s[0]] = p_name;
+					if (!feature_overrides.has(s[0])) {
+						feature_overrides[s[0]] = LocalVector<Pair<StringName, StringName>>();
+					}
+
+					feature_overrides[s[0]].push_back(fo);
 				}
 			}
 		}
 
 		if (props.has(p_name)) {
-			if (!props[p_name].overridden) {
-				props[p_name].variant = p_value;
-			}
-
+			props[p_name].variant = p_value;
 		} else {
 			props[p_name] = VariantContainer(p_value, last_order++);
 		}
@@ -340,16 +336,35 @@ bool ProjectSettings::_set(const StringName &p_name, const Variant &p_value) {
 bool ProjectSettings::_get(const StringName &p_name, Variant &r_ret) const {
 	_THREAD_SAFE_METHOD_
 
-	StringName name = p_name;
-	if (!disable_feature_overrides && feature_overrides.has(name)) {
-		name = feature_overrides[name];
-	}
-	if (!props.has(name)) {
-		WARN_PRINT("Property not found: " + String(name));
+	if (!props.has(p_name)) {
+		WARN_PRINT("Property not found: " + String(p_name));
 		return false;
 	}
-	r_ret = props[name].variant;
+	r_ret = props[p_name].variant;
 	return true;
+}
+
+Variant ProjectSettings::get_setting_with_override(const StringName &p_name) const {
+	_THREAD_SAFE_METHOD_
+
+	StringName name = p_name;
+	if (feature_overrides.has(name)) {
+		const LocalVector<Pair<StringName, StringName>> &overrides = feature_overrides[name];
+		for (uint32_t i = 0; i < overrides.size(); i++) {
+			if (OS::get_singleton()->has_feature(overrides[i].first)) { // Custom features are checked in OS.has_feature() already. No need to check twice.
+				if (props.has(overrides[i].second)) {
+					name = overrides[i].second;
+					break;
+				}
+			}
+		}
+	}
+
+	if (!props.has(name)) {
+		WARN_PRINT("Property not found: " + String(name));
+		return Variant();
+	}
+	return props[name].variant;
 }
 
 struct _VCSort {
@@ -1048,21 +1063,10 @@ Variant _GLOBAL_DEF(const String &p_var, const Variant &p_default, bool p_restar
 	return ret;
 }
 
-Vector<String> ProjectSettings::get_optimizer_presets() const {
-	List<PropertyInfo> pi;
-	ProjectSettings::get_singleton()->get_property_list(&pi);
-	Vector<String> names;
-
-	for (const PropertyInfo &E : pi) {
-		if (!E.name.begins_with("optimizer_presets/")) {
-			continue;
-		}
-		names.push_back(E.name.get_slicec('/', 1));
-	}
-
-	names.sort();
-
-	return names;
+Variant _GLOBAL_DEF(const PropertyInfo &p_info, const Variant &p_default, bool p_restart_if_changed, bool p_ignore_value_in_docs, bool p_basic, bool p_internal) {
+	Variant ret = _GLOBAL_DEF(p_info.name, p_default, p_restart_if_changed, p_ignore_value_in_docs, p_basic, p_internal);
+	ProjectSettings::get_singleton()->set_custom_property_info(p_info);
+	return ret;
 }
 
 void ProjectSettings::_add_property_info_bind(const Dictionary &p_info) {
@@ -1082,21 +1086,17 @@ void ProjectSettings::_add_property_info_bind(const Dictionary &p_info) {
 		pinfo.hint_string = p_info["hint_string"];
 	}
 
-	set_custom_property_info(pinfo.name, pinfo);
+	set_custom_property_info(pinfo);
 }
 
-void ProjectSettings::set_custom_property_info(const String &p_prop, const PropertyInfo &p_info) {
-	ERR_FAIL_COND(!props.has(p_prop));
-	custom_prop_info[p_prop] = p_info;
-	custom_prop_info[p_prop].name = p_prop;
+void ProjectSettings::set_custom_property_info(const PropertyInfo &p_info) {
+	const String &prop_name = p_info.name;
+	ERR_FAIL_COND(!props.has(prop_name));
+	custom_prop_info[prop_name] = p_info;
 }
 
 const HashMap<StringName, PropertyInfo> &ProjectSettings::get_custom_property_info() const {
 	return custom_prop_info;
-}
-
-void ProjectSettings::set_disable_feature_overrides(bool p_disable) {
-	disable_feature_overrides = p_disable;
 }
 
 bool ProjectSettings::is_using_datapack() const {
@@ -1132,6 +1132,29 @@ Variant ProjectSettings::get_setting(const String &p_setting, const Variant &p_d
 	}
 }
 
+Array ProjectSettings::get_global_class_list() {
+	Array script_classes;
+
+	Ref<ConfigFile> cf;
+	cf.instantiate();
+	if (cf->load(get_project_data_path().path_join("global_script_class_cache.cfg")) == OK) {
+		script_classes = cf->get_value("", "list");
+	} else {
+#ifndef TOOLS_ENABLED
+		// Script classes can't be recreated in exported project, so print an error.
+		ERR_PRINT("Could not load global script cache.");
+#endif
+	}
+	return script_classes;
+}
+
+void ProjectSettings::store_global_class_list(const Array &p_classes) {
+	Ref<ConfigFile> cf;
+	cf.instantiate();
+	cf->set_value("", "list", p_classes);
+	cf->save(get_project_data_path().path_join("global_script_class_cache.cfg"));
+}
+
 bool ProjectSettings::has_custom_feature(const String &p_feature) const {
 	return custom_features.has(p_feature);
 }
@@ -1163,6 +1186,7 @@ void ProjectSettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("has_setting", "name"), &ProjectSettings::has_setting);
 	ClassDB::bind_method(D_METHOD("set_setting", "name", "value"), &ProjectSettings::set_setting);
 	ClassDB::bind_method(D_METHOD("get_setting", "name", "default_value"), &ProjectSettings::get_setting, DEFVAL(Variant()));
+	ClassDB::bind_method(D_METHOD("get_setting_with_override", "name"), &ProjectSettings::get_setting_with_override);
 	ClassDB::bind_method(D_METHOD("set_order", "name", "position"), &ProjectSettings::set_order);
 	ClassDB::bind_method(D_METHOD("get_order", "name"), &ProjectSettings::get_order);
 	ClassDB::bind_method(D_METHOD("set_initial_value", "name", "value"), &ProjectSettings::set_initial_value);
@@ -1234,6 +1258,14 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF_BASIC("display/window/size/mode", 0);
 	custom_prop_info["display/window/size/mode"] = PropertyInfo(Variant::INT, "display/window/size/mode", PROPERTY_HINT_ENUM, "Windowed,Minimized,Maximized,Fullscreen,Exclusive Fullscreen");
 
+	// Keep the enum values in sync with the `DisplayServer::SCREEN_` enum.
+	GLOBAL_DEF_BASIC("display/window/size/initial_screen", -2);
+	String screen_hints = "Primary Monitor:-2"; // Note: Main Window Monitor:-1 is not used for the main window, skip it.
+	for (int i = 0; i < 64; i++) {
+		screen_hints += ",Monitor " + itos(i + 1) + ":" + itos(i);
+	}
+	custom_prop_info["display/window/size/initial_screen"] = PropertyInfo(Variant::INT, "display/window/size/initial_screen", PROPERTY_HINT_ENUM, screen_hints);
+
 	GLOBAL_DEF_BASIC("display/window/size/resizable", true);
 	GLOBAL_DEF_BASIC("display/window/size/borderless", false);
 	GLOBAL_DEF("display/window/size/always_on_top", false);
@@ -1300,13 +1332,12 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF("debug/settings/crash_handler/message",
 			String("Please include this when reporting the bug to the project developer."));
 	GLOBAL_DEF("debug/settings/crash_handler/message.editor",
-			String("Please include this when reporting the bug on: https://github.com/Tekisasu-JohnK/Tekisasu-Engine/issues"));
-	GLOBAL_DEF_RST("rendering/occlusion_culling/bvh_build_quality", 2);
-	GLOBAL_DEF("memory/limits/multithreaded_server/rid_pool_prealloc", 60);
+			String("Please include this when reporting the bug on: https://github.com/godotengine/godot/issues"));
+	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "rendering/occlusion_culling/bvh_build_quality", PROPERTY_HINT_ENUM, "Low,Medium,High"), 2);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "memory/limits/multithreaded_server/rid_pool_prealloc", PROPERTY_HINT_RANGE, "0,500,1"), 60); // No negative and limit to 500 due to crashes.
 	GLOBAL_DEF_RST("internationalization/rendering/force_right_to_left_layout_direction", false);
 
-	GLOBAL_DEF("gui/timers/incremental_search_max_interval_msec", 2000);
-	ProjectSettings::get_singleton()->set_custom_property_info("gui/timers/incremental_search_max_interval_msec", PropertyInfo(Variant::INT, "gui/timers/incremental_search_max_interval_msec", PROPERTY_HINT_RANGE, "0,10000,1,or_greater")); // No negative numbers.
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "gui/timers/incremental_search_max_interval_msec", PROPERTY_HINT_RANGE, "0,10000,1,or_greater"), 2000);
 
 	GLOBAL_DEF("rendering/rendering_device/staging_buffer/block_size_kb", 256);
 	GLOBAL_DEF("rendering/rendering_device/staging_buffer/max_size_mb", 128);

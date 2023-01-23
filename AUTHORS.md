@@ -30,6 +30,6 @@ name is available.
 
 ## Developers
 
-    The upstream Godot Engine team
+ The upstream Godot Engine team
     The Godot Engine community
     Tekisasu

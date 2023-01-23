@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  bindings_generator.cpp                                               */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  bindings_generator.cpp                                                */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "bindings_generator.h"
 
@@ -1864,12 +1864,7 @@ Error BindingsGenerator::_generate_cs_property(const BindingsGenerator::TypeInte
 	p_output.append("\n" OPEN_BLOCK_L1);
 
 	if (getter) {
-		p_output.append(INDENT2 "get\n"
-
-								// TODO Remove this once we make accessor methods private/internal (they will no longer be marked as obsolete after that)
-								"#pragma warning disable CS0618 // Disable warning about obsolete method\n"
-
-				OPEN_BLOCK_L2 INDENT3);
+		p_output.append(INDENT2 "get\n" OPEN_BLOCK_L2 INDENT3);
 
 		p_output.append("return ");
 		p_output.append(getter->proxy_name + "(");
@@ -1884,21 +1879,11 @@ Error BindingsGenerator::_generate_cs_property(const BindingsGenerator::TypeInte
 				p_output.append(itos(p_iprop.index));
 			}
 		}
-		p_output.append(");\n"
-
-				CLOSE_BLOCK_L2
-
-						// TODO Remove this once we make accessor methods private/internal (they will no longer be marked as obsolete after that)
-						"#pragma warning restore CS0618\n");
+		p_output.append(");\n" CLOSE_BLOCK_L2);
 	}
 
 	if (setter) {
-		p_output.append(INDENT2 "set\n"
-
-								// TODO Remove this once we make accessor methods private/internal (they will no longer be marked as obsolete after that)
-								"#pragma warning disable CS0618 // Disable warning about obsolete method\n"
-
-				OPEN_BLOCK_L2 INDENT3);
+		p_output.append(INDENT2 "set\n" OPEN_BLOCK_L2 INDENT3);
 
 		p_output.append(setter->proxy_name + "(");
 		if (p_iprop.index != -1) {
@@ -1912,12 +1897,7 @@ Error BindingsGenerator::_generate_cs_property(const BindingsGenerator::TypeInte
 				p_output.append(itos(p_iprop.index) + ", ");
 			}
 		}
-		p_output.append("value);\n"
-
-				CLOSE_BLOCK_L2
-
-						// TODO Remove this once we make accessor methods private/internal (they will no longer be marked as obsolete after that)
-						"#pragma warning restore CS0618\n");
+		p_output.append("value);\n" CLOSE_BLOCK_L2);
 	}
 
 	p_output.append(CLOSE_BLOCK_L1);
@@ -3056,12 +3036,10 @@ bool BindingsGenerator::_populate_object_type_interfaces() {
 
 			HashMap<StringName, StringName>::Iterator accessor = accessor_methods.find(imethod.cname);
 			if (accessor) {
-				const PropertyInterface *accessor_property = itype.find_property_by_name(accessor->value);
-
-				// We only deprecate an accessor method if it's in the same class as the property. It's easier this way, but also
-				// we don't know if an accessor method in a different class could have other purposes, so better leave those untouched.
-				imethod.is_deprecated = true;
-				imethod.deprecation_message = imethod.proxy_name + " is deprecated. Use the " + accessor_property->proxy_name + " property instead.";
+				// We only make internal an accessor method if it's in the same class as the property.
+				// It's easier this way, but also we don't know if an accessor method in a different class
+				// could have other purposes, so better leave those untouched.
+				imethod.is_internal = true;
 			}
 
 			if (itype.class_doc) {
@@ -3650,7 +3628,7 @@ void BindingsGenerator::_populate_builtin_type_interfaces() {
 	itype = TypeInterface();
 	itype.name = "Signal";
 	itype.cname = itype.name;
-	itype.proxy_name = "SignalInfo";
+	itype.proxy_name = "Signal";
 	itype.cs_type = itype.proxy_name;
 	itype.cs_in_expr = "%0";
 	itype.c_in = "%5using %0 %1_in = " C_METHOD_MANAGED_TO_SIGNAL "(in %1);\n";
@@ -3732,7 +3710,7 @@ void BindingsGenerator::_populate_builtin_type_interfaces() {
 	itype.cname = itype.name;
 	itype.cs_out = "%5return new %2(%0(%1));";
 	// For generic Godot collections, Variant.From<T>/As<T> is slower, so we need this special case
-	itype.cs_variant_to_managed = "VariantUtils.ConvertToArrayObject(%0)";
+	itype.cs_variant_to_managed = "VariantUtils.ConvertToArray(%0)";
 	itype.cs_managed_to_variant = "VariantUtils.CreateFromArray(%0)";
 	builtin_types.insert(itype.cname, itype);
 
@@ -3759,7 +3737,7 @@ void BindingsGenerator::_populate_builtin_type_interfaces() {
 	itype.cname = itype.name;
 	itype.cs_out = "%5return new %2(%0(%1));";
 	// For generic Godot collections, Variant.From<T>/As<T> is slower, so we need this special case
-	itype.cs_variant_to_managed = "VariantUtils.ConvertToDictionaryObject(%0)";
+	itype.cs_variant_to_managed = "VariantUtils.ConvertToDictionary(%0)";
 	itype.cs_managed_to_variant = "VariantUtils.CreateFromDictionary(%0)";
 	builtin_types.insert(itype.cname, itype);
 
@@ -3806,7 +3784,7 @@ void BindingsGenerator::_populate_global_constants() {
 
 			if (enum_name != StringName()) {
 				EnumInterface ienum(enum_name);
-				// TODO: ienum.is_flags is always false for core constants since they don't seem to support bitfield enums
+				ienum.is_flags = CoreConstants::is_global_constant_bitfield(i);
 				List<EnumInterface>::Element *enum_match = global_enums.find(ienum);
 				if (enum_match) {
 					enum_match->get().constants.push_back(iconstant);

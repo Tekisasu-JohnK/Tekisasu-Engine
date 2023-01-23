@@ -49,6 +49,13 @@
 				When inheriting from [AnimationRootNode], implement this virtual method to return whether the blend tree editor should display filter editing on this node.
 			</description>
 		</method>
+		<method name="_is_parameter_read_only" qualifiers="virtual const">
+			<return type="bool" />
+			<param index="0" name="parameter" type="StringName" />
+			<description>
+				When inheriting from [AnimationRootNode], implement this virtual method to return whether the [param parameter] is read-only. Parameters are custom local memory used for your nodes, given a resource can be reused in multiple trees.
+			</description>
+		</method>
 		<method name="_process" qualifiers="virtual const">
 			<return type="float" />
 			<param index="0" name="time" type="float" />
@@ -165,11 +172,6 @@
 		</member>
 	</members>
 	<signals>
-		<signal name="removed_from_graph">
-			<description>
-				Emitted when the node was removed from the graph.
-			</description>
-		</signal>
 		<signal name="tree_changed">
 			<description>
 				Emitted by nodes that inherit from this class and that have an internal tree when one of their nodes changes. The nodes that emit this signal are [AnimationNodeBlendSpace1D], [AnimationNodeBlendSpace2D], [AnimationNodeStateMachine], and [AnimationNodeBlendTree].

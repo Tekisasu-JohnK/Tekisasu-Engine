@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  export_plugin.cpp                                                    */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  export_plugin.cpp                                                     */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "export_plugin.h"
 
@@ -43,10 +43,16 @@
 #include "editor/editor_log.h"
 #include "editor/editor_node.h"
 #include "editor/editor_paths.h"
+#include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 #include "main/splash.gen.h"
-#include "platform/android/logo.gen.h"
-#include "platform/android/run_icon.gen.h"
+#include "platform/android/logo_svg.gen.h"
+#include "platform/android/run_icon_svg.gen.h"
+
+#include "modules/modules_enabled.gen.h" // For svg.
+#ifdef MODULE_SVG_ENABLED
+#include "modules/svg/image_loader_svg.h"
+#endif
 
 #include <string.h>
 
@@ -873,7 +879,7 @@ void EditorExportPlatformAndroid::_fix_manifest(const Ref<EditorExportPreset> &p
 	int hand_tracking_frequency_index = p_preset->get("xr_features/hand_tracking_frequency");
 
 	bool backup_allowed = p_preset->get("user_data_backup/allow");
-	bool classify_as_game = p_preset->get("package/classify_as_game");
+	int app_category = p_preset->get("package/app_category");
 	bool retain_data_on_uninstall = p_preset->get("package/retain_data_on_uninstall");
 	bool exclude_from_recents = p_preset->get("package/exclude_from_recents");
 	bool is_resizeable = bool(GLOBAL_GET("display/window/size/resizable"));
@@ -972,8 +978,12 @@ void EditorExportPlatformAndroid::_fix_manifest(const Ref<EditorExportPreset> &p
 						encode_uint32(backup_allowed, &p_manifest.write[iofs + 16]);
 					}
 
+					if (tname == "application" && attrname == "appCategory") {
+						encode_uint32(_get_app_category_value(app_category), &p_manifest.write[iofs + 16]);
+					}
+
 					if (tname == "application" && attrname == "isGame") {
-						encode_uint32(classify_as_game, &p_manifest.write[iofs + 16]);
+						encode_uint32(app_category == APP_CATEGORY_GAME, &p_manifest.write[iofs + 16]);
 					}
 
 					if (tname == "application" && attrname == "hasFragileUserData") {
@@ -1021,7 +1031,7 @@ void EditorExportPlatformAndroid::_fix_manifest(const Ref<EditorExportPreset> &p
 							string_table.write[attr_value] = "com.oculus.handtracking.version";
 						}
 
-						if (tname == "meta-data" && attrname == "name" && value == "xr_hand_tracking_version_value") {
+						if (tname == "meta-data" && attrname == "value" && value == "xr_hand_tracking_version_value") {
 							string_table.write[attr_value] = "V2.0";
 						}
 					}
@@ -1731,7 +1741,7 @@ void EditorExportPlatformAndroid::get_export_options(List<ExportOption> *r_optio
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "package/unique_name", PROPERTY_HINT_PLACEHOLDER_TEXT, "ext.domain.name"), "org.godotengine.$genname"));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "package/name", PROPERTY_HINT_PLACEHOLDER_TEXT, "Game Name [default if blank]"), ""));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::BOOL, "package/signed"), true));
-	r_options->push_back(ExportOption(PropertyInfo(Variant::BOOL, "package/classify_as_game"), true));
+	r_options->push_back(ExportOption(PropertyInfo(Variant::INT, "package/app_category", PROPERTY_HINT_ENUM, "Accessibility,Audio,Game,Image,Maps,News,Productivity,Social,Video"), APP_CATEGORY_GAME));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::BOOL, "package/retain_data_on_uninstall"), false));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::BOOL, "package/exclude_from_recents"), false));
 
@@ -2011,7 +2021,10 @@ String EditorExportPlatformAndroid::get_adb_path() {
 	return sdk_path.path_join("platform-tools/adb" + exe_ext);
 }
 
-String EditorExportPlatformAndroid::get_apksigner_path() {
+String EditorExportPlatformAndroid::get_apksigner_path(int p_target_sdk, bool p_check_executes) {
+	if (p_target_sdk == -1) {
+		p_target_sdk = DEFAULT_TARGET_SDK_VERSION;
+	}
 	String exe_ext = "";
 	if (OS::get_singleton()->get_name() == "Windows") {
 		exe_ext = ".bat";
@@ -2029,23 +2042,89 @@ String EditorExportPlatformAndroid::get_apksigner_path() {
 	}
 
 	// There are additional versions directories we need to go through.
-	da->list_dir_begin();
-	String sub_dir = da->get_next();
-	while (!sub_dir.is_empty()) {
-		if (!sub_dir.begins_with(".") && da->current_is_dir()) {
-			// Check if the tool is here.
-			String tool_path = build_tools_dir.path_join(sub_dir).path_join(apksigner_command_name);
-			if (FileAccess::exists(tool_path)) {
-				apksigner_path = tool_path;
+	Vector<String> dir_list = da->get_directories();
+
+	// We need to use the version of build_tools that matches the Target SDK
+	// If somehow we can't find that, we see if a version between 28 and the default target SDK exists.
+	// We need to avoid versions <= 27 because they fail on Java versions >9
+	// If we can't find that, we just use the first valid version.
+	Vector<String> ideal_versions;
+	Vector<String> other_versions;
+	Vector<String> versions;
+	bool found_target_sdk = false;
+	// We only allow for versions <= 27 if specifically set
+	int min_version = p_target_sdk <= 27 ? p_target_sdk : 28;
+	for (String sub_dir : dir_list) {
+		if (!sub_dir.begins_with(".")) {
+			Vector<String> ver_numbers = sub_dir.split(".");
+			// Dir not a version number, will use as last resort
+			if (!ver_numbers.size() || !ver_numbers[0].is_valid_int()) {
+				other_versions.push_back(sub_dir);
+				continue;
+			}
+			int ver_number = ver_numbers[0].to_int();
+			if (ver_number == p_target_sdk) {
+				found_target_sdk = true;
+				//ensure this is in front of the ones we check
+				versions.push_back(sub_dir);
+			} else {
+				if (ver_number >= min_version && ver_number <= DEFAULT_TARGET_SDK_VERSION) {
+					ideal_versions.push_back(sub_dir);
+				} else {
+					other_versions.push_back(sub_dir);
+				}
+			}
+		}
+	}
+	// we will check ideal versions first, then other versions.
+	versions.append_array(ideal_versions);
+	versions.append_array(other_versions);
+
+	if (!versions.size()) {
+		print_error("Unable to find the 'apksigner' tool.");
+		return apksigner_path;
+	}
+
+	int i;
+	bool failed = false;
+	String version_to_use;
+
+	List<String> args;
+	args.push_back("--version");
+	String output;
+	int retval;
+	Error err;
+	for (i = 0; i < versions.size(); i++) {
+		// Check if the tool is here.
+		apksigner_path = build_tools_dir.path_join(versions[i]).path_join(apksigner_command_name);
+		if (FileAccess::exists(apksigner_path)) {
+			version_to_use = versions[i];
+			// If we aren't exporting, just break here.
+			if (!p_check_executes) {
+				break;
+			}
+			// we only check to see if it executes on export because it is slow to load
+			err = OS::get_singleton()->execute(apksigner_path, args, &output, &retval, false);
+			if (err || retval) {
+				failed = true;
+			} else {
 				break;
 			}
 		}
-		sub_dir = da->get_next();
 	}
-	da->list_dir_end();
-
-	if (apksigner_path.is_empty()) {
-		print_error("Unable to find the 'apksigner' tool.");
+	if (i == versions.size()) {
+		if (failed) {
+			print_error("All located 'apksigner' tools in " + build_tools_dir + " failed to execute");
+			return "<FAILED>";
+		} else {
+			print_error("Unable to find the 'apksigner' tool.");
+			return "";
+		}
+	}
+	if (!found_target_sdk) {
+		print_line("Could not find version of build tools that matches Target SDK, using " + version_to_use);
+	} else if (failed && found_target_sdk) {
+		print_line("Version of build tools that matches Target SDK failed to execute, using " + version_to_use);
 	}
 
 	return apksigner_path;
@@ -2165,8 +2244,12 @@ bool EditorExportPlatformAndroid::has_valid_export_configuration(const Ref<Edito
 			valid = false;
 		}
 
+		String target_sdk_version = p_preset->get("custom_build/target_sdk");
+		if (!target_sdk_version.is_valid_int()) {
+			target_sdk_version = itos(DEFAULT_TARGET_SDK_VERSION);
+		}
 		// Validate that apksigner is available
-		String apksigner_path = get_apksigner_path();
+		String apksigner_path = get_apksigner_path(target_sdk_version.to_int());
 		if (!FileAccess::exists(apksigner_path)) {
 			err += TTR("Unable to find Android SDK build-tools' apksigner command.");
 			err += TTR("Please check in the Android SDK directory specified in Editor Settings.");
@@ -2389,9 +2472,16 @@ Error EditorExportPlatformAndroid::sign_apk(const Ref<EditorExportPreset> &p_pre
 	String release_keystore = p_preset->get("keystore/release");
 	String release_username = p_preset->get("keystore/release_user");
 	String release_password = p_preset->get("keystore/release_password");
-
-	String apksigner = get_apksigner_path();
+	String target_sdk_version = p_preset->get("custom_build/target_sdk");
+	if (!target_sdk_version.is_valid_int()) {
+		target_sdk_version = itos(DEFAULT_TARGET_SDK_VERSION);
+	}
+	String apksigner = get_apksigner_path(target_sdk_version.to_int(), true);
 	print_verbose("Starting signing of the " + export_label + " binary using " + apksigner);
+	if (apksigner == "<FAILED>") {
+		add_message(EXPORT_MESSAGE_WARNING, TTR("Code Signing"), vformat(TTR("All 'apksigner' tools located in Android SDK 'build-tools' directory failed to execute. Please check that you have the correct version installed for your target sdk version. The resulting %s is unsigned."), export_label));
+		return OK;
+	}
 	if (!FileAccess::exists(apksigner)) {
 		add_message(EXPORT_MESSAGE_WARNING, TTR("Code Signing"), vformat(TTR("'apksigner' could not be found. Please check that the command is available in the Android SDK build-tools directory. The resulting %s is unsigned."), export_label));
 		return OK;
@@ -2441,20 +2531,27 @@ Error EditorExportPlatformAndroid::sign_apk(const Ref<EditorExportPreset> &p_pre
 	args.push_back("--ks-key-alias");
 	args.push_back(user);
 	args.push_back(export_path);
-	if (p_debug) {
-		// We only print verbose logs for debug builds to avoid leaking release keystore credentials.
+	if (OS::get_singleton()->is_stdout_verbose() && p_debug) {
+		// We only print verbose logs with credentials for debug builds to avoid leaking release keystore credentials.
 		print_verbose("Signing debug binary using: " + String("\n") + apksigner + " " + join_list(args, String(" ")));
+	} else {
+		List<String> redacted_args = List<String>(args);
+		redacted_args.find(keystore)->set("<REDACTED>");
+		redacted_args.find("pass:" + password)->set("pass:<REDACTED>");
+		redacted_args.find(user)->set("<REDACTED>");
+		print_line("Signing binary using: " + String("\n") + apksigner + " " + join_list(redacted_args, String(" ")));
 	}
 	int retval;
-	output.clear();
 	Error err = OS::get_singleton()->execute(apksigner, args, &output, &retval, true);
 	if (err != OK) {
 		add_message(EXPORT_MESSAGE_WARNING, TTR("Code Signing"), TTR("Could not start apksigner executable."));
 		return err;
 	}
-	print_verbose(output);
+	// By design, apksigner does not output credentials in its output unless --verbose is used
+	print_line(output);
 	if (retval) {
 		add_message(EXPORT_MESSAGE_WARNING, TTR("Code Signing"), vformat(TTR("'apksigner' returned with error #%d"), retval));
+		add_message(EXPORT_MESSAGE_WARNING, TTR("Code Signing"), vformat(TTR("output: \n%s"), output));
 		return ERR_CANT_CREATE;
 	}
 
@@ -2479,6 +2576,7 @@ Error EditorExportPlatformAndroid::sign_apk(const Ref<EditorExportPreset> &p_pre
 	print_verbose(output);
 	if (retval) {
 		add_message(EXPORT_MESSAGE_WARNING, TTR("Code Signing"), vformat(TTR("'apksigner' verification of %s failed."), export_label));
+		add_message(EXPORT_MESSAGE_WARNING, TTR("Code Signing"), vformat(TTR("output: \n%s"), output));
 		return ERR_CANT_CREATE;
 	}
 
@@ -3146,8 +3244,17 @@ void EditorExportPlatformAndroid::resolve_platform_feature_priorities(const Ref<
 }
 
 EditorExportPlatformAndroid::EditorExportPlatformAndroid() {
-	logo = ImageTexture::create_from_image(memnew(Image(_android_logo)));
-	run_icon = ImageTexture::create_from_image(memnew(Image(_android_run_icon)));
+#ifdef MODULE_SVG_ENABLED
+	Ref<Image> img = memnew(Image);
+	const bool upsample = !Math::is_equal_approx(Math::round(EDSCALE), EDSCALE);
+
+	ImageLoaderSVG img_loader;
+	img_loader.create_image_from_string(img, _android_logo_svg, EDSCALE, upsample, false);
+	logo = ImageTexture::create_from_image(img);
+
+	img_loader.create_image_from_string(img, _android_run_icon_svg, EDSCALE, upsample, false);
+	run_icon = ImageTexture::create_from_image(img);
+#endif
 
 	devices_changed.set();
 	plugins_changed.set();

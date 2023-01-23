@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  animation_blend_tree.h                                               */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  animation_blend_tree.h                                                */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef ANIMATION_BLEND_TREE_H
 #define ANIMATION_BLEND_TREE_H
@@ -96,6 +96,12 @@ class AnimationNodeOneShot : public AnimationNodeSync {
 	GDCLASS(AnimationNodeOneShot, AnimationNodeSync);
 
 public:
+	enum OneShotRequest {
+		ONE_SHOT_REQUEST_NONE,
+		ONE_SHOT_REQUEST_FIRE,
+		ONE_SHOT_REQUEST_ABORT,
+	};
+
 	enum MixMode {
 		MIX_MODE_BLEND,
 		MIX_MODE_ADD
@@ -110,13 +116,8 @@ private:
 	double autorestart_random_delay = 0.0;
 	MixMode mix = MIX_MODE_BLEND;
 
-	/*	bool active;
-	bool do_start;
-	double time;
-	double remaining;*/
-
+	StringName request = PNAME("request");
 	StringName active = PNAME("active");
-	StringName prev_active = "prev_active";
 	StringName time = "time";
 	StringName remaining = "remaining";
 	StringName time_to_restart = "time_to_restart";
@@ -127,6 +128,7 @@ protected:
 public:
 	virtual void get_parameter_list(List<PropertyInfo> *r_list) const override;
 	virtual Variant get_parameter_default_value(const StringName &p_parameter) const override;
+	virtual bool is_parameter_read_only(const StringName &p_parameter) const override;
 
 	virtual String get_caption() const override;
 
@@ -153,6 +155,7 @@ public:
 	AnimationNodeOneShot();
 };
 
+VARIANT_ENUM_CAST(AnimationNodeOneShot::OneShotRequest)
 VARIANT_ENUM_CAST(AnimationNodeOneShot::MixMode)
 
 class AnimationNodeAdd2 : public AnimationNodeSync {
@@ -284,22 +287,19 @@ class AnimationNodeTransition : public AnimationNodeSync {
 	InputData inputs[MAX_INPUTS];
 	int enabled_inputs = 0;
 
-	/*
-	double prev_xfading;
-	int prev;
-	double time;
-	int current;
-	int prev_current; */
-
-	StringName prev_xfading = "prev_xfading";
-	StringName prev = "prev";
 	StringName time = "time";
-	StringName current = PNAME("current");
-	StringName prev_current = "prev_current";
+	StringName prev_xfading = "prev_xfading";
+	StringName prev_index = "prev_index";
+	StringName current_index = PNAME("current_index");
+	StringName current_state = PNAME("current_state");
+	StringName transition_request = PNAME("transition_request");
+
+	StringName prev_frame_current = "pf_current";
+	StringName prev_frame_current_idx = "pf_current_idx";
 
 	double xfade_time = 0.0;
 	Ref<Curve> xfade_curve;
-	bool from_start = true;
+	bool reset = true;
 
 	void _update_inputs();
 
@@ -310,6 +310,7 @@ protected:
 public:
 	virtual void get_parameter_list(List<PropertyInfo> *r_list) const override;
 	virtual Variant get_parameter_default_value(const StringName &p_parameter) const override;
+	virtual bool is_parameter_read_only(const StringName &p_parameter) const override;
 
 	virtual String get_caption() const override;
 
@@ -321,6 +322,7 @@ public:
 
 	void set_input_caption(int p_input, const String &p_name);
 	String get_input_caption(int p_input) const;
+	int find_input_caption(const String &p_name) const;
 
 	void set_xfade_time(double p_fade);
 	double get_xfade_time() const;
@@ -328,8 +330,8 @@ public:
 	void set_xfade_curve(const Ref<Curve> &p_curve);
 	Ref<Curve> get_xfade_curve() const;
 
-	void set_from_start(bool p_from_start);
-	bool is_from_start() const;
+	void set_reset(bool p_reset);
+	bool is_reset() const;
 
 	double process(double p_time, bool p_seek, bool p_is_external_seeking) override;
 
