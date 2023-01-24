@@ -1,4 +1,4 @@
-# Exhaustive licensing information for files in the Godot Engine repository
+# Exhaustive licensing information for files in the Tekisasu Engine repository
 # =========================================================================
 #
 # This file aims at documenting the copyright and license for every source
@@ -42,18 +42,19 @@ Upstream-Contact: Rémi Verschelde <contact@godotengine.org>
 Source: https://github.com/godotengine/godot
 
 Files: *
-Comment: Godot Engine
+Comment: Tekisasu Engine
+Copyright: 2021-present, Tekisasu
 Copyright: 2014-present, Godot Engine contributors
- 2007-2014, Juan Linietsky, Ariel Manzur
+Copyright: 2007-2014, Juan Linietsky, Ariel Manzur
 License: Expat
 
 Files: ./icon.png
  ./icon.svg
  ./logo.png
  ./logo.svg
-Comment: Godot Engine logo
-Copyright: 2017, Andrea Calabró
-License: CC-BY-4.0
+Comment: Tekisasu Engine logo
+Copyright: 2021 Tekisasu / John Knight
+License: Proprietary
 
 Files: ./core/math/convex_hull.cpp
  ./core/math/convex_hull.h
