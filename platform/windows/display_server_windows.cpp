@@ -3755,10 +3755,6 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 				// lifetime is ensured because we are still on the stack when this is
 				// processed in the window proc
 				reinterpret_cast<void *>(&wd));
-		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
- 		BOOL value = TRUE;
- 		::DwmSetWindowAttribute(wd.hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
- 		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */
 		if (!wd.hWnd) {
 			MessageBoxW(nullptr, L"Window Creation Error.", L"ERROR", MB_OK | MB_ICONEXCLAMATION);
 			windows.erase(id);
@@ -3773,11 +3769,9 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 		if (p_mode != WINDOW_MODE_FULLSCREEN && p_mode != WINDOW_MODE_EXCLUSIVE_FULLSCREEN) {
 			wd.pre_fs_valid = true;
 		}
-
-		if (is_dark_mode_supported() && dark_title_available) {
-			BOOL value = is_dark_mode();
-			::DwmSetWindowAttribute(wd.hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
-		}
+		
+		BOOL value = is_dark_mode();
+		::DwmSetWindowAttribute(wd.hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
 
 #ifdef VULKAN_ENABLED
 		if (context_vulkan) {
