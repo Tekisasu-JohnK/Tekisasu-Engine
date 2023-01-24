@@ -3732,12 +3732,6 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 	{
 		WindowData &wd = windows[id];
 
-		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
- 		#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
- 		#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
- 		#endif
- 		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */
-
 		wd.hWnd = CreateWindowExW(
 				dwExStyle,
 				L"Engine", L"",
