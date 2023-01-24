@@ -3732,6 +3732,12 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 	{
 		WindowData &wd = windows[id];
 
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
+ 		#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+ 		#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+ 		#endif
+ 		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */
+
 		wd.hWnd = CreateWindowExW(
 				dwExStyle,
 				L"Engine", L"",
@@ -3749,6 +3755,10 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 				// lifetime is ensured because we are still on the stack when this is
 				// processed in the window proc
 				reinterpret_cast<void *>(&wd));
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
+ 		BOOL value = TRUE;
+ 		::DwmSetWindowAttribute(hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+ 		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */
 		if (!wd.hWnd) {
 			MessageBoxW(nullptr, L"Window Creation Error.", L"ERROR", MB_OK | MB_ICONEXCLAMATION);
 			windows.erase(id);
