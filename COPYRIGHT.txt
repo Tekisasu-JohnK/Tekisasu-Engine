@@ -43,9 +43,7 @@ Source: https://github.com/godotengine/godot
 
 Files: *
 Comment: Tekisasu Engine
-Copyright: 2021-present, Tekisasu
-Copyright: 2014-present, Godot Engine contributors
-Copyright: 2007-2014, Juan Linietsky, Ariel Manzur
+Copyright: 2021-present, Tekisasu. 2014-present, Godot Engine contributors. 2007-2014, Juan Linietsky, Ariel Manzur.
 License: Expat
 
 Files: ./icon.png
