@@ -462,6 +462,35 @@ void TileSetEditor::_move_tile_set_array_element(Object *p_undo_redo, Object *p_
 	}
 
 #define ADD_UNDO(obj, property) undo_redo_man->add_undo_property(obj, property, obj->get(property));
+
+	// Add undo method to adding array element.
+	if (p_array_prefix == "occlusion_layer_") {
+		if (p_from_index < 0) {
+			undo_redo_man->add_undo_method(ed_tile_set, "remove_occlusion_layer", p_to_pos < 0 ? ed_tile_set->get_occlusion_layers_count() : p_to_pos);
+		}
+	} else if (p_array_prefix == "physics_layer_") {
+		if (p_from_index < 0) {
+			undo_redo_man->add_undo_method(ed_tile_set, "remove_physics_layer", p_to_pos < 0 ? ed_tile_set->get_physics_layers_count() : p_to_pos);
+		}
+	} else if (p_array_prefix == "terrain_set_") {
+		if (p_from_index < 0) {
+			undo_redo_man->add_undo_method(ed_tile_set, "remove_terrain_set", p_to_pos < 0 ? ed_tile_set->get_terrain_sets_count() : p_to_pos);
+		}
+	} else if (components.size() >= 2 && components[0].begins_with("terrain_set_") && components[0].trim_prefix("terrain_set_").is_valid_int() && components[1] == "terrain_") {
+		int terrain_set = components[0].trim_prefix("terrain_set_").to_int();
+		if (p_from_index < 0) {
+			undo_redo_man->add_undo_method(ed_tile_set, "remove_terrain", terrain_set, p_to_pos < 0 ? ed_tile_set->get_terrains_count(terrain_set) : p_to_pos);
+		}
+	} else if (p_array_prefix == "navigation_layer_") {
+		if (p_from_index < 0) {
+			undo_redo_man->add_undo_method(ed_tile_set, "remove_navigation_layer", p_to_pos < 0 ? ed_tile_set->get_navigation_layers_count() : p_to_pos);
+		}
+	} else if (p_array_prefix == "custom_data_layer_") {
+		if (p_from_index < 0) {
+			undo_redo_man->add_undo_method(ed_tile_set, "remove_custom_data_layer", p_to_pos < 0 ? ed_tile_set->get_custom_data_layers_count() : p_to_pos);
+		}
+	}
+
 	// Save layers' properties.
 	List<PropertyInfo> properties;
 	ed_tile_set->get_property_list(&properties);
@@ -543,7 +572,7 @@ void TileSetEditor::_move_tile_set_array_element(Object *p_undo_redo, Object *p_
 	}
 #undef ADD_UNDO
 
-	// Add do method.
+	// Add do method to add/remove array element.
 	if (p_array_prefix == "occlusion_layer_") {
 		if (p_from_index < 0) {
 			undo_redo_man->add_do_method(ed_tile_set, "add_occlusion_layer", p_to_pos);
@@ -637,11 +666,6 @@ void TileSetEditor::_undo_redo_inspector_callback(Object *p_undo_redo, Object *p
 #undef ADD_UNDO
 }
 
-void TileSetEditor::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("_can_drop_data_fw"), &TileSetEditor::_can_drop_data_fw);
-	ClassDB::bind_method(D_METHOD("_drop_data_fw"), &TileSetEditor::_drop_data_fw);
-}
-
 void TileSetEditor::edit(Ref<TileSet> p_tile_set) {
 	if (p_tile_set == tile_set) {
 		return;
@@ -728,7 +752,7 @@ TileSetEditor::TileSetEditor() {
 	sources_list->add_user_signal(MethodInfo("sort_request"));
 	sources_list->connect("sort_request", callable_mp(this, &TileSetEditor::_update_sources_list).bind(-1));
 	sources_list->set_texture_filter(CanvasItem::TEXTURE_FILTER_NEAREST);
-	sources_list->set_drag_forwarding_compat(this);
+	SET_DRAG_FORWARDING_CDU(sources_list, TileSetEditor);
 	split_container_left_side->add_child(sources_list);
 
 	HBoxContainer *sources_bottom_actions = memnew(HBoxContainer);

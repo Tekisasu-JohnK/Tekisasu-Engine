@@ -484,6 +484,8 @@ struct _RigidBodyInOut {
 };
 
 void RigidBody3D::_body_state_changed(PhysicsDirectBodyState3D *p_state) {
+	lock_callback();
+
 	set_ignore_transform_notification(true);
 	set_global_transform(p_state->get_transform());
 
@@ -578,6 +580,8 @@ void RigidBody3D::_body_state_changed(PhysicsDirectBodyState3D *p_state) {
 
 		contact_monitor->locked = false;
 	}
+
+	unlock_callback();
 }
 
 void RigidBody3D::_notification(int p_what) {
@@ -973,12 +977,11 @@ TypedArray<Node3D> RigidBody3D::get_colliding_bodies() const {
 }
 
 PackedStringArray RigidBody3D::get_configuration_warnings() const {
-	Transform3D t = get_transform();
+	PackedStringArray warnings = CollisionObject3D::get_configuration_warnings();
 
-	PackedStringArray warnings = Node::get_configuration_warnings();
-
-	if (ABS(t.basis.get_column(0).length() - 1.0) > 0.05 || ABS(t.basis.get_column(1).length() - 1.0) > 0.05 || ABS(t.basis.get_column(2).length() - 1.0) > 0.05) {
-		warnings.push_back(RTR("Size changes to RigidBody will be overridden by the physics engine when running.\nChange the size in children collision shapes instead."));
+	Vector3 scale = get_transform().get_basis().get_scale();
+	if (ABS(scale.x - 1.0) > 0.05 || ABS(scale.y - 1.0) > 0.05 || ABS(scale.z - 1.0) > 0.05) {
+		warnings.push_back(RTR("Scale changes to RigidBody3D will be overridden by the physics engine when running.\nPlease change the size in children collision shapes instead."));
 	}
 
 	return warnings;
@@ -1343,7 +1346,7 @@ void CharacterBody3D::_move_and_slide_grounded(double p_delta, bool p_was_on_flo
 								motion = motion.slide(up_direction);
 								result.travel = Vector3();
 							} else {
-								// Travel is too high to be safely cancelled, we take it into account.
+								// Travel is too high to be safely canceled, we take it into account.
 								result.travel = result.travel.slide(up_direction);
 								motion = motion.normalized() * result.travel.length();
 							}
@@ -1351,7 +1354,7 @@ void CharacterBody3D::_move_and_slide_grounded(double p_delta, bool p_was_on_flo
 							// Determines if you are on the ground, and limits the possibility of climbing on the walls because of the approximations.
 							_snap_on_floor(true, false);
 						} else {
-							// If the movement is not cancelled we only keep the remaining.
+							// If the movement is not canceled we only keep the remaining.
 							motion = result.remainder;
 						}
 

@@ -80,7 +80,6 @@ public:
 
 	// Gets an object from the history. The most recent object would be the object with p_obj = get_history_len() - 1.
 	ObjectID get_history_obj(int p_obj) const;
-	bool is_history_obj_inspector_only(int p_obj) const;
 
 	bool next();
 	bool previous();
@@ -177,7 +176,6 @@ public:
 	Callable get_move_array_element_function(const StringName &p_class) const;
 
 	void save_editor_global_states();
-	void restore_editor_global_states();
 
 	void add_custom_type(const String &p_type, const String &p_inherits, const Ref<Script> &p_script, const Ref<Texture2D> &p_icon);
 	Variant instantiate_custom_type(const String &p_type, const String &p_inherits);
@@ -203,7 +201,6 @@ public:
 	String get_scene_type(int p_idx) const;
 	void set_scene_path(int p_idx, const String &p_path);
 	Ref<Script> get_scene_root_script(int p_idx) const;
-	void set_edited_scene_version(uint64_t version, int p_scene_idx = -1);
 	void set_scene_modified_time(int p_idx, uint64_t p_time);
 	uint64_t get_scene_modified_time(int p_idx) const;
 	void clear_edited_scenes();

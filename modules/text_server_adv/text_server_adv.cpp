@@ -423,11 +423,7 @@ bool TextServerAdvanced::_load_support_data(const String &p_filename) {
 			return false;
 		}
 		uint64_t len = f->get_length();
-#ifdef GDEXTENSION
 		PackedByteArray icu_data = f->get_buffer(len);
-#else
-		PackedByteArray icu_data = f->_get_buffer(len);
-#endif
 
 		UErrorCode err = U_ZERO_ERROR;
 		udata_setCommonData(icu_data.ptr(), &err);
@@ -447,19 +443,11 @@ bool TextServerAdvanced::_load_support_data(const String &p_filename) {
 }
 
 String TextServerAdvanced::_get_support_data_filename() const {
-#ifdef ICU_STATIC_DATA
 	return _MKSTR(ICU_DATA_NAME);
-#else
-	return String();
-#endif
 }
 
 String TextServerAdvanced::_get_support_data_info() const {
-#ifdef ICU_STATIC_DATA
 	return String("ICU break iteration data (") + _MKSTR(ICU_DATA_NAME) + String(").");
-#else
-	return String();
-#endif
 }
 
 bool TextServerAdvanced::_save_support_data(const String &p_filename) const {
@@ -476,11 +464,7 @@ bool TextServerAdvanced::_save_support_data(const String &p_filename) const {
 	PackedByteArray icu_data;
 	icu_data.resize(U_ICUDATA_SIZE);
 	memcpy(icu_data.ptrw(), U_ICUDATA_ENTRY_POINT, U_ICUDATA_SIZE);
-#ifdef GDEXTENSION
 	f->store_buffer(icu_data);
-#else
-	f->_store_buffer(icu_data);
-#endif
 
 	return true;
 #else
@@ -824,29 +808,17 @@ _FORCE_INLINE_ TextServerAdvanced::FontTexturePosition TextServerAdvanced::find_
 		// Could not find texture to fit, create one.
 		int texsize = MAX(p_data->size.x * p_data->oversampling * 8, 256);
 
-#ifdef GDEXTENSION
-		texsize = Math::next_power_of_2(texsize);
-#else
 		texsize = next_power_of_2(texsize);
-#endif
 		if (p_msdf) {
 			texsize = MIN(texsize, 2048);
 		} else {
 			texsize = MIN(texsize, 1024);
 		}
 		if (mw > texsize) { // Special case, adapt to it?
-#ifdef GDEXTENSION
-			texsize = Math::next_power_of_2(mw);
-#else
 			texsize = next_power_of_2(mw);
-#endif
 		}
 		if (mh > texsize) { // Special case, adapt to it?
-#ifdef GDEXTENSION
-			texsize = Math::next_power_of_2(mh);
-#else
 			texsize = next_power_of_2(mh);
-#endif
 		}
 
 		ShelfPackTexture tex = ShelfPackTexture(texsize, texsize);
@@ -949,14 +921,14 @@ static int ft_cubic_to(const FT_Vector *control1, const FT_Vector *control2, con
 	return 0;
 }
 
-void TextServerAdvanced::_generateMTSDF_threaded(uint32_t y, void *p_td) const {
+void TextServerAdvanced::_generateMTSDF_threaded(void *p_td, uint32_t p_y) {
 	MSDFThreadData *td = static_cast<MSDFThreadData *>(p_td);
 
 	msdfgen::ShapeDistanceFinder<msdfgen::OverlappingContourCombiner<msdfgen::MultiAndTrueDistanceSelector>> distanceFinder(*td->shape);
-	int row = td->shape->inverseYAxis ? td->output->height() - y - 1 : y;
+	int row = td->shape->inverseYAxis ? td->output->height() - p_y - 1 : p_y;
 	for (int col = 0; col < td->output->width(); ++col) {
-		int x = (y % 2) ? td->output->width() - col - 1 : col;
-		msdfgen::Point2 p = td->projection->unproject(msdfgen::Point2(x + .5, y + .5));
+		int x = (p_y % 2) ? td->output->width() - col - 1 : col;
+		msdfgen::Point2 p = td->projection->unproject(msdfgen::Point2(x + .5, p_y + .5));
 		msdfgen::MultiAndTrueDistance distance = distanceFinder.distance(p);
 		td->distancePixelConversion->operator()(td->output->operator()(x, row), distance);
 	}
@@ -1026,14 +998,8 @@ _FORCE_INLINE_ TextServerAdvanced::FontGlyph TextServerAdvanced::rasterize_msdf(
 		td.projection = &projection;
 		td.distancePixelConversion = &distancePixelConversion;
 
-#ifdef GDEXTENSION
-		for (int i = 0; i < h; i++) {
-			_generateMTSDF_threaded(i, &td);
-		}
-#else
-		WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_template_group_task(this, &TextServerAdvanced::_generateMTSDF_threaded, &td, h, -1, true, SNAME("FontServerRasterizeMSDF"));
+		WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_native_group_task(&TextServerAdvanced::_generateMTSDF_threaded, &td, h, -1, true, String("FontServerRasterizeMSDF"));
 		WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
-#endif
 
 		msdfgen::msdfErrorCorrection(image, shape, projection, p_pixel_range, config);
 
@@ -3680,6 +3646,7 @@ void TextServerAdvanced::full_copy(ShapedTextDataAdvanced *p_shaped) {
 
 RID TextServerAdvanced::_create_shaped_text(TextServer::Direction p_direction, TextServer::Orientation p_orientation) {
 	_THREAD_SAFE_METHOD_
+	ERR_FAIL_COND_V_MSG(p_direction == DIRECTION_INHERITED, RID(), "Invalid text direction.");
 
 	ShapedTextDataAdvanced *sd = memnew(ShapedTextDataAdvanced);
 	sd->hb_buffer = hb_buffer_create();
@@ -3705,6 +3672,7 @@ void TextServerAdvanced::_shaped_text_clear(const RID &p_shaped) {
 
 void TextServerAdvanced::_shaped_text_set_direction(const RID &p_shaped, TextServer::Direction p_direction) {
 	ShapedTextDataAdvanced *sd = shaped_owner.get_or_null(p_shaped);
+	ERR_FAIL_COND_MSG(p_direction == DIRECTION_INHERITED, "Invalid text direction.");
 	ERR_FAIL_COND(!sd);
 
 	MutexLock lock(sd->mutex);
@@ -3764,8 +3732,12 @@ void TextServerAdvanced::_shaped_text_set_bidi_override(const RID &p_shaped, con
 	}
 	sd->bidi_override.clear();
 	for (int i = 0; i < p_override.size(); i++) {
-		if (p_override[i].get_type() == Variant::VECTOR2I) {
-			sd->bidi_override.push_back(p_override[i]);
+		if (p_override[i].get_type() == Variant::VECTOR3I) {
+			const Vector3i &r = p_override[i];
+			sd->bidi_override.push_back(r);
+		} else if (p_override[i].get_type() == Variant::VECTOR2I) {
+			const Vector2i &r = p_override[i];
+			sd->bidi_override.push_back(Vector3i(r.x, r.y, DIRECTION_INHERITED));
 		}
 	}
 	invalidate(sd, false);
@@ -4156,8 +4128,9 @@ bool TextServerAdvanced::_shape_substr(ShapedTextDataAdvanced *p_new_sd, const S
 			if (p_sd->bidi_override[ov].x >= p_start + p_length || p_sd->bidi_override[ov].y <= p_start) {
 				continue;
 			}
-			int start = _convert_pos_inv(p_sd, MAX(0, p_start - p_sd->bidi_override[ov].x));
-			int end = _convert_pos_inv(p_sd, MIN(p_start + p_length, p_sd->bidi_override[ov].y) - p_sd->bidi_override[ov].x);
+			int ov_start = _convert_pos_inv(p_sd, p_sd->bidi_override[ov].x);
+			int start = MAX(0, _convert_pos_inv(p_sd, p_start) - ov_start);
+			int end = MIN(_convert_pos_inv(p_sd, p_start + p_length), _convert_pos_inv(p_sd, p_sd->bidi_override[ov].y)) - ov_start;
 
 			ERR_FAIL_COND_V_MSG((start < 0 || end - start > p_new_sd->utf16.length()), false, "Invalid BiDi override range.");
 
@@ -4179,8 +4152,8 @@ bool TextServerAdvanced::_shape_substr(ShapedTextDataAdvanced *p_new_sd, const S
 				int32_t _bidi_run_length = 0;
 				ubidi_getVisualRun(bidi_iter, i, &_bidi_run_start, &_bidi_run_length);
 
-				int32_t bidi_run_start = _convert_pos(p_sd, p_sd->bidi_override[ov].x + start + _bidi_run_start);
-				int32_t bidi_run_end = _convert_pos(p_sd, p_sd->bidi_override[ov].x + start + _bidi_run_start + _bidi_run_length);
+				int32_t bidi_run_start = _convert_pos(p_sd, ov_start + start + _bidi_run_start);
+				int32_t bidi_run_end = _convert_pos(p_sd, ov_start + start + _bidi_run_start + _bidi_run_length);
 
 				for (int j = 0; j < sd_size; j++) {
 					if ((sd_glyphs[j].start >= bidi_run_start) && (sd_glyphs[j].end <= bidi_run_end)) {
@@ -5570,8 +5543,31 @@ bool TextServerAdvanced::_shaped_text_shape(const RID &p_shaped) {
 		sd->script_iter = memnew(ScriptIterator(sd->text, 0, sd->text.length()));
 	}
 
+	int base_para_direction = UBIDI_DEFAULT_LTR;
+	switch (sd->direction) {
+		case DIRECTION_LTR: {
+			sd->para_direction = DIRECTION_LTR;
+			base_para_direction = UBIDI_LTR;
+		} break;
+		case DIRECTION_RTL: {
+			sd->para_direction = DIRECTION_RTL;
+			base_para_direction = UBIDI_RTL;
+		} break;
+		case DIRECTION_INHERITED:
+		case DIRECTION_AUTO: {
+			UBiDiDirection direction = ubidi_getBaseDirection(data, sd->utf16.length());
+			if (direction != UBIDI_NEUTRAL) {
+				sd->para_direction = (direction == UBIDI_RTL) ? DIRECTION_RTL : DIRECTION_LTR;
+				base_para_direction = direction;
+			} else {
+				sd->para_direction = DIRECTION_LTR;
+				base_para_direction = UBIDI_DEFAULT_LTR;
+			}
+		} break;
+	}
+
 	if (sd->bidi_override.is_empty()) {
-		sd->bidi_override.push_back(Vector2i(sd->start, sd->end));
+		sd->bidi_override.push_back(Vector3i(sd->start, sd->end, DIRECTION_INHERITED));
 	}
 
 	for (int ov = 0; ov < sd->bidi_override.size(); ov++) {
@@ -5584,26 +5580,25 @@ bool TextServerAdvanced::_shaped_text_shape(const RID &p_shaped) {
 		}
 
 		UErrorCode err = U_ZERO_ERROR;
-		UBiDi *bidi_iter = ubidi_openSized(end, 0, &err);
+		UBiDi *bidi_iter = ubidi_openSized(end - start, 0, &err);
 		ERR_FAIL_COND_V_MSG(U_FAILURE(err), false, u_errorName(err));
 
-		switch (sd->direction) {
+		switch (static_cast<TextServer::Direction>(sd->bidi_override[ov].z)) {
 			case DIRECTION_LTR: {
 				ubidi_setPara(bidi_iter, data + start, end - start, UBIDI_LTR, nullptr, &err);
-				sd->para_direction = DIRECTION_LTR;
 			} break;
 			case DIRECTION_RTL: {
 				ubidi_setPara(bidi_iter, data + start, end - start, UBIDI_RTL, nullptr, &err);
-				sd->para_direction = DIRECTION_RTL;
+			} break;
+			case DIRECTION_INHERITED: {
+				ubidi_setPara(bidi_iter, data + start, end - start, base_para_direction, nullptr, &err);
 			} break;
 			case DIRECTION_AUTO: {
 				UBiDiDirection direction = ubidi_getBaseDirection(data + start, end - start);
 				if (direction != UBIDI_NEUTRAL) {
 					ubidi_setPara(bidi_iter, data + start, end - start, direction, nullptr, &err);
-					sd->para_direction = (direction == UBIDI_RTL) ? DIRECTION_RTL : DIRECTION_LTR;
 				} else {
-					ubidi_setPara(bidi_iter, data + start, end - start, UBIDI_DEFAULT_LTR, nullptr, &err);
-					sd->para_direction = DIRECTION_LTR;
+					ubidi_setPara(bidi_iter, data + start, end - start, base_para_direction, nullptr, &err);
 				}
 			} break;
 		}
@@ -5635,8 +5630,8 @@ bool TextServerAdvanced::_shaped_text_shape(const RID &p_shaped) {
 				}
 			}
 
-			int32_t bidi_run_start = _convert_pos(sd, sd->bidi_override[ov].x - sd->start + _bidi_run_start);
-			int32_t bidi_run_end = _convert_pos(sd, sd->bidi_override[ov].x - sd->start + _bidi_run_start + _bidi_run_length);
+			int32_t bidi_run_start = _convert_pos(sd, start + _bidi_run_start);
+			int32_t bidi_run_end = _convert_pos(sd, start + _bidi_run_start + _bidi_run_length);
 
 			// Shape runs.
 
@@ -6111,6 +6106,11 @@ String TextServerAdvanced::_percent_sign(const String &p_language) const {
 }
 
 int64_t TextServerAdvanced::_is_confusable(const String &p_string, const PackedStringArray &p_dict) const {
+#ifndef ICU_STATIC_DATA
+	if (!icu_data_loaded) {
+		return -1;
+	}
+#endif
 	UErrorCode status = U_ZERO_ERROR;
 	int64_t match_index = -1;
 
@@ -6151,6 +6151,11 @@ int64_t TextServerAdvanced::_is_confusable(const String &p_string, const PackedS
 }
 
 bool TextServerAdvanced::_spoof_check(const String &p_string) const {
+#ifndef ICU_STATIC_DATA
+	if (!icu_data_loaded) {
+		return false;
+	}
+#endif
 	UErrorCode status = U_ZERO_ERROR;
 	Char16String utf16 = p_string.utf16();
 
@@ -6173,6 +6178,11 @@ bool TextServerAdvanced::_spoof_check(const String &p_string) const {
 }
 
 String TextServerAdvanced::_strip_diacritics(const String &p_string) const {
+#ifndef ICU_STATIC_DATA
+	if (!icu_data_loaded) {
+		return TextServer::strip_diacritics(p_string);
+	}
+#endif
 	UErrorCode err = U_ZERO_ERROR;
 
 	// Get NFKD normalizer singleton.
@@ -6210,6 +6220,12 @@ String TextServerAdvanced::_strip_diacritics(const String &p_string) const {
 }
 
 String TextServerAdvanced::_string_to_upper(const String &p_string, const String &p_language) const {
+#ifndef ICU_STATIC_DATA
+	if (!icu_data_loaded) {
+		return p_string.to_upper();
+	}
+#endif
+
 	if (p_string.is_empty()) {
 		return p_string;
 	}
@@ -6232,6 +6248,12 @@ String TextServerAdvanced::_string_to_upper(const String &p_string, const String
 }
 
 String TextServerAdvanced::_string_to_lower(const String &p_string, const String &p_language) const {
+#ifndef ICU_STATIC_DATA
+	if (!icu_data_loaded) {
+		return p_string.to_lower();
+	}
+#endif
+
 	if (p_string.is_empty()) {
 		return p_string;
 	}
@@ -6267,8 +6289,8 @@ PackedInt32Array TextServerAdvanced::_string_get_word_breaks(const String &p_str
 				breaks.insert(pos);
 			}
 		}
+		ubrk_close(bi);
 	}
-	ubrk_close(bi);
 
 	PackedInt32Array ret;
 
@@ -6349,6 +6371,13 @@ PackedInt32Array TextServerAdvanced::_string_get_word_breaks(const String &p_str
 }
 
 bool TextServerAdvanced::_is_valid_identifier(const String &p_string) const {
+#ifndef ICU_STATIC_DATA
+	if (!icu_data_loaded) {
+		WARN_PRINT_ONCE("ICU data is not loaded, Unicode security and spoofing detection disabled.");
+		return TextServer::is_valid_identifier(p_string);
+	}
+#endif
+
 	enum UAX31SequenceStatus {
 		SEQ_NOT_STARTED,
 		SEQ_STARTED,

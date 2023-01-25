@@ -53,7 +53,7 @@
 
 #include "util.h"
 
-// Note, OpenXR code that we wrote for our plugin makes use of C++20 notation for initialising structs which ensures zeroing out unspecified members.
+// Note, OpenXR code that we wrote for our plugin makes use of C++20 notation for initializing structs which ensures zeroing out unspecified members.
 // Godot is currently restricted to C++17 which doesn't allow this notation. Make sure critical fields are set.
 
 // forward declarations, we don't want to include these fully
@@ -312,6 +312,7 @@ public:
 
 	void set_xr_interface(OpenXRInterface *p_xr_interface);
 	static void register_extension_wrapper(OpenXRExtensionWrapper *p_extension_wrapper);
+	static void unregister_extension_wrapper(OpenXRExtensionWrapper *p_extension_wrapper);
 	static void register_extension_metadata();
 	static void cleanup_extension_wrappers();
 

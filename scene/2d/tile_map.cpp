@@ -482,7 +482,11 @@ void TileMap::set_selected_layer(int p_layer_id) {
 	ERR_FAIL_COND(p_layer_id < -1 || p_layer_id >= (int)layers.size());
 	selected_layer = p_layer_id;
 	emit_signal(SNAME("changed"));
-	_make_all_quadrants_dirty();
+
+	// Update the layers modulation.
+	for (unsigned int layer = 0; layer < layers.size(); layer++) {
+		_rendering_update_layer(layer);
+	}
 }
 
 int TileMap::get_selected_layer() const {
@@ -653,8 +657,7 @@ void TileMap::set_layer_modulate(int p_layer, Color p_modulate) {
 	}
 	ERR_FAIL_INDEX(p_layer, (int)layers.size());
 	layers[p_layer].modulate = p_modulate;
-	_clear_layer_internals(p_layer);
-	_recreate_layer_internals(p_layer);
+	_rendering_update_layer(p_layer);
 	emit_signal(SNAME("changed"));
 }
 
@@ -703,8 +706,7 @@ void TileMap::set_layer_z_index(int p_layer, int p_z_index) {
 	}
 	ERR_FAIL_INDEX(p_layer, (int)layers.size());
 	layers[p_layer].z_index = p_z_index;
-	_clear_layer_internals(p_layer);
-	_recreate_layer_internals(p_layer);
+	_rendering_update_layer(p_layer);
 	emit_signal(SNAME("changed"));
 
 	update_configuration_warnings();
@@ -801,10 +803,10 @@ void TileMap::_make_quadrant_dirty(HashMap<Vector2i, TileMapQuadrant>::Iterator 
 
 void TileMap::_make_all_quadrants_dirty() {
 	// Make all quandrants dirty, then trigger an update later.
-	for (unsigned int layer = 0; layer < layers.size(); layer++) {
-		for (KeyValue<Vector2i, TileMapQuadrant> &E : layers[layer].quadrant_map) {
+	for (TileMapLayer &layer : layers) {
+		for (KeyValue<Vector2i, TileMapQuadrant> &E : layer.quadrant_map) {
 			if (!E.value.dirty_list_element.in_list()) {
-				layers[layer].dirty_quadrant_list.add(&E.value.dirty_list_element);
+				layer.dirty_quadrant_list.add(&E.value.dirty_list_element);
 			}
 		}
 	}
@@ -1012,8 +1014,8 @@ void TileMap::_rendering_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_CANVAS: {
 			bool node_visible = is_visible_in_tree();
-			for (int layer = 0; layer < (int)layers.size(); layer++) {
-				for (KeyValue<Vector2i, TileMapQuadrant> &E_quadrant : layers[layer].quadrant_map) {
+			for (TileMapLayer &layer : layers) {
+				for (KeyValue<Vector2i, TileMapQuadrant> &E_quadrant : layer.quadrant_map) {
 					TileMapQuadrant &q = E_quadrant.value;
 					for (const KeyValue<Vector2i, RID> &kv : q.occluders) {
 						Transform2D xform;
@@ -1028,8 +1030,8 @@ void TileMap::_rendering_notification(int p_what) {
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			bool node_visible = is_visible_in_tree();
-			for (int layer = 0; layer < (int)layers.size(); layer++) {
-				for (KeyValue<Vector2i, TileMapQuadrant> &E_quadrant : layers[layer].quadrant_map) {
+			for (TileMapLayer &layer : layers) {
+				for (KeyValue<Vector2i, TileMapQuadrant> &E_quadrant : layer.quadrant_map) {
 					TileMapQuadrant &q = E_quadrant.value;
 
 					// Update occluders transform.
@@ -1048,8 +1050,8 @@ void TileMap::_rendering_notification(int p_what) {
 			if (!is_inside_tree()) {
 				return;
 			}
-			for (int layer = 0; layer < (int)layers.size(); layer++) {
-				for (KeyValue<Vector2i, TileMapQuadrant> &E_quadrant : layers[layer].quadrant_map) {
+			for (TileMapLayer &layer : layers) {
+				for (KeyValue<Vector2i, TileMapQuadrant> &E_quadrant : layer.quadrant_map) {
 					TileMapQuadrant &q = E_quadrant.value;
 
 					// Update occluders transform.
@@ -1069,8 +1071,8 @@ void TileMap::_rendering_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_EXIT_CANVAS: {
-			for (int layer = 0; layer < (int)layers.size(); layer++) {
-				for (KeyValue<Vector2i, TileMapQuadrant> &E_quadrant : layers[layer].quadrant_map) {
+			for (TileMapLayer &layer : layers) {
+				for (KeyValue<Vector2i, TileMapQuadrant> &E_quadrant : layer.quadrant_map) {
 					TileMapQuadrant &q = E_quadrant.value;
 					for (const KeyValue<Vector2i, RID> &kv : q.occluders) {
 						RS::get_singleton()->canvas_light_occluder_attach_to_canvas(kv.value, RID());
@@ -1103,6 +1105,19 @@ void TileMap::_rendering_update_layer(int p_layer) {
 	rs->canvas_item_set_default_texture_filter(ci, RS::CanvasItemTextureFilter(get_texture_filter_in_tree()));
 	rs->canvas_item_set_default_texture_repeat(ci, RS::CanvasItemTextureRepeat(get_texture_repeat_in_tree()));
 	rs->canvas_item_set_light_mask(ci, get_light_mask());
+
+	Color layer_modulate = get_layer_modulate(p_layer);
+	if (selected_layer >= 0 && p_layer != selected_layer) {
+		int z1 = get_layer_z_index(p_layer);
+		int z2 = get_layer_z_index(selected_layer);
+		if (z1 < z2 || (z1 == z2 && p_layer < selected_layer)) {
+			layer_modulate = layer_modulate.darkened(0.5);
+		} else if (z1 > z2 || (z1 == z2 && p_layer > selected_layer)) {
+			layer_modulate = layer_modulate.darkened(0.5);
+			layer_modulate.a *= 0.3;
+		}
+	}
+	rs->canvas_item_set_modulate(ci, layer_modulate);
 }
 
 void TileMap::_rendering_cleanup_layer(int p_layer) {
@@ -1144,19 +1159,6 @@ void TileMap::_rendering_update_dirty_quadrants(SelfList<TileMapQuadrant>::List 
 		Ref<Material> prev_material;
 		int prev_z_index = 0;
 		RID prev_ci;
-
-		Color tile_modulate = get_self_modulate();
-		tile_modulate *= get_layer_modulate(q.layer);
-		if (selected_layer >= 0) {
-			int z1 = get_layer_z_index(q.layer);
-			int z2 = get_layer_z_index(selected_layer);
-			if (z1 < z2 || (z1 == z2 && q.layer < selected_layer)) {
-				tile_modulate = tile_modulate.darkened(0.5);
-			} else if (z1 > z2 || (z1 == z2 && q.layer > selected_layer)) {
-				tile_modulate = tile_modulate.darkened(0.5);
-				tile_modulate.a *= 0.3;
-			}
-		}
 
 		// Iterate over the cells of the quadrant.
 		for (const KeyValue<Vector2i, Vector2i> &E_cell : q.local_to_map) {
@@ -1227,7 +1229,7 @@ void TileMap::_rendering_update_dirty_quadrants(SelfList<TileMapQuadrant>::List 
 					}
 
 					// Drawing the tile in the canvas item.
-					draw_tile(ci, E_cell.key - tile_position, tile_set, c.source_id, c.get_atlas_coords(), c.alternative_tile, -1, tile_modulate, tile_data);
+					draw_tile(ci, E_cell.key - tile_position, tile_set, c.source_id, c.get_atlas_coords(), c.alternative_tile, -1, get_self_modulate(), tile_data);
 
 					// --- Occluders ---
 					for (int i = 0; i < tile_set->get_occlusion_layers_count(); i++) {
@@ -1255,16 +1257,16 @@ void TileMap::_rendering_update_dirty_quadrants(SelfList<TileMapQuadrant>::List 
 	if (_rendering_quadrant_order_dirty) {
 		int index = -(int64_t)0x80000000; //always must be drawn below children.
 
-		for (int layer = 0; layer < (int)layers.size(); layer++) {
+		for (TileMapLayer &layer : layers) {
 			// Sort the quadrants coords per local coordinates.
 			RBMap<Vector2i, Vector2i, TileMapQuadrant::CoordsWorldComparator> local_to_map;
-			for (const KeyValue<Vector2i, TileMapQuadrant> &E : layers[layer].quadrant_map) {
+			for (const KeyValue<Vector2i, TileMapQuadrant> &E : layer.quadrant_map) {
 				local_to_map[map_to_local(E.key)] = E.key;
 			}
 
 			// Sort the quadrants.
 			for (const KeyValue<Vector2i, Vector2i> &E : local_to_map) {
-				TileMapQuadrant &q = layers[layer].quadrant_map[E.value];
+				TileMapQuadrant &q = layer.quadrant_map[E.value];
 				for (const RID &ci : q.canvas_items) {
 					RS::get_singleton()->canvas_item_set_draw_index(ci, index++);
 				}
@@ -1451,8 +1453,8 @@ void TileMap::_physics_notification(int p_what) {
 			if (is_inside_tree() && (!collision_animatable || in_editor)) {
 				// Update the new transform directly if we are not in animatable mode.
 				Transform2D gl_transform = get_global_transform();
-				for (int layer = 0; layer < (int)layers.size(); layer++) {
-					for (KeyValue<Vector2i, TileMapQuadrant> &E : layers[layer].quadrant_map) {
+				for (TileMapLayer &layer : layers) {
+					for (KeyValue<Vector2i, TileMapQuadrant> &E : layer.quadrant_map) {
 						TileMapQuadrant &q = E.value;
 
 						for (RID body : q.bodies) {
@@ -1474,8 +1476,8 @@ void TileMap::_physics_notification(int p_what) {
 			if (is_inside_tree() && !in_editor && collision_animatable) {
 				// Only active when animatable. Send the new transform to the physics...
 				new_transform = get_global_transform();
-				for (int layer = 0; layer < (int)layers.size(); layer++) {
-					for (KeyValue<Vector2i, TileMapQuadrant> &E : layers[layer].quadrant_map) {
+				for (TileMapLayer &layer : layers) {
+					for (KeyValue<Vector2i, TileMapQuadrant> &E : layer.quadrant_map) {
 						TileMapQuadrant &q = E.value;
 
 						for (RID body : q.bodies) {
@@ -1665,13 +1667,12 @@ void TileMap::_navigation_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_TRANSFORM_CHANGED: {
 			if (is_inside_tree()) {
-				for (int layer = 0; layer < (int)layers.size(); layer++) {
+				for (TileMapLayer &layer : layers) {
 					Transform2D tilemap_xform = get_global_transform();
-					for (KeyValue<Vector2i, TileMapQuadrant> &E_quadrant : layers[layer].quadrant_map) {
+					for (KeyValue<Vector2i, TileMapQuadrant> &E_quadrant : layer.quadrant_map) {
 						TileMapQuadrant &q = E_quadrant.value;
 						for (const KeyValue<Vector2i, Vector<RID>> &E_region : q.navigation_regions) {
-							for (int layer_index = 0; layer_index < E_region.value.size(); layer_index++) {
-								RID region = E_region.value[layer_index];
+							for (const RID &region : E_region.value) {
 								if (!region.is_valid()) {
 									continue;
 								}
@@ -2071,7 +2072,7 @@ void TileMap::erase_cell(int p_layer, const Vector2i &p_coords) {
 int TileMap::get_cell_source_id(int p_layer, const Vector2i &p_coords, bool p_use_proxies) const {
 	ERR_FAIL_INDEX_V(p_layer, (int)layers.size(), TileSet::INVALID_SOURCE);
 
-	// Get a cell source id from position
+	// Get a cell source id from position.
 	const HashMap<Vector2i, TileMapCell> &tile_map = layers[p_layer].tile_map;
 	HashMap<Vector2i, TileMapCell>::ConstIterator E = tile_map.find(p_coords);
 
@@ -2127,7 +2128,9 @@ int TileMap::get_cell_alternative_tile(int p_layer, const Vector2i &p_coords, bo
 
 TileData *TileMap::get_cell_tile_data(int p_layer, const Vector2i &p_coords, bool p_use_proxies) const {
 	int source_id = get_cell_source_id(p_layer, p_coords, p_use_proxies);
-	ERR_FAIL_COND_V_MSG(source_id == TileSet::INVALID_SOURCE, nullptr, vformat("Invalid TileSetSource at cell %s. Make sure a tile exists at this cell.", p_coords));
+	if (source_id == TileSet::INVALID_SOURCE) {
+		return nullptr;
+	}
 
 	Ref<TileSetAtlasSource> source = tile_set->get_source(source_id);
 	if (source.is_valid()) {
@@ -2565,7 +2568,7 @@ HashMap<Vector2i, TileSet::TerrainsPattern> TileMap::terrain_fill_path(int p_lay
 				}
 			}
 		}
-		ERR_FAIL_COND_V_MSG(found_bit == TileSet::CELL_NEIGHBOR_MAX, output, vformat("Invalid terrain path, %s is not a neighbouring tile of %s", p_path[i + 1], p_path[i]));
+		ERR_FAIL_COND_V_MSG(found_bit == TileSet::CELL_NEIGHBOR_MAX, output, vformat("Invalid terrain path, %s is not a neighboring tile of %s", p_path[i + 1], p_path[i]));
 		neighbor_list.push_back(found_bit);
 	}
 
@@ -2811,8 +2814,8 @@ void TileMap::clear_layer(int p_layer) {
 void TileMap::clear() {
 	// Remove all tiles.
 	_clear_internals();
-	for (unsigned int i = 0; i < layers.size(); i++) {
-		layers[i].tile_map.clear();
+	for (TileMapLayer &layer : layers) {
+		layer.tile_map.clear();
 	}
 	_recreate_internals();
 	used_rect_cache_dirty = true;
@@ -2839,7 +2842,7 @@ void TileMap::_set_tile_data(int p_layer, const Vector<int> &p_data) {
 	const int *r = p_data.ptr();
 
 	int offset = (format >= FORMAT_2) ? 3 : 2;
-	ERR_FAIL_COND_MSG(c % offset != 0, "Corrupted tile data.");
+	ERR_FAIL_COND_MSG(c % offset != 0, vformat("Corrupted tile data. Got size: %s. Expected modulo: %s", offset));
 
 	clear_layer(p_layer);
 
@@ -2979,11 +2982,7 @@ void TileMap::_build_runtime_update_tile_data(SelfList<TileMapQuadrant>::List &r
 #ifdef TOOLS_ENABLED
 Rect2 TileMap::_edit_get_rect() const {
 	// Return the visible rect of the tilemap
-	if (pending_update) {
-		const_cast<TileMap *>(this)->_update_dirty_quadrants();
-	} else {
-		const_cast<TileMap *>(this)->_recompute_rect_cache();
-	}
+	const_cast<TileMap *>(this)->_recompute_rect_cache();
 	return rect_cache;
 }
 #endif
@@ -3221,7 +3220,7 @@ Vector2i TileMap::local_to_map(const Vector2 &p_local_position) const {
 				ret = ret.floor();
 			}
 
-			// Compute the tile offset, and if we might the output for a neighbour top tile
+			// Compute the tile offset, and if we might the output for a neighbor top tile
 			Vector2 in_tile_pos = raw_pos - ret;
 			bool in_top_left_triangle = (in_tile_pos - Vector2(0.5, 0.0)).cross(Vector2(-0.5, 1.0 / overlapping_ratio - 1)) <= 0;
 			bool in_top_right_triangle = (in_tile_pos - Vector2(0.5, 0.0)).cross(Vector2(0.5, 1.0 / overlapping_ratio - 1)) > 0;
@@ -3285,7 +3284,7 @@ Vector2i TileMap::local_to_map(const Vector2 &p_local_position) const {
 				ret = ret.floor();
 			}
 
-			// Compute the tile offset, and if we might the output for a neighbour top tile
+			// Compute the tile offset, and if we might the output for a neighbor top tile
 			Vector2 in_tile_pos = raw_pos - ret;
 			bool in_top_left_triangle = (in_tile_pos - Vector2(0.0, 0.5)).cross(Vector2(1.0 / overlapping_ratio - 1, -0.5)) > 0;
 			bool in_bottom_left_triangle = (in_tile_pos - Vector2(0.0, 0.5)).cross(Vector2(1.0 / overlapping_ratio - 1, 0.5)) <= 0;
@@ -3738,6 +3737,22 @@ TypedArray<Vector2i> TileMap::get_used_cells(int p_layer) const {
 	return a;
 }
 
+TypedArray<Vector2i> TileMap::get_used_cells_by_id(int p_layer, int p_source_id, const Vector2i p_atlas_coords, int p_alternative_tile) const {
+	ERR_FAIL_INDEX_V(p_layer, (int)layers.size(), TypedArray<Vector2i>());
+
+	// Returns the cells used in the tilemap.
+	TypedArray<Vector2i> a;
+	for (const KeyValue<Vector2i, TileMapCell> &E : layers[p_layer].tile_map) {
+		if ((p_source_id == TileSet::INVALID_SOURCE || p_source_id == E.value.source_id) &&
+				(p_atlas_coords == TileSetSource::INVALID_ATLAS_COORDS || p_atlas_coords == E.value.get_atlas_coords()) &&
+				(p_alternative_tile == TileSetSource::INVALID_TILE_ALTERNATIVE || p_alternative_tile == E.value.alternative_tile)) {
+			a.push_back(E.key);
+		}
+	}
+
+	return a;
+}
+
 Rect2i TileMap::get_used_rect() { // Not const because of cache
 	// Return the rect of the currently used area
 	if (used_rect_cache_dirty) {
@@ -3940,15 +3955,15 @@ PackedStringArray TileMap::get_configuration_warnings() const {
 
 	// Retrieve the set of Z index values with a Y-sorted layer.
 	RBSet<int> y_sorted_z_index;
-	for (int layer = 0; layer < (int)layers.size(); layer++) {
-		if (layers[layer].y_sort_enabled) {
-			y_sorted_z_index.insert(layers[layer].z_index);
+	for (const TileMapLayer &layer : layers) {
+		if (layer.y_sort_enabled) {
+			y_sorted_z_index.insert(layer.z_index);
 		}
 	}
 
 	// Check if we have a non-sorted layer in a Z-index with a Y-sorted layer.
-	for (int layer = 0; layer < (int)layers.size(); layer++) {
-		if (!layers[layer].y_sort_enabled && y_sorted_z_index.has(layers[layer].z_index)) {
+	for (const TileMapLayer &layer : layers) {
+		if (!layer.y_sort_enabled && y_sorted_z_index.has(layer.z_index)) {
 			warnings.push_back(RTR("A Y-sorted layer has the same Z-index value as a not Y-sorted layer.\nThis may lead to unwanted behaviors, as a layer that is not Y-sorted will be Y-sorted as a whole with tiles from Y-sorted layers."));
 			break;
 		}
@@ -3957,8 +3972,8 @@ PackedStringArray TileMap::get_configuration_warnings() const {
 	if (tile_set.is_valid() && tile_set->get_tile_shape() == TileSet::TILE_SHAPE_ISOMETRIC) {
 		bool warn = !is_y_sort_enabled();
 		if (!warn) {
-			for (int layer = 0; layer < (int)layers.size(); layer++) {
-				if (!layers[layer].y_sort_enabled) {
+			for (const TileMapLayer &layer : layers) {
+				if (!layer.y_sort_enabled) {
 					warn = true;
 					break;
 				}
@@ -4030,6 +4045,7 @@ void TileMap::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_surrounding_cells", "coords"), &TileMap::get_surrounding_cells);
 
 	ClassDB::bind_method(D_METHOD("get_used_cells", "layer"), &TileMap::get_used_cells);
+	ClassDB::bind_method(D_METHOD("get_used_cells_by_id", "layer", "source_id", "atlas_coords", "alternative_tile"), &TileMap::get_used_cells_by_id, DEFVAL(TileSet::INVALID_SOURCE), DEFVAL(TileSetSource::INVALID_ATLAS_COORDS), DEFVAL(TileSetSource::INVALID_TILE_ALTERNATIVE));
 	ClassDB::bind_method(D_METHOD("get_used_rect"), &TileMap::get_used_rect);
 
 	ClassDB::bind_method(D_METHOD("map_to_local", "map_position"), &TileMap::map_to_local);

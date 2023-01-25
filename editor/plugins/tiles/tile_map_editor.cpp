@@ -922,7 +922,7 @@ void TileMapEditorTilesPlugin::forward_canvas_draw_over_viewport(Control *p_over
 
 							// Get the tile modulation.
 							Color modulate = tile_data->get_modulate();
-							Color self_modulate = tile_map->get_self_modulate();
+							Color self_modulate = tile_map->get_modulate_in_tree() * tile_map->get_self_modulate();
 							modulate *= self_modulate;
 							modulate *= tile_map->get_layer_modulate(tile_map_layer);
 
@@ -2236,7 +2236,6 @@ TileMapEditorTilesPlugin::TileMapEditorTilesPlugin() {
 	scene_tiles_list = memnew(ItemList);
 	scene_tiles_list->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	scene_tiles_list->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	scene_tiles_list->set_drag_forwarding_compat(this);
 	scene_tiles_list->set_select_mode(ItemList::SELECT_MULTI);
 	scene_tiles_list->connect("multi_selected", callable_mp(this, &TileMapEditorTilesPlugin::_scenes_list_multi_selected));
 	scene_tiles_list->connect("empty_clicked", callable_mp(this, &TileMapEditorTilesPlugin::_scenes_list_lmb_empty_clicked));
@@ -3089,8 +3088,8 @@ void TileMapEditorTerrainsPlugin::_update_terrains_cache() {
 	per_terrain_terrains_patterns.resize(tile_set->get_terrain_sets_count());
 	for (int i = 0; i < tile_set->get_terrain_sets_count(); i++) {
 		per_terrain_terrains_patterns[i].resize(tile_set->get_terrains_count(i));
-		for (int j = 0; j < (int)per_terrain_terrains_patterns[i].size(); j++) {
-			per_terrain_terrains_patterns[i][j].clear();
+		for (RBSet<TileSet::TerrainsPattern> &pattern : per_terrain_terrains_patterns[i]) {
+			pattern.clear();
 		}
 	}
 
@@ -3520,8 +3519,8 @@ void TileMapEditor::_update_bottom_panel() {
 
 	// Update the visibility of controls.
 	missing_tileset_label->set_visible(!tile_set.is_valid());
-	for (unsigned int tab_index = 0; tab_index < tabs_data.size(); tab_index++) {
-		tabs_data[tab_index].panel->hide();
+	for (TileMapEditorPlugin::TabData &tab_data : tabs_data) {
+		tab_data.panel->hide();
 	}
 	if (tile_set.is_valid()) {
 		tabs_data[tabs_bar->get_current_tab()].panel->show();
@@ -3610,15 +3609,15 @@ void TileMapEditor::_tab_changed(int p_tab_id) {
 	tabs_plugins[tabs_bar->get_current_tab()]->edit(tile_map_id, tile_map_layer);
 
 	// Update toolbar.
-	for (unsigned int tab_index = 0; tab_index < tabs_data.size(); tab_index++) {
-		tabs_data[tab_index].toolbar->hide();
+	for (TileMapEditorPlugin::TabData &tab_data : tabs_data) {
+		tab_data.toolbar->hide();
 	}
 	tabs_data[p_tab_id].toolbar->show();
 
 	// Update visible panel.
 	TileMap *tile_map = Object::cast_to<TileMap>(ObjectDB::get_instance(tile_map_id));
-	for (unsigned int tab_index = 0; tab_index < tabs_data.size(); tab_index++) {
-		tabs_data[tab_index].panel->hide();
+	for (TileMapEditorPlugin::TabData &tab_data : tabs_data) {
+		tab_data.panel->hide();
 	}
 	if (tile_map && tile_map->get_tileset().is_valid()) {
 		tabs_data[tabs_bar->get_current_tab()].panel->show();
@@ -3995,10 +3994,10 @@ TileMapEditor::TileMapEditor() {
 	tile_map_toolbar->add_child(tabs_bar);
 
 	// Tabs toolbars.
-	for (unsigned int tab_index = 0; tab_index < tabs_data.size(); tab_index++) {
-		tabs_data[tab_index].toolbar->hide();
-		if (!tabs_data[tab_index].toolbar->get_parent()) {
-			tile_map_toolbar->add_child(tabs_data[tab_index].toolbar);
+	for (TileMapEditorPlugin::TabData &tab_data : tabs_data) {
+		tab_data.toolbar->hide();
+		if (!tab_data.toolbar->get_parent()) {
+			tile_map_toolbar->add_child(tab_data.toolbar);
 		}
 	}
 

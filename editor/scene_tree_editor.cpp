@@ -677,7 +677,7 @@ bool SceneTreeEditor::_item_matches_all_terms(TreeItem *p_item, PackedStringArra
 	for (int i = 0; i < p_terms.size(); i++) {
 		String term = p_terms[i];
 
-		// Recognise special filter.
+		// Recognize special filter.
 		if (term.contains(":") && !term.get_slicec(':', 0).is_empty()) {
 			String parameter = term.get_slicec(':', 0);
 			String argument = term.get_slicec(':', 1);
@@ -1373,10 +1373,6 @@ void SceneTreeEditor::_bind_methods() {
 	ClassDB::bind_method("_rename_node", &SceneTreeEditor::_rename_node);
 	ClassDB::bind_method("_test_update_tree", &SceneTreeEditor::_test_update_tree);
 
-	ClassDB::bind_method(D_METHOD("_get_drag_data_fw"), &SceneTreeEditor::get_drag_data_fw);
-	ClassDB::bind_method(D_METHOD("_can_drop_data_fw"), &SceneTreeEditor::can_drop_data_fw);
-	ClassDB::bind_method(D_METHOD("_drop_data_fw"), &SceneTreeEditor::drop_data_fw);
-
 	ClassDB::bind_method(D_METHOD("update_tree"), &SceneTreeEditor::update_tree);
 
 	ADD_SIGNAL(MethodInfo("node_selected"));
@@ -1419,7 +1415,7 @@ SceneTreeEditor::SceneTreeEditor(bool p_label, bool p_can_rename, bool p_can_ope
 
 	add_child(tree);
 
-	tree->set_drag_forwarding_compat(this);
+	SET_DRAG_FORWARDING_GCD(tree, SceneTreeEditor);
 	if (p_can_rename) {
 		tree->set_allow_rmb_select(true);
 		tree->connect("item_mouse_selected", callable_mp(this, &SceneTreeEditor::_rmb_select));

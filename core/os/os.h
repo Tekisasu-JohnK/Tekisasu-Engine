@@ -167,7 +167,8 @@ public:
 
 	virtual bool has_environment(const String &p_var) const = 0;
 	virtual String get_environment(const String &p_var) const = 0;
-	virtual bool set_environment(const String &p_var, const String &p_value) const = 0;
+	virtual void set_environment(const String &p_var, const String &p_value) const = 0;
+	virtual void unset_environment(const String &p_var) const = 0;
 
 	virtual String get_name() const = 0;
 	virtual String get_distribution_name() const = 0;
@@ -237,7 +238,7 @@ public:
 
 	virtual uint64_t get_embedded_pck_offset() const;
 
-	String get_safe_dir_name(const String &p_dir_name, bool p_allow_dir_separator = false) const;
+	String get_safe_dir_name(const String &p_dir_name, bool p_allow_paths = false) const;
 	virtual String get_godot_dir_name() const;
 
 	virtual String get_data_path() const;

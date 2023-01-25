@@ -70,7 +70,7 @@ static void _editor_init() {
 		// Only add our OpenXR action map editor if OpenXR is enabled for our project
 
 		if (openxr_interaction_profile_meta_data == nullptr) {
-			// If we didn't initialize our actionmap meta data at startup, we initialise it now.
+			// If we didn't initialize our actionmap meta data at startup, we initialize it now.
 			openxr_interaction_profile_meta_data = memnew(OpenXRInteractionProfileMetaData);
 			ERR_FAIL_NULL(openxr_interaction_profile_meta_data);
 		}
@@ -85,7 +85,7 @@ static void _editor_init() {
 void initialize_openxr_module(ModuleInitializationLevel p_level) {
 	if (p_level == MODULE_INITIALIZATION_LEVEL_SERVERS) {
 		if (OpenXRAPI::openxr_is_enabled(false)) {
-			// Always register our extension wrappers even if we don't initialise OpenXR.
+			// Always register our extension wrappers even if we don't initialize OpenXR.
 			// Some of these wrappers will add functionality to our editor.
 #ifdef ANDROID_ENABLED
 			OpenXRAPI::register_extension_wrapper(memnew(OpenXRAndroidExtension));
@@ -111,6 +111,10 @@ void initialize_openxr_module(ModuleInitializationLevel p_level) {
 			ERR_FAIL_NULL(openxr_api);
 
 			if (!openxr_api->initialize(Main::get_rendering_driver_name())) {
+				OS::get_singleton()->alert("OpenXR was requested but failed to start.\n"
+										   "Please check if your HMD is connected.\n"
+										   "When using Windows MR please note that WMR only has DirectX support, make sure SteamVR is your default OpenXR runtime.\n"
+										   "Godot will start in normal mode.\n");
 				memdelete(openxr_api);
 				openxr_api = nullptr;
 				return;

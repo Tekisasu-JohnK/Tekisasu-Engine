@@ -113,6 +113,11 @@ void CSharpLanguage::init() {
 	BindingsGenerator::handle_cmdline_args(cmdline_args);
 #endif
 
+	GLOBAL_DEF("dotnet/project/assembly_name", "");
+#ifdef TOOLS_ENABLED
+	GLOBAL_DEF("dotnet/project/solution_directory", "");
+#endif
+
 	gdmono = memnew(GDMono);
 	gdmono->initialize();
 
@@ -2599,6 +2604,10 @@ bool CSharpScript::inherits_script(const Ref<Script> &p_script) const {
 
 Ref<Script> CSharpScript::get_base_script() const {
 	return base_script;
+}
+
+StringName CSharpScript::get_global_name() const {
+	return StringName();
 }
 
 void CSharpScript::get_script_property_list(List<PropertyInfo> *r_list) const {

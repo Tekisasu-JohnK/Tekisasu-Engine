@@ -68,6 +68,7 @@ class EditorLayoutsDialog;
 class EditorLog;
 class EditorPluginList;
 class EditorQuickOpen;
+class EditorPropertyResource;
 class EditorResourcePreview;
 class EditorResourceConversionPlugin;
 class EditorRun;
@@ -86,6 +87,7 @@ class ImportDock;
 class LinkButton;
 class MenuBar;
 class MenuButton;
+class Node2D;
 class NodeDock;
 class OptionButton;
 class OrphanResourcesDialog;
@@ -293,6 +295,8 @@ private:
 	bool _initializing_plugins = false;
 	HashMap<String, EditorPlugin *> addon_name_to_plugin;
 	LocalVector<String> pending_addons;
+	HashMap<ObjectID, HashSet<EditorPlugin *>> active_plugins;
+	bool is_main_screen_editing = false;
 
 	PanelContainer *scene_root_parent = nullptr;
 	Control *theme_base = nullptr;
@@ -592,10 +596,6 @@ private:
 	void _inherit_request(String p_file);
 	void _instantiate_request(const Vector<String> &p_files);
 
-	void _display_top_editors(bool p_display);
-	void _set_top_editors(Vector<EditorPlugin *> p_editor_plugins_over);
-	void _set_editing_top_editors(Object *p_current_object);
-
 	void _quick_opened();
 	void _quick_run();
 	void _open_command_palette();
@@ -796,9 +796,8 @@ public:
 	void show_about() { _menu_option_confirm(HELP_ABOUT, false); }
 
 	void push_item(Object *p_object, const String &p_property = "", bool p_inspector_only = false);
-	void edit_item(Object *p_object);
-	void edit_item_resource(Ref<Resource> p_resource);
-	void hide_top_editors();
+	void edit_item(Object *p_object, Object *p_editing_owner);
+	void hide_unused_editors(const Object *p_editing_owner = nullptr);
 
 	void select_editor_by_name(const String &p_name);
 
@@ -820,11 +819,42 @@ public:
 	Error load_scene(const String &p_scene, bool p_ignore_broken_deps = false, bool p_set_inherited = false, bool p_clear_errors = true, bool p_force_open_imported = false, bool p_silent_change_tab = false);
 	Error load_resource(const String &p_resource, bool p_ignore_broken_deps = false);
 
+	HashMap<StringName, Variant> get_modified_properties_for_node(Node *p_node);
+
+	struct AdditiveNodeEntry {
+		Node *node = nullptr;
+		NodePath parent = NodePath();
+		Node *owner = nullptr;
+		int index = 0;
+		// Used if the original parent node is lost
+		Transform2D transform_2d;
+		Transform3D transform_3d;
+	};
+
+	struct ConnectionWithNodePath {
+		Connection connection;
+		NodePath node_path;
+	};
+
+	struct ModificationNodeEntry {
+		HashMap<StringName, Variant> property_table;
+		List<ConnectionWithNodePath> connections_to;
+		List<Connection> connections_from;
+		List<Node::GroupInfo> groups;
+	};
+
+	void update_diff_data_for_node(
+			Node *p_edited_scene,
+			Node *p_root,
+			Node *p_node,
+			HashMap<NodePath, ModificationNodeEntry> &p_modification_table,
+			List<AdditiveNodeEntry> &p_addition_list);
+
 	bool is_scene_open(const String &p_path);
 
 	void set_current_scene(int p_idx);
 
-	void setup_color_picker(ColorPicker *picker);
+	void setup_color_picker(ColorPicker *p_picker);
 
 	void request_instantiate_scene(const String &p_path);
 	void request_instantiate_scenes(const Vector<String> &p_files);
@@ -871,6 +901,9 @@ public:
 	void open_export_template_manager();
 
 	void reload_scene(const String &p_path);
+
+	void find_all_instances_inheriting_path_in_node(Node *p_root, Node *p_node, const String &p_instance_path, List<Node *> &p_instance_list);
+	void reload_instances_with_path_in_edited_scenes(const String &p_path);
 
 	bool is_exiting() const { return exiting; }
 

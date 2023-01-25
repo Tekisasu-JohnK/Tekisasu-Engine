@@ -185,6 +185,7 @@ static bool init_maximized = false;
 static bool init_windowed = false;
 static bool init_always_on_top = false;
 static bool init_use_custom_pos = false;
+static bool init_use_custom_screen = false;
 static Vector2 init_custom_pos;
 
 // Debug
@@ -206,6 +207,11 @@ static bool dump_gdextension_interface = false;
 static bool dump_extension_api = false;
 #endif
 bool profile_gpu = false;
+
+// Constants.
+
+static const String NULL_DISPLAY_DRIVER("headless");
+static const String NULL_AUDIO_DRIVER("Dummy");
 
 /* Helper methods */
 
@@ -523,7 +529,11 @@ Error Main::test_setup() {
 		}
 	}
 	if (text_driver_idx >= 0) {
-		TextServerManager::get_singleton()->set_primary_interface(TextServerManager::get_singleton()->get_interface(text_driver_idx));
+		Ref<TextServer> ts = TextServerManager::get_singleton()->get_interface(text_driver_idx);
+		TextServerManager::get_singleton()->set_primary_interface(ts);
+		if (ts->has_feature(TextServer::FEATURE_USE_SUPPORT_DATA)) {
+			ts->load_support_data("res://" + ts->get_support_data_filename());
+		}
 	} else {
 		ERR_FAIL_V_MSG(ERR_CANT_CREATE, "TextServer: Unable to create TextServer interface.");
 	}
@@ -964,6 +974,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 
 			if (I->next()) {
 				init_screen = I->next()->get().to_int();
+				init_use_custom_screen = true;
 
 				N = I->next()->next();
 			} else {
@@ -997,8 +1008,8 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 
 		} else if (I->get() == "--headless") { // enable headless mode (no audio, no rendering).
 
-			audio_driver = "Dummy";
-			display_driver = "headless";
+			audio_driver = NULL_AUDIO_DRIVER;
+			display_driver = NULL_DISPLAY_DRIVER;
 
 		} else if (I->get() == "--profiling") { // enable profiling
 
@@ -1133,8 +1144,8 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 
 			// `--doctool` implies `--headless` to avoid spawning an unnecessary window
 			// and speed up class reference generation.
-			audio_driver = "Dummy";
-			display_driver = "headless";
+			audio_driver = NULL_AUDIO_DRIVER;
+			display_driver = NULL_DISPLAY_DRIVER;
 			main_args.push_back(I->get());
 #endif
 		} else if (I->get() == "--path") { // set path of project to start or edit
@@ -1370,6 +1381,11 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 	register_core_extensions(); // core extensions must be registered after globals setup and before display
 
 	ResourceUID::get_singleton()->load_from_cache(); // load UUIDs from cache.
+
+	if (ProjectSettings::get_singleton()->has_custom_feature("dedicated_server")) {
+		audio_driver = NULL_AUDIO_DRIVER;
+		display_driver = NULL_DISPLAY_DRIVER;
+	}
 
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "network/limits/debugger/max_chars_per_second", PROPERTY_HINT_RANGE, "0, 4096, 1, or_greater"), 32768);
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "network/limits/debugger/max_queued_messages", PROPERTY_HINT_RANGE, "0, 8192, 1, or_greater"), 2048);
@@ -1669,7 +1685,23 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 			window_flags |= DisplayServer::WINDOW_FLAG_NO_FOCUS_BIT;
 		}
 		window_mode = (DisplayServer::WindowMode)(GLOBAL_GET("display/window/size/mode").operator int());
-		init_screen = GLOBAL_GET("display/window/size/initial_screen").operator int();
+		int initial_position_type = GLOBAL_GET("display/window/size/initial_position_type").operator int();
+		if (initial_position_type == 0) {
+			if (!init_use_custom_pos) {
+				init_custom_pos = GLOBAL_GET("display/window/size/initial_position").operator Vector2i();
+				init_use_custom_pos = true;
+			}
+		} else if (initial_position_type == 1) {
+			if (!init_use_custom_screen) {
+				init_screen = DisplayServer::SCREEN_PRIMARY;
+				init_use_custom_screen = true;
+			}
+		} else if (initial_position_type == 2) {
+			if (!init_use_custom_screen) {
+				init_screen = GLOBAL_GET("display/window/size/initial_screen").operator int();
+				init_use_custom_screen = true;
+			}
+		}
 	}
 
 	GLOBAL_DEF("internationalization/locale/include_text_server_data", false);
@@ -1677,10 +1709,21 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 	OS::get_singleton()->_allow_hidpi = GLOBAL_DEF("display/window/dpi/allow_hidpi", true);
 	OS::get_singleton()->_allow_layered = GLOBAL_DEF("display/window/per_pixel_transparency/allowed", false);
 
+#ifdef TOOLS_ENABLED
 	if (editor || project_manager) {
-		// The editor and project manager always detect and use hiDPI if needed
+		// The editor and project manager always detect and use hiDPI if needed.
 		OS::get_singleton()->_allow_hidpi = true;
+		// Disable Vulkan overlays in editor, they cause various issues.
+		OS::get_singleton()->set_environment("DISABLE_MANGOHUD", "1"); // GH-57403.
+		OS::get_singleton()->set_environment("DISABLE_RTSS_LAYER", "1"); // GH-57937.
+		OS::get_singleton()->set_environment("DISABLE_VKBASALT", "1");
+	} else {
+		// Re-allow using Vulkan overlays, disabled while using the editor.
+		OS::get_singleton()->unset_environment("DISABLE_MANGOHUD");
+		OS::get_singleton()->unset_environment("DISABLE_RTSS_LAYER");
+		OS::get_singleton()->unset_environment("DISABLE_VKBASALT");
 	}
+#endif
 
 	if (rtm == -1) {
 		rtm = GLOBAL_DEF("rendering/driver/threads/thread_model", OS::RENDER_THREAD_SAFE);
@@ -1697,7 +1740,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 
 	// Display driver, e.g. X11, Wayland.
 	// Make sure that headless is the last one, which it is assumed to be by design.
-	DEV_ASSERT(String("headless") == DisplayServer::get_create_function_name(DisplayServer::get_create_function_count() - 1));
+	DEV_ASSERT(NULL_DISPLAY_DRIVER == DisplayServer::get_create_function_name(DisplayServer::get_create_function_count() - 1));
 	for (int i = 0; i < DisplayServer::get_create_function_count(); i++) {
 		String name = DisplayServer::get_create_function_name(i);
 		if (display_driver == name) {
@@ -1722,7 +1765,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 	}
 
 	// Make sure that dummy is the last one, which it is assumed to be by design.
-	DEV_ASSERT(String("Dummy") == AudioDriverManager::get_driver(AudioDriverManager::get_driver_count() - 1)->get_name());
+	DEV_ASSERT(NULL_AUDIO_DRIVER == AudioDriverManager::get_driver(AudioDriverManager::get_driver_count() - 1)->get_name());
 	for (int i = 0; i < AudioDriverManager::get_driver_count(); i++) {
 		if (audio_driver == AudioDriverManager::get_driver(i)->get_name()) {
 			audio_driver_idx = i;
@@ -2114,7 +2157,7 @@ Error Main::setup2(Thread::ID p_main_tid_override) {
 #endif
 		}
 
-#ifdef TOOLS_ENABLED
+#if defined(TOOLS_ENABLED) && defined(MACOS_ENABLED)
 		if (OS::get_singleton()->get_bundle_icon_path().is_empty()) {
 			Ref<Image> icon = memnew(Image(app_icon_png));
 			DisplayServer::get_singleton()->set_icon(icon);
@@ -2136,7 +2179,7 @@ Error Main::setup2(Thread::ID p_main_tid_override) {
 	if (id) {
 		agile_input_event_flushing = GLOBAL_DEF("input_devices/buffering/agile_event_flushing", false);
 
-		if (bool(GLOBAL_DEF("input_devices/pointing/emulate_touch_from_mouse", false)) &&
+		if (bool(GLOBAL_DEF_BASIC("input_devices/pointing/emulate_touch_from_mouse", false)) &&
 				!(editor || project_manager)) {
 			if (!DisplayServer::get_singleton()->is_touchscreen_available()) {
 				//only if no touchscreen ui hint, set emulation
@@ -2144,7 +2187,7 @@ Error Main::setup2(Thread::ID p_main_tid_override) {
 			}
 		}
 
-		id->set_emulate_mouse_from_touch(bool(GLOBAL_DEF("input_devices/pointing/emulate_mouse_from_touch", true)));
+		id->set_emulate_mouse_from_touch(bool(GLOBAL_DEF_BASIC("input_devices/pointing/emulate_mouse_from_touch", true)));
 	}
 
 	MAIN_PRINT("Main: Load Translations and Remaps");
@@ -2209,7 +2252,11 @@ Error Main::setup2(Thread::ID p_main_tid_override) {
 		}
 	}
 	if (text_driver_idx >= 0) {
-		TextServerManager::get_singleton()->set_primary_interface(TextServerManager::get_singleton()->get_interface(text_driver_idx));
+		Ref<TextServer> ts = TextServerManager::get_singleton()->get_interface(text_driver_idx);
+		TextServerManager::get_singleton()->set_primary_interface(ts);
+		if (ts->has_feature(TextServer::FEATURE_USE_SUPPORT_DATA)) {
+			ts->load_support_data("res://" + ts->get_support_data_filename());
+		}
 	} else {
 		ERR_FAIL_V_MSG(ERR_CANT_CREATE, "TextServer: Unable to create TextServer interface.");
 	}
@@ -2419,6 +2466,14 @@ bool Main::start() {
 			Ref<DirAccess> da = DirAccess::open(doc_tool_path);
 			ERR_FAIL_COND_V_MSG(da.is_null(), false, "Argument supplied to --doctool must be a valid directory path.");
 		}
+
+#ifndef MODULE_MONO_ENABLED
+		// Hack to define .NET-specific project settings even on non-.NET builds,
+		// so that we don't lose their descriptions and default values in DocTools.
+		// Default values should be synced with mono_gd/gd_mono.cpp.
+		GLOBAL_DEF("dotnet/project/assembly_name", "");
+		GLOBAL_DEF("dotnet/project/solution_directory", "");
+#endif
 
 		Error err;
 		DocTools doc;
@@ -3030,6 +3085,9 @@ bool Main::iteration() {
 		PhysicsServer2D::get_singleton()->flush_queries();
 
 		if (OS::get_singleton()->get_main_loop()->physics_process(physics_step * time_scale)) {
+			PhysicsServer3D::get_singleton()->end_sync();
+			PhysicsServer2D::get_singleton()->end_sync();
+
 			exit = true;
 			break;
 		}
@@ -3153,10 +3211,12 @@ bool Main::iteration() {
 		auto_build_solutions = false;
 		// Only relevant when running the editor.
 		if (!editor) {
+			OS::get_singleton()->set_exit_code(EXIT_FAILURE);
 			ERR_FAIL_V_MSG(true,
 					"Command line option --build-solutions was passed, but no project is being edited. Aborting.");
 		}
 		if (!EditorNode::get_singleton()->call_build()) {
+			OS::get_singleton()->set_exit_code(EXIT_FAILURE);
 			ERR_FAIL_V_MSG(true,
 					"Command line option --build-solutions was passed, but the build callback failed. Aborting.");
 		}

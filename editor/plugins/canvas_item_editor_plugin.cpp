@@ -246,7 +246,7 @@ public:
 	}
 };
 
-bool CanvasItemEditor::_is_node_locked(const Node *p_node) {
+bool CanvasItemEditor::_is_node_locked(const Node *p_node) const {
 	return p_node->get_meta("_edit_lock_", false);
 }
 
@@ -770,7 +770,7 @@ bool CanvasItemEditor::_select_click_on_item(CanvasItem *item, Point2 p_click_po
 	return still_selected;
 }
 
-List<CanvasItem *> CanvasItemEditor::_get_edited_canvas_items(bool retrieve_locked, bool remove_canvas_item_if_parent_in_selection) {
+List<CanvasItem *> CanvasItemEditor::_get_edited_canvas_items(bool retrieve_locked, bool remove_canvas_item_if_parent_in_selection) const {
 	List<CanvasItem *> selection;
 	for (const KeyValue<Node *, Object *> &E : editor_selection->get_selection()) {
 		CanvasItem *ci = Object::cast_to<CanvasItem>(E.key);
@@ -1226,7 +1226,6 @@ bool CanvasItemEditor::_gui_input_zoom_or_pan(const Ref<InputEvent> &p_event, bo
 	bool panner_active = panner->gui_input(p_event, warped_panning ? viewport->get_global_rect() : Rect2());
 	if (panner->is_panning() != pan_pressed) {
 		pan_pressed = panner->is_panning();
-		_update_cursor();
 	}
 
 	if (panner_active) {
@@ -2570,8 +2569,10 @@ void CanvasItemEditor::_gui_input_viewport(const Ref<InputEvent> &p_event) {
 	// Handles the mouse hovering
 	_gui_input_hover(p_event);
 
-	// Change the cursor
-	_update_cursor();
+	if (mb.is_valid()) {
+		// Update the default cursor.
+		_update_cursor();
+	}
 
 	// Grab focus
 	if (!viewport->has_focus() && (!get_viewport()->gui_get_focus_owner() || !get_viewport()->gui_get_focus_owner()->is_text_field())) {
@@ -2580,6 +2581,31 @@ void CanvasItemEditor::_gui_input_viewport(const Ref<InputEvent> &p_event) {
 }
 
 void CanvasItemEditor::_update_cursor() {
+	// Choose the correct default cursor.
+	CursorShape c = CURSOR_ARROW;
+	switch (tool) {
+		case TOOL_MOVE:
+			c = CURSOR_MOVE;
+			break;
+		case TOOL_EDIT_PIVOT:
+			c = CURSOR_CROSS;
+			break;
+		case TOOL_PAN:
+			c = CURSOR_DRAG;
+			break;
+		case TOOL_RULER:
+			c = CURSOR_CROSS;
+			break;
+		default:
+			break;
+	}
+	if (pan_pressed) {
+		c = CURSOR_DRAG;
+	}
+	set_default_cursor_shape(c);
+}
+
+Control::CursorShape CanvasItemEditor::get_cursor_shape(const Point2 &p_pos) const {
 	// Compute an eventual rotation of the cursor
 	const CursorShape rotation_array[4] = { CURSOR_HSIZE, CURSOR_BDIAGSIZE, CURSOR_VSIZE, CURSOR_FDIAGSIZE };
 	int rotation_array_index = 0;
@@ -2601,26 +2627,8 @@ void CanvasItemEditor::_update_cursor() {
 	}
 
 	// Choose the correct cursor
-	CursorShape c = CURSOR_ARROW;
+	CursorShape c = get_default_cursor_shape();
 	switch (drag_type) {
-		case DRAG_NONE:
-			switch (tool) {
-				case TOOL_MOVE:
-					c = CURSOR_MOVE;
-					break;
-				case TOOL_EDIT_PIVOT:
-					c = CURSOR_CROSS;
-					break;
-				case TOOL_PAN:
-					c = CURSOR_DRAG;
-					break;
-				case TOOL_RULER:
-					c = CURSOR_CROSS;
-					break;
-				default:
-					break;
-			}
-			break;
 		case DRAG_LEFT:
 		case DRAG_RIGHT:
 			c = rotation_array[rotation_array_index];
@@ -2662,16 +2670,7 @@ void CanvasItemEditor::_update_cursor() {
 	if (pan_pressed) {
 		c = CURSOR_DRAG;
 	}
-
-	if (c != viewport->get_default_cursor_shape()) {
-		viewport->set_default_cursor_shape(c);
-
-		// Force refresh cursor if it's over the viewport.
-		if (viewport->get_global_rect().has_point(get_global_mouse_position())) {
-			DisplayServer::CursorShape ds_cursor_shape = (DisplayServer::CursorShape)viewport->get_default_cursor_shape();
-			DisplayServer::get_singleton()->cursor_set_shape(ds_cursor_shape);
-		}
-	}
+	return c;
 }
 
 void CanvasItemEditor::_draw_text_at_position(Point2 p_position, String p_string, Side p_side) {
@@ -3958,8 +3957,8 @@ void CanvasItemEditor::_notification(int p_what) {
 
 		case NOTIFICATION_ENTER_TREE: {
 			select_sb->set_texture(get_theme_icon(SNAME("EditorRect2D"), SNAME("EditorIcons")));
-			select_sb->set_margin_size_all(4);
-			select_sb->set_default_margin_all(4);
+			select_sb->set_texture_margin_all(4);
+			select_sb->set_content_margin_all(4);
 
 			AnimationPlayerEditor::get_singleton()->get_track_editor()->connect("visibility_changed", callable_mp(this, &CanvasItemEditor::_keying_changed));
 			_keying_changed();
@@ -3990,6 +3989,10 @@ void CanvasItemEditor::_selection_changed() {
 }
 
 void CanvasItemEditor::edit(CanvasItem *p_canvas_item) {
+	if (!p_canvas_item) {
+		return;
+	}
+
 	Array selection = editor_selection->get_selected_nodes();
 	if (selection.size() != 1 || Object::cast_to<Node>(selection[0]) != p_canvas_item) {
 		_reset_drag();
@@ -4593,11 +4596,11 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 			_focus_selection(p_op);
 
 		} break;
-		case DISABLE_CANVAS_SCALE: {
-  			bool disable = view_menu->get_popup()->is_item_checked(view_menu->get_popup()->get_item_index(DISABLE_CANVAS_SCALE));
-  			disable = !disable;
-  			RS::get_singleton()->canvas_set_disable_scale(disable);
-  			view_menu->get_popup()->set_item_checked(view_menu->get_popup()->get_item_index(DISABLE_CANVAS_SCALE), disable);
+		case PREVIEW_CANVAS_SCALE: {
+			bool preview = view_menu->get_popup()->is_item_checked(view_menu->get_popup()->get_item_index(PREVIEW_CANVAS_SCALE));
+			preview = !preview;
+			RS::get_singleton()->canvas_set_disable_scale(!preview);
+			view_menu->get_popup()->set_item_checked(view_menu->get_popup()->get_item_index(PREVIEW_CANVAS_SCALE), preview);
 
 		} break;
 		case SKELETON_MAKE_BONES: {
@@ -5309,7 +5312,7 @@ CanvasItemEditor::CanvasItemEditor() {
 	p->add_shortcut(ED_SHORTCUT("canvas_item_editor/frame_selection", TTR("Frame Selection"), KeyModifierMask::SHIFT | Key::F), VIEW_FRAME_TO_SELECTION);
 	p->add_shortcut(ED_SHORTCUT("canvas_item_editor/clear_guides", TTR("Clear Guides")), CLEAR_GUIDES);
 	p->add_separator();
-	p->add_check_shortcut(ED_SHORTCUT("canvas_item_editor/disable_canvas_scale", TTR("Disable Canvas Scale")), DISABLE_CANVAS_SCALE);
+	p->add_check_shortcut(ED_SHORTCUT("canvas_item_editor/preview_canvas_scale", TTR("Preview Canvas Scale")), PREVIEW_CANVAS_SCALE);
 
 	main_menu_hbox->add_child(memnew(VSeparator));
 
@@ -5925,7 +5928,7 @@ CanvasItemEditorViewport::CanvasItemEditorViewport(CanvasItemEditor *p_canvas_it
 	EditorNode::get_singleton()->get_gui_base()->add_child(selector);
 	selector->set_title(TTR("Change Default Type"));
 	selector->connect("confirmed", callable_mp(this, &CanvasItemEditorViewport::_on_change_type_confirmed));
-	selector->connect("cancelled", callable_mp(this, &CanvasItemEditorViewport::_on_change_type_closed));
+	selector->connect("canceled", callable_mp(this, &CanvasItemEditorViewport::_on_change_type_closed));
 
 	VBoxContainer *vbc = memnew(VBoxContainer);
 	selector->add_child(vbc);
@@ -5959,6 +5962,8 @@ CanvasItemEditorViewport::CanvasItemEditorViewport(CanvasItemEditor *p_canvas_it
 	label_desc->add_theme_constant_override("line_spacing", 0);
 	label_desc->hide();
 	canvas_item_editor->get_controls_container()->add_child(label_desc);
+
+	RS::get_singleton()->canvas_set_disable_scale(true);
 }
 
 CanvasItemEditorViewport::~CanvasItemEditorViewport() {

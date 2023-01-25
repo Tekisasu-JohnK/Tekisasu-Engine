@@ -560,6 +560,12 @@ void OpenXRAPI::destroy_instance() {
 		instance = XR_NULL_HANDLE;
 	}
 	enabled_extensions.clear();
+
+	if (graphics_extension != nullptr) {
+		unregister_extension_wrapper(graphics_extension);
+		memdelete(graphics_extension);
+		graphics_extension = nullptr;
+	}
 }
 
 bool OpenXRAPI::create_session() {
@@ -745,7 +751,7 @@ bool OpenXRAPI::create_swapchains() {
 
 		Also Godot only creates a swapchain for the main output.
 		OpenXR will require us to create swapchains as the render target for additional viewports if we want to use the layer system
-		to optimise text rendering and background rendering as OpenXR may choose to re-use the results for reprojection while we're
+		to optimize text rendering and background rendering as OpenXR may choose to re-use the results for reprojection while we're
 		already rendering the next frame.
 
 		Finally an area we need to expand upon is that Foveated rendering is only enabled for the swap chain we create,
@@ -1345,6 +1351,10 @@ void OpenXRAPI::set_xr_interface(OpenXRInterface *p_xr_interface) {
 
 void OpenXRAPI::register_extension_wrapper(OpenXRExtensionWrapper *p_extension_wrapper) {
 	registered_extension_wrappers.push_back(p_extension_wrapper);
+}
+
+void OpenXRAPI::unregister_extension_wrapper(OpenXRExtensionWrapper *p_extension_wrapper) {
+	registered_extension_wrappers.erase(p_extension_wrapper);
 }
 
 void OpenXRAPI::register_extension_metadata() {

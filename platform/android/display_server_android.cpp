@@ -212,7 +212,18 @@ float DisplayServerAndroid::screen_get_scale(int p_screen) const {
 	GodotIOJavaWrapper *godot_io_java = OS_Android::get_singleton()->get_godot_io_java();
 	ERR_FAIL_NULL_V(godot_io_java, 1.0f);
 
-	return godot_io_java->get_scaled_density();
+	float screen_scale = godot_io_java->get_scaled_density();
+
+	// Update the scale to avoid cropping.
+	Size2i screen_size = screen_get_size(p_screen);
+	if (screen_size != Size2i()) {
+		float width_scale = screen_size.width / (float)OS_Android::DEFAULT_WINDOW_WIDTH;
+		float height_scale = screen_size.height / (float)OS_Android::DEFAULT_WINDOW_HEIGHT;
+		screen_scale = MIN(screen_scale, MIN(width_scale, height_scale));
+	}
+
+	print_line("Selected screen scale: ", screen_scale);
+	return screen_scale;
 }
 
 float DisplayServerAndroid::screen_get_refresh_rate(int p_screen) const {
@@ -466,14 +477,15 @@ Vector<String> DisplayServerAndroid::get_rendering_drivers_func() {
 DisplayServer *DisplayServerAndroid::create_func(const String &p_rendering_driver, DisplayServer::WindowMode p_mode, DisplayServer::VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, int p_screen, Error &r_error) {
 	DisplayServer *ds = memnew(DisplayServerAndroid(p_rendering_driver, p_mode, p_vsync_mode, p_flags, p_position, p_resolution, p_screen, r_error));
 	if (r_error != OK) {
-		OS::get_singleton()->alert("Your video card driver does not support any of the supported Vulkan versions.", "Unable to initialize Video driver");
 		if (p_rendering_driver == "vulkan") {
-			OS::get_singleton()->alert("Your video card driver does not support the selected Vulkan version.\n"
-									   "Please try exporting your game using the gl_compatibility renderer.",
-					"Unable to initialize Video driver");
+			OS::get_singleton()->alert(
+					"Your device seems not to support the required Vulkan version.\n\n"
+					"Please try exporting your game using the 'gl_compatibility' renderer.",
+					"Unable to initialize Vulkan video driver");
 		} else {
-			OS::get_singleton()->alert("Your video card driver does not support OpenGL ES 3.0.",
-					"Unable to initialize Video driver");
+			OS::get_singleton()->alert(
+					"Your device seems not to support the required OpenGL ES 3.0 version.",
+					"Unable to initialize OpenGL video driver");
 		}
 	}
 	return ds;

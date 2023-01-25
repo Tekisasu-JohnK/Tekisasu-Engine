@@ -74,6 +74,9 @@ public:
 	virtual RID get_rid() const override;
 	virtual RID get_shader_rid() const;
 	virtual Shader::Mode get_shader_mode() const;
+
+	virtual Ref<Resource> create_placeholder() const;
+
 	Material();
 	virtual ~Material();
 };
@@ -82,7 +85,8 @@ class ShaderMaterial : public Material {
 	GDCLASS(ShaderMaterial, Material);
 	Ref<Shader> shader;
 
-	HashMap<StringName, Variant> param_cache;
+	mutable HashMap<StringName, StringName> remap_cache;
+	mutable HashMap<StringName, Variant> param_cache;
 
 protected:
 	bool _set(const StringName &p_name, const Variant &p_value);

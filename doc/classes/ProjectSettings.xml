@@ -384,6 +384,9 @@
 		<member name="debug/gdscript/warnings/assert_always_true" type="int" setter="" getter="" default="1">
 			When set to [code]warn[/code] or [code]error[/code], produces a warning or an error respectively when an [code]assert[/code] call always evaluates to true.
 		</member>
+		<member name="debug/gdscript/warnings/confusable_identifier" type="int" setter="" getter="" default="1">
+			When set to [code]warn[/code] or [code]error[/code], produces a warning or an error respectively when an identifier contains characters that can be confused with something else, like when mixing different alphabets.
+		</member>
 		<member name="debug/gdscript/warnings/constant_used_as_function" type="int" setter="" getter="" default="1">
 			When set to [code]warn[/code] or [code]error[/code], produces a warning or an error respectively when a constant is used as a function.
 		</member>
@@ -615,8 +618,17 @@
 			Main window content is expanded to the full size of the window. Unlike a borderless window, the frame is left intact and can be used to resize the window, and the title bar is transparent, but has minimize/maximize/close buttons.
 			[b]Note:[/b] This setting is implemented only on macOS.
 		</member>
-		<member name="display/window/size/initial_screen" type="int" setter="" getter="" default="-2">
-			Main window initial screen.
+		<member name="display/window/size/initial_position" type="Vector2i" setter="" getter="" default="Vector2i(0, 0)">
+			Main window initial position (in virtual desktop coordinates), this settings is used only if [member display/window/size/initial_position_type] is set to "Absolute" ([code]0[/code]).
+		</member>
+		<member name="display/window/size/initial_position_type" type="int" setter="" getter="" default="1">
+			Main window initial position.
+			[code]0[/code] - "Absolute", [member display/window/size/initial_position] is used to set window position.
+			[code]1[/code] - "Primary Screen Center".
+			[code]2[/code] - "Other Screen Center", [member display/window/size/initial_screen] is used to set window position.
+		</member>
+		<member name="display/window/size/initial_screen" type="int" setter="" getter="" default="0">
+			Main window initial screen, this settings is used only if [member display/window/size/initial_position_type] is set to "Other Screen Center" ([code]2[/code]).
 		</member>
 		<member name="display/window/size/mode" type="int" setter="" getter="" default="0">
 			Main window mode. See [enum DisplayServer.WindowMode] for possible values and how each mode behaves.
@@ -650,7 +662,15 @@
 		<member name="display/window/vsync/vsync_mode" type="int" setter="" getter="" default="1">
 			Sets the V-Sync mode for the main game window.
 			See [enum DisplayServer.VSyncMode] for possible values and how they affect the behavior of your application.
-			Depending on the platform and used renderer, the engine will fall back to [code]Enabled[/code], if the desired mode is not supported.
+			Depending on the platform and used renderer, the engine will fall back to [code]Enabled[/code] if the desired mode is not supported.
+			[b]Note:[/b] This property is only read when the project starts. To change the V-Sync mode at runtime, call [method DisplayServer.window_set_vsync_mode] instead.
+		</member>
+		<member name="dotnet/project/assembly_name" type="String" setter="" getter="" default="&quot;&quot;">
+			Name of the .NET assembly. This name is used as the name of the [code].csproj[/code] and [code].sln[/code] files. By default, it's set to the name of the project ([member application/config/name]) allowing to change it in the future without affecting the .NET assembly.
+		</member>
+		<member name="dotnet/project/solution_directory" type="String" setter="" getter="" default="&quot;&quot;">
+			Directory that contains the [code].sln[/code] file. By default, the [code].sln[/code] files is in the root of the project directory, next to the [code]project.godot[/code] and [code].csproj[/code] files.
+			Changing this value allows setting up a multi-project scenario where there are multiple [code].csproj[/code]. Keep in mind that the Godot project is considered one of the C# projects in the workspace and it's root directory should contain the [code]project.godot[/code] and [code].csproj[/code] next to each other.
 		</member>
 		<member name="editor/movie_writer/disable_vsync" type="bool" setter="" getter="" default="false">
 			If [code]true[/code], requests V-Sync to be disabled when writing a movie (similar to setting [member display/window/vsync/vsync_mode] to [b]Disabled[/b]). This can speed up video writing if the hardware is fast enough to render, encode and save the video at a framerate higher than the monitor's refresh rate.

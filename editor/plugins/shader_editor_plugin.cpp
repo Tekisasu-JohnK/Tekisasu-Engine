@@ -43,10 +43,10 @@
 
 void ShaderEditorPlugin::_update_shader_list() {
 	shader_list->clear();
-	for (uint32_t i = 0; i < edited_shaders.size(); i++) {
-		Ref<Resource> shader = edited_shaders[i].shader;
+	for (EditedShader &edited_shader : edited_shaders) {
+		Ref<Resource> shader = edited_shader.shader;
 		if (shader.is_null()) {
-			shader = edited_shaders[i].shader_inc;
+			shader = edited_shader.shader_inc;
 		}
 
 		String path = shader->get_path();
@@ -62,8 +62,8 @@ void ShaderEditorPlugin::_update_shader_list() {
 		}
 
 		bool unsaved = false;
-		if (edited_shaders[i].shader_editor) {
-			unsaved = edited_shaders[i].shader_editor->is_unsaved();
+		if (edited_shader.shader_editor) {
+			unsaved = edited_shader.shader_editor->is_unsaved();
 		}
 		// TODO: Handle visual shaders too.
 
@@ -86,7 +86,7 @@ void ShaderEditorPlugin::_update_shader_list() {
 	}
 
 	for (int i = FILE_SAVE; i < FILE_MAX; i++) {
-		file_menu->get_popup()->set_item_disabled(file_menu->get_popup()->get_item_index(i), edited_shaders.size() == 0);
+		file_menu->get_popup()->set_item_disabled(file_menu->get_popup()->get_item_index(i), edited_shaders.is_empty());
 	}
 
 	_update_shader_list_status();
@@ -117,6 +117,10 @@ void ShaderEditorPlugin::_move_shader_tab(int p_from, int p_to) {
 }
 
 void ShaderEditorPlugin::edit(Object *p_object) {
+	if (!p_object) {
+		return;
+	}
+
 	EditedShader es;
 
 	ShaderInclude *si = Object::cast_to<ShaderInclude>(p_object);
@@ -175,36 +179,36 @@ void ShaderEditorPlugin::selected_notify() {
 }
 
 TextShaderEditor *ShaderEditorPlugin::get_shader_editor(const Ref<Shader> &p_for_shader) {
-	for (uint32_t i = 0; i < edited_shaders.size(); i++) {
-		if (edited_shaders[i].shader == p_for_shader) {
-			return edited_shaders[i].shader_editor;
+	for (EditedShader &edited_shader : edited_shaders) {
+		if (edited_shader.shader == p_for_shader) {
+			return edited_shader.shader_editor;
 		}
 	}
 	return nullptr;
 }
 
 VisualShaderEditor *ShaderEditorPlugin::get_visual_shader_editor(const Ref<Shader> &p_for_shader) {
-	for (uint32_t i = 0; i < edited_shaders.size(); i++) {
-		if (edited_shaders[i].shader == p_for_shader) {
-			return edited_shaders[i].visual_shader_editor;
+	for (EditedShader &edited_shader : edited_shaders) {
+		if (edited_shader.shader == p_for_shader) {
+			return edited_shader.visual_shader_editor;
 		}
 	}
 	return nullptr;
 }
 
 void ShaderEditorPlugin::save_external_data() {
-	for (uint32_t i = 0; i < edited_shaders.size(); i++) {
-		if (edited_shaders[i].shader_editor) {
-			edited_shaders[i].shader_editor->save_external_data();
+	for (EditedShader &edited_shader : edited_shaders) {
+		if (edited_shader.shader_editor) {
+			edited_shader.shader_editor->save_external_data();
 		}
 	}
 	_update_shader_list();
 }
 
 void ShaderEditorPlugin::apply_changes() {
-	for (uint32_t i = 0; i < edited_shaders.size(); i++) {
-		if (edited_shaders[i].shader_editor) {
-			edited_shaders[i].shader_editor->apply_shaders();
+	for (EditedShader &edited_shader : edited_shaders) {
+		if (edited_shader.shader_editor) {
+			edited_shader.shader_editor->apply_shaders();
 		}
 	}
 }
@@ -234,8 +238,8 @@ void ShaderEditorPlugin::_close_shader(int p_index) {
 
 void ShaderEditorPlugin::_resource_saved(Object *obj) {
 	// May have been renamed on save.
-	for (uint32_t i = 0; i < edited_shaders.size(); i++) {
-		if (edited_shaders[i].shader.ptr() == obj) {
+	for (EditedShader &edited_shader : edited_shaders) {
+		if (edited_shader.shader.ptr() == obj) {
 			_update_shader_list();
 			return;
 		}
@@ -413,12 +417,6 @@ void ShaderEditorPlugin::drop_data_fw(const Point2 &p_point, const Variant &p_da
 	}
 }
 
-void ShaderEditorPlugin::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("_get_drag_data_fw", "point", "from"), &ShaderEditorPlugin::get_drag_data_fw);
-	ClassDB::bind_method(D_METHOD("_can_drop_data_fw", "point", "data", "from"), &ShaderEditorPlugin::can_drop_data_fw);
-	ClassDB::bind_method(D_METHOD("_drop_data_fw", "point", "data", "from"), &ShaderEditorPlugin::drop_data_fw);
-}
-
 ShaderEditorPlugin::ShaderEditorPlugin() {
 	main_split = memnew(HSplitContainer);
 
@@ -451,7 +449,7 @@ ShaderEditorPlugin::ShaderEditorPlugin() {
 	vb->add_child(shader_list);
 	shader_list->connect("item_selected", callable_mp(this, &ShaderEditorPlugin::_shader_selected));
 	shader_list->connect("item_clicked", callable_mp(this, &ShaderEditorPlugin::_shader_list_clicked));
-	shader_list->set_drag_forwarding_compat(this);
+	SET_DRAG_FORWARDING_GCD(shader_list, ShaderEditorPlugin);
 
 	main_split->add_child(vb);
 	vb->set_custom_minimum_size(Size2(200, 300) * EDSCALE);

@@ -422,8 +422,7 @@ TextureStorage::TextureStorage() {
 		tformat.usage_bits = RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_UPDATE_BIT | RD::TEXTURE_USAGE_VRS_ATTACHMENT_BIT;
 		tformat.texture_type = RD::TEXTURE_TYPE_2D;
 		if (!RD::get_singleton()->has_feature(RD::SUPPORTS_ATTACHMENT_VRS)) {
-			tformat.usage_bits = RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_UPDATE_BIT;
-			tformat.format = RD::DATA_FORMAT_R8_UNORM;
+			tformat.usage_bits = RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_CAN_UPDATE_BIT;
 		}
 
 		Vector<uint8_t> pv;
@@ -2206,6 +2205,12 @@ void TextureStorage::decal_instance_set_transform(RID p_decal_instance, const Tr
 	di->transform = p_transform;
 }
 
+void TextureStorage::decal_instance_set_sorting_offset(RID p_decal_instance, float p_sorting_offset) {
+	DecalInstance *di = decal_instance_owner.get_or_null(p_decal_instance);
+	ERR_FAIL_COND(!di);
+	di->sorting_offset = p_sorting_offset;
+}
+
 /* DECAL DATA API */
 
 void TextureStorage::free_decal_data() {
@@ -2233,7 +2238,7 @@ void TextureStorage::set_max_decals(const uint32_t p_max_decals) {
 	decal_buffer = RD::get_singleton()->storage_buffer_create(decal_buffer_size);
 }
 
-void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const Transform3D &p_camera_inverse_xform) {
+void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const Transform3D &p_camera_xform) {
 	ForwardIDStorage *forward_id_storage = ForwardIDStorage::get_singleton();
 
 	Transform3D uv_xform;
@@ -2257,7 +2262,7 @@ void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const 
 
 		Transform3D xform = decal_instance->transform;
 
-		real_t distance = -p_camera_inverse_xform.xform(xform.origin).z;
+		real_t distance = p_camera_xform.origin.distance_to(xform.origin);
 
 		if (decal->distance_fade) {
 			float fade_begin = decal->distance_fade_begin;
@@ -2272,7 +2277,7 @@ void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const 
 
 		decal_sort[decal_count].decal_instance = decal_instance;
 		decal_sort[decal_count].decal = decal;
-		decal_sort[decal_count].depth = distance;
+		decal_sort[decal_count].depth = distance - decal_instance->sorting_offset;
 		decal_count++;
 	}
 
@@ -2292,11 +2297,10 @@ void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const 
 
 		decal_instance->cull_mask = decal->cull_mask;
 
-		Transform3D xform = decal_instance->transform;
 		float fade = 1.0;
 
 		if (decal->distance_fade) {
-			const real_t distance = -p_camera_inverse_xform.xform(xform.origin).z;
+			const real_t distance = decal_sort[i].depth + decal_instance->sorting_offset;
 			const float fade_begin = decal->distance_fade_begin;
 			const float fade_length = decal->distance_fade_length;
 
@@ -2312,11 +2316,16 @@ void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const 
 
 		Transform3D scale_xform;
 		scale_xform.basis.scale(decal_extents);
-		Transform3D to_decal_xform = (p_camera_inverse_xform * xform * scale_xform * uv_xform).affine_inverse();
+
+		Transform3D xform = decal_instance->transform;
+
+		Transform3D camera_inverse_xform = p_camera_xform.affine_inverse();
+
+		Transform3D to_decal_xform = (camera_inverse_xform * xform * scale_xform * uv_xform).affine_inverse();
 		MaterialStorage::store_transform(to_decal_xform, dd.xform);
 
 		Vector3 normal = xform.basis.get_column(Vector3::AXIS_Y).normalized();
-		normal = p_camera_inverse_xform.basis.xform(normal); //camera is normalized, so fine
+		normal = camera_inverse_xform.basis.xform(normal); //camera is normalized, so fine
 
 		dd.normal[0] = normal.x;
 		dd.normal[1] = normal.y;
@@ -2350,7 +2359,7 @@ void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const 
 			dd.normal_rect[2] = rect.size.x;
 			dd.normal_rect[3] = rect.size.y;
 
-			Basis normal_xform = p_camera_inverse_xform.basis * xform.basis.orthonormalized();
+			Basis normal_xform = camera_inverse_xform.basis * xform.basis.orthonormalized();
 			MaterialStorage::store_basis_3x4(normal_xform, dd.normal_xform);
 		} else {
 			dd.normal_rect[0] = 0;

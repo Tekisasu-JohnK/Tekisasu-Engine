@@ -3124,10 +3124,11 @@ Error GLTFDocument::_parse_images(Ref<GLTFState> p_state, const String &p_base_p
 				// API for that in Godot, so we'd have to load as a buffer (i.e. embedded in
 				// the material), so we do this only as fallback.
 				Ref<Texture2D> texture = ResourceLoader::load(uri);
+				String extension = uri.get_extension().to_lower();
 				if (texture.is_valid()) {
 					p_state->images.push_back(texture);
 					continue;
-				} else if (mimetype == "image/png" || mimetype == "image/jpeg") {
+				} else if (mimetype == "image/png" || mimetype == "image/jpeg" || extension == "png" || extension == "jpg" || extension == "jpeg") {
 					// Fallback to loading as byte array.
 					// This enables us to support the spec's requirement that we honor mimetype
 					// regardless of file URI.
@@ -6071,6 +6072,7 @@ void GLTFDocument::_import_animation(Ref<GLTFState> p_state, AnimationPlayer *p_
 			const int track_idx = animation->get_track_count();
 			animation->add_track(Animation::TYPE_BLEND_SHAPE);
 			animation->track_set_path(track_idx, blend_path);
+			animation->track_set_imported(track_idx, true); //helps merging later
 
 			// Only LINEAR and STEP (NEAREST) can be supported out of the box by Godot's Animation,
 			// the other modes have to be baked.
