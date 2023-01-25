@@ -408,7 +408,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	float preset_contrast = 0;
 	bool preset_draw_extra_borders = false;
 
-	const float default_contrast = 0.3;
+	const float default_contrast = 0.48;
 
 	// Please use alphabetical order if you're adding a new theme here
 	// (after "Custom")
