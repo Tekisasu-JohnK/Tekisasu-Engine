@@ -405,7 +405,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 
 	Color preset_accent_color;
 	Color preset_base_color;
-	float preset_contrast = 0.48;
+	float preset_contrast = 0;
 	bool preset_draw_extra_borders = false;
 
 	const float default_contrast = 0.3;
