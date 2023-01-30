@@ -2849,10 +2849,8 @@ RenderingServer::RenderingServer() {
 }
 
 void RenderingServer::init() {
-	GLOBAL_DEF_RST("rendering/textures/vram_compression/import_bptc", false);
-	GLOBAL_DEF_RST("rendering/textures/vram_compression/import_s3tc", true);
-	GLOBAL_DEF_RST("rendering/textures/vram_compression/import_etc", false);
-	GLOBAL_DEF_RST("rendering/textures/vram_compression/import_etc2", true);
+	GLOBAL_DEF_RST("rendering/textures/vram_compression/import_s3tc_bptc", OS::get_singleton()->get_preferred_texture_format() == OS::PREFERRED_TEXTURE_FORMAT_S3TC_BPTC);
+	GLOBAL_DEF_RST("rendering/textures/vram_compression/import_etc2_astc", OS::get_singleton()->get_preferred_texture_format() == OS::PREFERRED_TEXTURE_FORMAT_ETC2_ASTC);
 
 	GLOBAL_DEF("rendering/textures/lossless_compression/force_png", false);
 
@@ -2875,7 +2873,7 @@ void RenderingServer::init() {
 	GLOBAL_DEF("rendering/2d/shadow_atlas/size", 2048);
 
 	// Number of commands that can be drawn per frame.
-	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "rendering/gl_compatibility/item_buffer_size", PROPERTY_HINT_RANGE, "1024,1048576,1"), 16384);
+	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "rendering/gl_compatibility/item_buffer_size", PROPERTY_HINT_RANGE, "128,1048576,1"), 16384);
 
 	GLOBAL_DEF("rendering/shader_compiler/shader_cache/enabled", true);
 	GLOBAL_DEF("rendering/shader_compiler/shader_cache/compress", true);

@@ -1797,7 +1797,9 @@ void RichTextLabel::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_INTERNAL_PHYSICS_PROCESS: {
-			queue_redraw();
+			if (is_visible_in_tree()) {
+				queue_redraw();
+			}
 		} break;
 
 		case NOTIFICATION_DRAW: {
@@ -2665,19 +2667,26 @@ bool RichTextLabel::_find_layout_subitem(Item *from, Item *to) {
 	return false;
 }
 
-void RichTextLabel::_thread_function(void *self) {
-	RichTextLabel *rtl = reinterpret_cast<RichTextLabel *>(self);
-	rtl->set_physics_process_internal(true);
-	rtl->_process_line_caches();
-	rtl->set_physics_process_internal(false);
-	rtl->updating.store(false);
-	rtl->call_deferred(SNAME("queue_redraw"));
+void RichTextLabel::_thread_function(void *p_userdata) {
+	_process_line_caches();
+	updating.store(false);
+	call_deferred(SNAME("thread_end"));
+}
+
+void RichTextLabel::_thread_end() {
+	set_physics_process_internal(false);
+	if (is_visible_in_tree()) {
+		queue_redraw();
+	}
 }
 
 void RichTextLabel::_stop_thread() {
 	if (threaded) {
 		stop_thread.store(true);
-		thread.wait_to_finish();
+		if (task != WorkerThreadPool::INVALID_TASK_ID) {
+			WorkerThreadPool::get_singleton()->wait_for_task_completion(task);
+			task = WorkerThreadPool::INVALID_TASK_ID;
+		}
 	}
 }
 
@@ -2778,7 +2787,7 @@ bool RichTextLabel::_validate_line_caches() {
 
 		main->first_resized_line.store(main->lines.size());
 
-		if (fit_content_height) {
+		if (fit_content) {
 			update_minimum_size();
 		}
 		return true;
@@ -2787,7 +2796,8 @@ bool RichTextLabel::_validate_line_caches() {
 	if (threaded) {
 		updating.store(true);
 		loaded.store(true);
-		thread.start(RichTextLabel::_thread_function, reinterpret_cast<void *>(this));
+		task = WorkerThreadPool::get_singleton()->add_template_task(this, &RichTextLabel::_thread_function, nullptr, true, vformat("RichTextLabelShape:%x", (int64_t)get_instance_id()));
+		set_physics_process_internal(true);
 		loading_started = OS::get_singleton()->get_ticks_msec();
 		return false;
 	} else {
@@ -2808,7 +2818,7 @@ void RichTextLabel::_process_line_caches() {
 
 	int ctrl_height = get_size().height;
 	int fi = main->first_invalid_line.load();
-	int total_chars = (fi == 0) ? 0 : (main->lines[fi].char_offset + main->lines[fi].char_count);
+	int total_chars = main->lines[fi].char_offset;
 
 	float total_height = (fi == 0) ? 0 : _calculate_line_vertical_offset(main->lines[fi - 1]);
 	for (int i = fi; i < (int)main->lines.size(); i++) {
@@ -2862,7 +2872,7 @@ void RichTextLabel::_process_line_caches() {
 	main->first_resized_line.store(main->lines.size());
 	main->first_invalid_font_line.store(main->lines.size());
 
-	if (fit_content_height) {
+	if (fit_content) {
 		update_minimum_size();
 	}
 	emit_signal(SNAME("finished"));
@@ -2963,7 +2973,7 @@ void RichTextLabel::_add_item(Item *p_item, bool p_enter, bool p_ensure_newline)
 
 	_invalidate_current_line(current_frame);
 
-	if (fixed_width != -1) {
+	if (fit_content) {
 		update_minimum_size();
 	}
 	queue_redraw();
@@ -3435,6 +3445,8 @@ void RichTextLabel::push_customfx(Ref<RichTextEffect> p_custom_effect, Dictionar
 	item->custom_effect = p_custom_effect;
 	item->char_fx_transform->environment = p_environment;
 	_add_item(item, true);
+
+	set_process_internal(true);
 }
 
 void RichTextLabel::set_table_column_expand(int p_column, bool p_expand, int p_ratio) {
@@ -3551,7 +3563,7 @@ void RichTextLabel::clear() {
 		scroll_following = true;
 	}
 
-	if (fixed_width != -1) {
+	if (fit_content) {
 		update_minimum_size();
 	}
 }
@@ -3572,15 +3584,17 @@ int RichTextLabel::get_tab_size() const {
 	return tab_size;
 }
 
-void RichTextLabel::set_fit_content_height(bool p_enabled) {
-	if (p_enabled != fit_content_height) {
-		fit_content_height = p_enabled;
-		update_minimum_size();
+void RichTextLabel::set_fit_content(bool p_enabled) {
+	if (p_enabled == fit_content) {
+		return;
 	}
+
+	fit_content = p_enabled;
+	update_minimum_size();
 }
 
-bool RichTextLabel::is_fit_content_height_enabled() const {
-	return fit_content_height;
+bool RichTextLabel::is_fit_content_enabled() const {
+	return fit_content;
 }
 
 void RichTextLabel::set_meta_underline(bool p_underline) {
@@ -4550,7 +4564,6 @@ void RichTextLabel::append_text(const String &p_bbcode) {
 					push_customfx(effect, properties);
 					pos = brk_end + 1;
 					tag_stack.push_front(identifier);
-					set_process_internal(true);
 				} else {
 					add_text("["); //ignore
 					pos = brk_pos + 1;
@@ -5344,6 +5357,7 @@ void RichTextLabel::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("push_cell"), &RichTextLabel::push_cell);
 	ClassDB::bind_method(D_METHOD("push_fgcolor", "fgcolor"), &RichTextLabel::push_fgcolor);
 	ClassDB::bind_method(D_METHOD("push_bgcolor", "bgcolor"), &RichTextLabel::push_bgcolor);
+	ClassDB::bind_method(D_METHOD("push_customfx", "effect", "env"), &RichTextLabel::push_customfx);
 	ClassDB::bind_method(D_METHOD("pop"), &RichTextLabel::pop);
 
 	ClassDB::bind_method(D_METHOD("clear"), &RichTextLabel::clear);
@@ -5381,8 +5395,8 @@ void RichTextLabel::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_tab_size", "spaces"), &RichTextLabel::set_tab_size);
 	ClassDB::bind_method(D_METHOD("get_tab_size"), &RichTextLabel::get_tab_size);
 
-	ClassDB::bind_method(D_METHOD("set_fit_content_height", "enabled"), &RichTextLabel::set_fit_content_height);
-	ClassDB::bind_method(D_METHOD("is_fit_content_height_enabled"), &RichTextLabel::is_fit_content_height_enabled);
+	ClassDB::bind_method(D_METHOD("set_fit_content", "enabled"), &RichTextLabel::set_fit_content);
+	ClassDB::bind_method(D_METHOD("is_fit_content_enabled"), &RichTextLabel::is_fit_content_enabled);
 
 	ClassDB::bind_method(D_METHOD("set_selection_enabled", "enabled"), &RichTextLabel::set_selection_enabled);
 	ClassDB::bind_method(D_METHOD("is_selection_enabled"), &RichTextLabel::is_selection_enabled);
@@ -5453,11 +5467,13 @@ void RichTextLabel::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_menu"), &RichTextLabel::get_menu);
 	ClassDB::bind_method(D_METHOD("is_menu_visible"), &RichTextLabel::is_menu_visible);
 
+	ClassDB::bind_method(D_METHOD("_thread_end"), &RichTextLabel::_thread_end);
+
 	// Note: set "bbcode_enabled" first, to avoid unnecessary "text" resets.
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "bbcode_enabled"), "set_use_bbcode", "is_using_bbcode");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "text", PROPERTY_HINT_MULTILINE_TEXT), "set_text", "get_text");
 
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "fit_content_height"), "set_fit_content_height", "is_fit_content_height_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "fit_content"), "set_fit_content", "is_fit_content_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "scroll_active"), "set_scroll_active", "is_scroll_active");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "scroll_following"), "set_scroll_follow", "is_scroll_following");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "autowrap_mode", PROPERTY_HINT_ENUM, "Off,Arbitrary,Word,Word (Smart)"), "set_autowrap_mode", "get_autowrap_mode");
@@ -5644,27 +5660,17 @@ int RichTextLabel::get_total_glyph_count() const {
 	return tg;
 }
 
-void RichTextLabel::set_fixed_size_to_width(int p_width) {
-	if (fixed_width == p_width) {
-		return;
-	}
-
-	fixed_width = p_width;
-	update_minimum_size();
-}
-
 Size2 RichTextLabel::get_minimum_size() const {
-	Size2 size = theme_cache.normal_style->get_minimum_size();
+	Size2 sb_min_size = theme_cache.normal_style->get_minimum_size();
+	Size2 min_size;
 
-	if (fixed_width != -1) {
-		size.x += fixed_width;
+	if (fit_content) {
+		min_size.x = get_content_width();
+		min_size.y = get_content_height();
 	}
 
-	if (fit_content_height) {
-		size.y += get_content_height();
-	}
-
-	return size;
+	return sb_min_size +
+			((autowrap_mode != TextServer::AUTOWRAP_OFF) ? Size2(1, min_size.height) : min_size);
 }
 
 // Context menu.

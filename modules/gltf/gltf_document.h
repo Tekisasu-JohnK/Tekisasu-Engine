@@ -64,6 +64,10 @@ public:
 		COMPONENT_TYPE_INT = 5125,
 		COMPONENT_TYPE_FLOAT = 5126,
 	};
+	enum {
+		TEXTURE_TYPE_GENERIC = 0,
+		TEXTURE_TYPE_NORMAL = 1,
+	};
 
 protected:
 	static void _bind_methods();
@@ -92,7 +96,7 @@ private:
 	GLTFTextureIndex _set_texture(Ref<GLTFState> p_state, Ref<Texture2D> p_texture,
 			StandardMaterial3D::TextureFilter p_filter_mode, bool p_repeats);
 	Ref<Texture2D> _get_texture(Ref<GLTFState> p_state,
-			const GLTFTextureIndex p_texture);
+			const GLTFTextureIndex p_texture, int p_texture_type);
 	GLTFTextureSamplerIndex _set_sampler_for_mode(Ref<GLTFState> p_state,
 			StandardMaterial3D::TextureFilter p_filter_mode, bool p_repeats);
 	Ref<GLTFTextureSampler> _get_sampler_for_texture(Ref<GLTFState> p_state,
@@ -160,6 +164,8 @@ private:
 			float &r_metallic);
 	GLTFNodeIndex _find_highest_node(Ref<GLTFState> p_state,
 			const Vector<GLTFNodeIndex> &p_subset);
+	void _recurse_children(Ref<GLTFState> p_state, const GLTFNodeIndex p_node_index,
+			RBSet<GLTFNodeIndex> &p_all_skin_nodes, HashSet<GLTFNodeIndex> &p_child_visited_set);
 	bool _capture_nodes_in_skin(Ref<GLTFState> p_state, Ref<GLTFSkin> p_skin,
 			const GLTFNodeIndex p_node_index);
 	void _capture_nodes_for_multirooted_skin(Ref<GLTFState> p_state, Ref<GLTFSkin> p_skin);
@@ -290,7 +296,7 @@ public:
 	Error append_from_scene(Node *p_node, Ref<GLTFState> r_state, uint32_t p_flags = 0);
 
 public:
-	Node *generate_scene(Ref<GLTFState> p_state, float p_bake_fps = 30.0f, bool p_trimming = false);
+	Node *generate_scene(Ref<GLTFState> p_state, float p_bake_fps = 30.0f, bool p_trimming = false, bool p_remove_immutable_tracks = true);
 	PackedByteArray generate_buffer(Ref<GLTFState> p_state);
 	Error write_to_filesystem(Ref<GLTFState> p_state, const String &p_path);
 
@@ -303,7 +309,7 @@ public:
 			const GLTFNodeIndex p_node_index);
 	void _generate_skeleton_bone_node(Ref<GLTFState> p_state, Node *p_scene_parent, Node3D *p_scene_root, const GLTFNodeIndex p_node_index);
 	void _import_animation(Ref<GLTFState> p_state, AnimationPlayer *p_animation_player,
-			const GLTFAnimationIndex p_index, const float p_bake_fps, const bool p_trimming);
+			const GLTFAnimationIndex p_index, const float p_bake_fps, const bool p_trimming, const bool p_remove_immutable_tracks);
 	void _convert_mesh_instances(Ref<GLTFState> p_state);
 	GLTFCameraIndex _convert_camera(Ref<GLTFState> p_state, Camera3D *p_camera);
 	void _convert_light_to_gltf(Light3D *p_light, Ref<GLTFState> p_state, Ref<GLTFNode> p_gltf_node);

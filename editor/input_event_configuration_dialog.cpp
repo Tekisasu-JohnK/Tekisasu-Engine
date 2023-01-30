@@ -201,7 +201,7 @@ void InputEventConfigurationDialog::_on_listen_input_changed(const Ref<InputEven
 	}
 
 	if (k.is_valid()) {
-		k->set_pressed(false); // To avoid serialisation of 'pressed' property - doesn't matter for actions anyway.
+		k->set_pressed(false); // To avoid serialization of 'pressed' property - doesn't matter for actions anyway.
 		if (key_mode->get_selected_id() == KEYMODE_KEYCODE) {
 			k->set_physical_keycode(Key::NONE);
 			k->set_key_label(Key::NONE);
@@ -685,9 +685,9 @@ InputEventConfigurationDialog::InputEventConfigurationDialog() {
 	// Key Mode Selection
 
 	key_mode = memnew(OptionButton);
-	key_mode->add_item("Keycode (Latin equvialent)", KEYMODE_KEYCODE);
-	key_mode->add_item("Physical Keycode (poistion of US QWERTY keyboard)", KEYMODE_PHY_KEYCODE);
-	key_mode->add_item("Unicode (case-insencetive)", KEYMODE_UNICODE);
+	key_mode->add_item(TTR("Keycode (Latin Equivalent)"), KEYMODE_KEYCODE);
+	key_mode->add_item(TTR("Physical Keycode (Position on US QWERTY Keyboard)"), KEYMODE_PHY_KEYCODE);
+	key_mode->add_item(TTR("Key Label (Unicode, Case-Insensitive)"), KEYMODE_UNICODE);
 	key_mode->connect("item_selected", callable_mp(this, &InputEventConfigurationDialog::_key_mode_selected));
 	key_mode->hide();
 	additional_options_container->add_child(key_mode);

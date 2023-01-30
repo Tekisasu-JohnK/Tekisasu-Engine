@@ -198,7 +198,7 @@ static Ref<StyleBoxTexture> make_stylebox(Ref<Texture2D> p_texture, float p_left
 	Ref<StyleBoxTexture> style(memnew(StyleBoxTexture));
 	style->set_texture(p_texture);
 	style->set_texture_margin_individual(p_left * EDSCALE, p_top * EDSCALE, p_right * EDSCALE, p_bottom * EDSCALE);
-	style->set_content_margin_individual(p_margin_left * EDSCALE, p_margin_top * EDSCALE, p_margin_right * EDSCALE, p_margin_bottom * EDSCALE);
+	style->set_content_margin_individual((p_left + p_margin_left) * EDSCALE, (p_top + p_margin_top) * EDSCALE, (p_right + p_margin_right) * EDSCALE, (p_bottom + p_margin_bottom) * EDSCALE);
 	style->set_draw_center(p_draw_center);
 	return style;
 }
@@ -394,6 +394,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	Color accent_color = EDITOR_GET("interface/theme/accent_color");
 	Color base_color = EDITOR_GET("interface/theme/base_color");
 	float contrast = EDITOR_GET("interface/theme/contrast");
+	bool enable_touchscreen_touch_area = EDITOR_GET("interface/theme/enable_touchscreen_touch_area");
 	bool draw_extra_borders = EDITOR_GET("interface/theme/draw_extra_borders");
 	float icon_saturation = EDITOR_GET("interface/theme/icon_saturation");
 	float relationship_line_opacity = EDITOR_GET("interface/theme/relationship_line_opacity");
@@ -408,7 +409,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	float preset_contrast = 0;
 	bool preset_draw_extra_borders = false;
 
-	const float default_contrast = 0.48;
+	const float default_contrast = 0.3;
 
 	// Please use alphabetical order if you're adding a new theme here
 	// (after "Custom")
@@ -450,8 +451,8 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 		preset_contrast = 0.0;
 		preset_draw_extra_borders = true;
 	} else { // Default
-		preset_accent_color = Color(0.44, 0.47, 0.93);
- 		preset_base_color = Color(0.18, 0.18, 0.42);
+		preset_accent_color = Color(0.44, 0.73, 0.98);
+		preset_base_color = Color(0.21, 0.24, 0.29);
 		preset_contrast = default_contrast;
 	}
 
@@ -1492,11 +1493,15 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	// HScrollBar
 	Ref<Texture2D> empty_icon = memnew(ImageTexture);
 
-	theme->set_stylebox("scroll", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), SNAME("EditorIcons")), 5, 5, 5, 5, 0, 0, 0, 0));
-	theme->set_stylebox("scroll_focus", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), SNAME("EditorIcons")), 5, 5, 5, 5, 0, 0, 0, 0));
-	theme->set_stylebox("grabber", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabber"), SNAME("EditorIcons")), 6, 6, 6, 6, 2, 2, 2, 2));
-	theme->set_stylebox("grabber_highlight", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabberHl"), SNAME("EditorIcons")), 5, 5, 5, 5, 2, 2, 2, 2));
-	theme->set_stylebox("grabber_pressed", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabberPressed"), SNAME("EditorIcons")), 6, 6, 6, 6, 2, 2, 2, 2));
+	if (enable_touchscreen_touch_area) {
+		theme->set_stylebox("scroll", "HScrollBar", make_line_stylebox(separator_color, 50));
+	} else {
+		theme->set_stylebox("scroll", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), SNAME("EditorIcons")), 5, 5, 5, 5, 1, 1, 1, 1));
+	}
+	theme->set_stylebox("scroll_focus", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), SNAME("EditorIcons")), 5, 5, 5, 5, 1, 1, 1, 1));
+	theme->set_stylebox("grabber", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabber"), SNAME("EditorIcons")), 6, 6, 6, 6, 1, 1, 1, 1));
+	theme->set_stylebox("grabber_highlight", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabberHl"), SNAME("EditorIcons")), 5, 5, 5, 5, 1, 1, 1, 1));
+	theme->set_stylebox("grabber_pressed", "HScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabberPressed"), SNAME("EditorIcons")), 6, 6, 6, 6, 1, 1, 1, 1));
 
 	theme->set_icon("increment", "HScrollBar", empty_icon);
 	theme->set_icon("increment_highlight", "HScrollBar", empty_icon);
@@ -1506,11 +1511,15 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	theme->set_icon("decrement_pressed", "HScrollBar", empty_icon);
 
 	// VScrollBar
-	theme->set_stylebox("scroll", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), SNAME("EditorIcons")), 5, 5, 5, 5, 0, 0, 0, 0));
-	theme->set_stylebox("scroll_focus", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), SNAME("EditorIcons")), 5, 5, 5, 5, 0, 0, 0, 0));
-	theme->set_stylebox("grabber", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabber"), SNAME("EditorIcons")), 6, 6, 6, 6, 2, 2, 2, 2));
-	theme->set_stylebox("grabber_highlight", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabberHl"), SNAME("EditorIcons")), 5, 5, 5, 5, 2, 2, 2, 2));
-	theme->set_stylebox("grabber_pressed", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabberPressed"), SNAME("EditorIcons")), 6, 6, 6, 6, 2, 2, 2, 2));
+	if (enable_touchscreen_touch_area) {
+		theme->set_stylebox("scroll", "VScrollBar", make_line_stylebox(separator_color, 50, 1, 1, true));
+	} else {
+		theme->set_stylebox("scroll", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), SNAME("EditorIcons")), 5, 5, 5, 5, 1, 1, 1, 1));
+	}
+	theme->set_stylebox("scroll_focus", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollBg"), SNAME("EditorIcons")), 5, 5, 5, 5, 1, 1, 1, 1));
+	theme->set_stylebox("grabber", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabber"), SNAME("EditorIcons")), 6, 6, 6, 6, 1, 1, 1, 1));
+	theme->set_stylebox("grabber_highlight", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabberHl"), SNAME("EditorIcons")), 5, 5, 5, 5, 1, 1, 1, 1));
+	theme->set_stylebox("grabber_pressed", "VScrollBar", make_stylebox(theme->get_icon(SNAME("GuiScrollGrabberPressed"), SNAME("EditorIcons")), 6, 6, 6, 6, 1, 1, 1, 1));
 
 	theme->set_icon("increment", "VScrollBar", empty_icon);
 	theme->set_icon("increment_highlight", "VScrollBar", empty_icon);
@@ -1848,7 +1857,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	const Color base_type_color = dark_theme ? Color(0.26, 1.0, 0.76) : Color(0, 0.6, 0.2);
 	const Color engine_type_color = dark_theme ? Color(0.56, 1, 0.86) : Color(0.11, 0.55, 0.4);
 	const Color user_type_color = dark_theme ? Color(0.78, 1, 0.93) : Color(0.18, 0.45, 0.4);
-	const Color comment_color = dark_theme ? Color(0.62, 0.66, 1.0, 0.61) : Color(0.11, 0.17, 0.7, 0.61);
+	const Color comment_color = dark_theme ? dim_color : Color(0.08, 0.08, 0.08, 0.5);
 	const Color string_color = dark_theme ? Color(1, 0.93, 0.63) : Color(0.6, 0.42, 0);
 
 	// Use the brightest background color on a light theme (which generally uses a negative contrast rate).

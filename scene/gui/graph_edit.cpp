@@ -920,7 +920,8 @@ void GraphEdit::_draw_connection_line(CanvasItem *p_where, const Vector2 &p_from
 		scaled_points.push_back(points[i] * p_zoom);
 	}
 
-	p_where->draw_polyline_colors(scaled_points, colors, Math::floor(p_width * get_theme_default_base_scale()), lines_antialiased);
+	// Thickness below 0.5 doesn't look good on the graph or its minimap.
+	p_where->draw_polyline_colors(scaled_points, colors, MAX(0.5, Math::floor(p_width * get_theme_default_base_scale())), lines_antialiased);
 }
 
 void GraphEdit::_connections_layer_draw() {
@@ -1088,7 +1089,7 @@ void GraphEdit::_minimap_draw() {
 			from_color = from_color.lerp(activity_color, E.activity);
 			to_color = to_color.lerp(activity_color, E.activity);
 		}
-		_draw_connection_line(minimap, from_position, to_position, from_color, to_color, 0.1, minimap->_convert_from_graph_position(Vector2(zoom, zoom)).length());
+		_draw_connection_line(minimap, from_position, to_position, from_color, to_color, 0.5, minimap->_convert_from_graph_position(Vector2(zoom, zoom)).length());
 	}
 
 	// Draw the "camera" viewport.
@@ -1380,34 +1381,15 @@ void GraphEdit::gui_input(const Ref<InputEvent> &p_ev) {
 			accept_event();
 		}
 	}
-
-	Ref<InputEventMagnifyGesture> magnify_gesture = p_ev;
-	if (magnify_gesture.is_valid()) {
-		set_zoom_custom(zoom * magnify_gesture->get_factor(), magnify_gesture->get_position());
-	}
-
-	Ref<InputEventPanGesture> pan_gesture = p_ev;
-	if (pan_gesture.is_valid()) {
-		h_scroll->set_value(h_scroll->get_value() + h_scroll->get_page() * pan_gesture->get_delta().x / 8);
-		v_scroll->set_value(v_scroll->get_value() + v_scroll->get_page() * pan_gesture->get_delta().y / 8);
-	}
 }
 
-void GraphEdit::_scroll_callback(Vector2 p_scroll_vec, bool p_alt) {
-	if (p_scroll_vec.x != 0) {
-		h_scroll->set_value(h_scroll->get_value() + (h_scroll->get_page() * Math::abs(p_scroll_vec.x) / 8) * SIGN(p_scroll_vec.x));
-	} else {
-		v_scroll->set_value(v_scroll->get_value() + (v_scroll->get_page() * Math::abs(p_scroll_vec.y) / 8) * SIGN(p_scroll_vec.y));
-	}
-}
-
-void GraphEdit::_pan_callback(Vector2 p_scroll_vec) {
+void GraphEdit::_pan_callback(Vector2 p_scroll_vec, Ref<InputEvent> p_event) {
 	h_scroll->set_value(h_scroll->get_value() - p_scroll_vec.x);
 	v_scroll->set_value(v_scroll->get_value() - p_scroll_vec.y);
 }
 
-void GraphEdit::_zoom_callback(Vector2 p_scroll_vec, Vector2 p_origin, bool p_alt) {
-	set_zoom_custom(p_scroll_vec.y < 0 ? zoom * zoom_step : zoom / zoom_step, p_origin);
+void GraphEdit::_zoom_callback(float p_zoom_factor, Vector2 p_origin, Ref<InputEvent> p_event) {
+	set_zoom_custom(zoom * p_zoom_factor, p_origin);
 }
 
 void GraphEdit::set_connection_activity(const StringName &p_from, int p_from_port, const StringName &p_to, int p_to_port, float p_activity) {
@@ -1502,6 +1484,7 @@ void GraphEdit::set_zoom_step(float p_zoom_step) {
 	}
 
 	zoom_step = p_zoom_step;
+	panner->set_scroll_zoom_factor(zoom_step);
 }
 
 float GraphEdit::get_zoom_step() const {
@@ -2421,7 +2404,7 @@ GraphEdit::GraphEdit() {
 	zoom_max = (1 * Math::pow(zoom_step, 4));
 
 	panner.instantiate();
-	panner->set_callbacks(callable_mp(this, &GraphEdit::_scroll_callback), callable_mp(this, &GraphEdit::_pan_callback), callable_mp(this, &GraphEdit::_zoom_callback));
+	panner->set_callbacks(callable_mp(this, &GraphEdit::_pan_callback), callable_mp(this, &GraphEdit::_zoom_callback));
 
 	top_layer = memnew(GraphEditFilter(this));
 	add_child(top_layer, false, INTERNAL_MODE_BACK);

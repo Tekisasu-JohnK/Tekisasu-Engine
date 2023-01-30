@@ -1626,7 +1626,7 @@ Vector2i DisplayServerWindows::ime_get_selection() const {
 	ImmGetCompositionStringW(wd.im_himc, GCS_COMPSTR, string, length);
 
 	int32_t utf32_cursor = 0;
-	for (int32_t i = 0; i < length / sizeof(wchar_t); i++) {
+	for (int32_t i = 0; i < length / int32_t(sizeof(wchar_t)); i++) {
 		if ((string[i] & 0xfffffc00) == 0xd800) {
 			i++;
 		}
@@ -1671,9 +1671,11 @@ void DisplayServerWindows::window_set_ime_active(const bool p_active, WindowID p
 	if (p_active) {
 		wd.ime_active = true;
 		ImmAssociateContext(wd.hWnd, wd.im_himc);
+		CreateCaret(wd.hWnd, NULL, 1, 1);
 		window_set_ime_position(wd.im_position, p_window);
 	} else {
 		ImmAssociateContext(wd.hWnd, (HIMC)0);
+		DestroyCaret();
 		wd.ime_active = false;
 	}
 }
@@ -3440,9 +3442,6 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			[[fallthrough]];
 		}
 		case WM_CHAR: {
-			if (windows[window_id].ime_in_progress) {
-				break;
-			}
 			ERR_BREAK(key_event_pos >= KEY_EVENT_BUFFER_SIZE);
 
 			// Make sure we don't include modifiers for the modifier key itself.
@@ -3469,15 +3468,21 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 		case WM_IME_COMPOSITION: {
 			CANDIDATEFORM cf;
 			cf.dwIndex = 0;
-			cf.dwStyle = CFS_EXCLUDE;
+
+			cf.dwStyle = CFS_CANDIDATEPOS;
 			cf.ptCurrentPos.x = windows[window_id].im_position.x;
 			cf.ptCurrentPos.y = windows[window_id].im_position.y;
+			ImmSetCandidateWindow(windows[window_id].im_himc, &cf);
+
+			cf.dwStyle = CFS_EXCLUDE;
 			cf.rcArea.left = windows[window_id].im_position.x;
 			cf.rcArea.right = windows[window_id].im_position.x;
 			cf.rcArea.top = windows[window_id].im_position.y;
 			cf.rcArea.bottom = windows[window_id].im_position.y;
 			ImmSetCandidateWindow(windows[window_id].im_himc, &cf);
+
 			if (windows[window_id].ime_active) {
+				SetCaretPos(windows[window_id].im_position.x, windows[window_id].im_position.y);
 				OS::get_singleton()->get_main_loop()->notification(MainLoop::NOTIFICATION_OS_IME_UPDATE);
 			}
 		} break;
@@ -3663,7 +3668,7 @@ void DisplayServerWindows::_process_key_events() {
 					memset(keyboard_state, 0, 256);
 					wchar_t chars[256] = {};
 					UINT extended_code = MapVirtualKey((ke.lParam >> 16) & 0xFF, MAPVK_VSC_TO_VK_EX);
-					if (!(ke.lParam & (1 << 24)) && ToUnicodeEx(extended_code, (ke.lParam >> 16) & 0xFF, keyboard_state, chars, 255, 0, GetKeyboardLayout(0)) > 0) {
+					if (!(ke.lParam & (1 << 24)) && ToUnicodeEx(extended_code, (ke.lParam >> 16) & 0xFF, keyboard_state, chars, 255, 4, GetKeyboardLayout(0)) > 0) {
 						String keysym = String::utf16((char16_t *)chars, 255);
 						if (!keysym.is_empty()) {
 							key_label = fix_key_label(keysym[0], keycode);
@@ -3715,7 +3720,7 @@ void DisplayServerWindows::_process_key_events() {
 				memset(keyboard_state, 0, 256);
 				wchar_t chars[256] = {};
 				UINT extended_code = MapVirtualKey((ke.lParam >> 16) & 0xFF, MAPVK_VSC_TO_VK_EX);
-				if (!(ke.lParam & (1 << 24)) && ToUnicodeEx(extended_code, (ke.lParam >> 16) & 0xFF, keyboard_state, chars, 255, 0, GetKeyboardLayout(0)) > 0) {
+				if (!(ke.lParam & (1 << 24)) && ToUnicodeEx(extended_code, (ke.lParam >> 16) & 0xFF, keyboard_state, chars, 255, 4, GetKeyboardLayout(0)) > 0) {
 					String keysym = String::utf16((char16_t *)chars, 255);
 					if (!keysym.is_empty()) {
 						key_label = fix_key_label(keysym[0], keycode);

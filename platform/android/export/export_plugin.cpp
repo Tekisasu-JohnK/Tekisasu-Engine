@@ -1076,11 +1076,6 @@ void EditorExportPlatformAndroid::_fix_manifest(const Ref<EditorExportPreset> &p
 					Vector<int> feature_versions;
 
 					if (xr_mode_index == XR_MODE_OPENXR) {
-						// Set degrees of freedom
-						feature_names.push_back("android.hardware.vr.headtracking");
-						feature_required_list.push_back(true);
-						feature_versions.push_back(1);
-
 						// Check for hand tracking
 						if (hand_tracking_index > XR_HAND_TRACKING_NONE) {
 							feature_names.push_back("oculus.software.handtracking");
@@ -1716,6 +1711,7 @@ Vector<EditorExportPlatformAndroid::ABI> EditorExportPlatformAndroid::get_enable
 
 void EditorExportPlatformAndroid::get_preset_features(const Ref<EditorExportPreset> &p_preset, List<String> *r_features) const {
 	r_features->push_back("etc2");
+	r_features->push_back("astc");
 
 	Vector<ABI> abis = get_enabled_abis(p_preset);
 	for (int i = 0; i < abis.size(); ++i) {

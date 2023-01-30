@@ -159,9 +159,8 @@ class AnimationTimelineEdit : public Range {
 	bool use_fps = false;
 
 	Ref<ViewPanner> panner;
-	void _scroll_callback(Vector2 p_scroll_vec, bool p_alt);
-	void _pan_callback(Vector2 p_scroll_vec);
-	void _zoom_callback(Vector2 p_scroll_vec, Vector2 p_origin, bool p_alt);
+	void _pan_callback(Vector2 p_scroll_vec, Ref<InputEvent> p_event);
+	void _zoom_callback(float p_zoom_factor, Vector2 p_origin, Ref<InputEvent> p_event);
 
 	bool dragging_timeline = false;
 	bool dragging_hsize = false;
@@ -221,7 +220,9 @@ class AnimationTrackEdit : public Control {
 		MENU_KEY_INSERT,
 		MENU_KEY_DUPLICATE,
 		MENU_KEY_ADD_RESET,
-		MENU_KEY_DELETE
+		MENU_KEY_DELETE,
+		MENU_USE_BLEND_ENABLED,
+		MENU_USE_BLEND_DISABLED,
 	};
 
 	AnimationTimelineEdit *timeline = nullptr;
@@ -460,9 +461,8 @@ class AnimationTrackEditor : public VBoxContainer {
 	PropertyInfo _find_hint_for_track(int p_idx, NodePath &r_base_path, Variant *r_current_val = nullptr);
 
 	Ref<ViewPanner> panner;
-	void _scroll_callback(Vector2 p_scroll_vec, bool p_alt);
-	void _pan_callback(Vector2 p_scroll_vec);
-	void _zoom_callback(Vector2 p_scroll_vec, Vector2 p_origin, bool p_alt);
+	void _pan_callback(Vector2 p_scroll_vec, Ref<InputEvent> p_event);
+	void _zoom_callback(float p_zoom_factor, Vector2 p_origin, Ref<InputEvent> p_event);
 
 	void _timeline_value_changed(double);
 
@@ -568,6 +568,7 @@ class AnimationTrackEditor : public VBoxContainer {
 		Animation::LoopMode loop_mode = Animation::LOOP_PINGPONG;
 		bool loop_wrap = false;
 		bool enabled = false;
+		bool use_blend = false;
 
 		struct Key {
 			float time = 0;

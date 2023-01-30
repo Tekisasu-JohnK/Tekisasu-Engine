@@ -32,6 +32,7 @@
 
 #ifdef TOOLS_ENABLED
 
+#include "../gltf_defines.h"
 #include "../gltf_document.h"
 
 #include "core/config/project_settings.h"
@@ -43,7 +44,6 @@
 #include "scene/gui/line_edit.h"
 
 #ifdef WINDOWS_ENABLED
-// Code by Pedro Estebanez (https://github.com/godotengine/godot/pull/59766)
 #include <shlwapi.h>
 #endif
 
@@ -221,6 +221,7 @@ Node *EditorSceneFormatImporterBlend::import_scene(const String &p_path, uint32_
 	gltf.instantiate();
 	Ref<GLTFState> state;
 	state.instantiate();
+
 	String base_dir;
 	if (p_options.has(SNAME("blender/materials/unpack_enabled")) && p_options[SNAME("blender/materials/unpack_enabled")]) {
 		base_dir = sink.get_base_dir();
@@ -232,7 +233,7 @@ Node *EditorSceneFormatImporterBlend::import_scene(const String &p_path, uint32_
 		}
 		return nullptr;
 	}
-	return gltf->generate_scene(state, (float)p_options["animation/fps"], (bool)p_options["animation/trimming"]);
+	return gltf->generate_scene(state, (float)p_options["animation/fps"], (bool)p_options["animation/trimming"], (bool)p_options["animation/remove_immutable_tracks"]);
 }
 
 Variant EditorSceneFormatImporterBlend::get_option_visibility(const String &p_path, bool p_for_animation, const String &p_option,
@@ -274,9 +275,6 @@ void EditorSceneFormatImporterBlend::get_import_options(const String &p_path, Li
 	ADD_OPTION_BOOL("blender/animation/limit_playback", true);
 	ADD_OPTION_BOOL("blender/animation/always_sample", true);
 	ADD_OPTION_BOOL("blender/animation/group_tracks", true);
-
-#undef ADD_OPTION_BOOL
-#undef ADD_OPTION_ENUM
 }
 
 ///////////////////////////

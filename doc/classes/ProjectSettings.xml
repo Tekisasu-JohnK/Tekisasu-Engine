@@ -408,8 +408,11 @@
 		<member name="debug/gdscript/warnings/incompatible_ternary" type="int" setter="" getter="" default="1">
 			When set to [code]warn[/code] or [code]error[/code], produces a warning or an error respectively when a ternary operator may emit values with incompatible types.
 		</member>
-		<member name="debug/gdscript/warnings/int_assigned_to_enum" type="int" setter="" getter="" default="1">
-			When set to [code]warn[/code] or [code]error[/code], produces a warning or an error respectively when trying to assign an integer to a variable that expects an enum value.
+		<member name="debug/gdscript/warnings/int_as_enum_without_cast" type="int" setter="" getter="" default="1">
+			When set to [code]warn[/code] or [code]error[/code], produces a warning or an error respectively when trying to use an integer as an enum without an explicit cast.
+		</member>
+		<member name="debug/gdscript/warnings/int_as_enum_without_match" type="int" setter="" getter="" default="1">
+			When set to [code]warn[/code] or [code]error[/code], produces a warning or an error respectively when trying to use an integer as an enum when there is no matching enum member for that numeric value.
 		</member>
 		<member name="debug/gdscript/warnings/integer_division" type="int" setter="" getter="" default="1">
 			When set to [code]warn[/code] or [code]error[/code], produces a warning or an error respectively when dividing an integer by another integer (the decimal part will be discarded).
@@ -698,10 +701,16 @@
 		<member name="editor/movie_writer/speaker_mode" type="int" setter="" getter="" default="0">
 			The speaker mode to use in the recorded audio when writing a movie. See [enum AudioServer.SpeakerMode] for possible values.
 		</member>
-		<member name="editor/node_naming/name_casing" type="int" setter="" getter="" default="0">
+		<member name="editor/naming/default_signal_callback_name" type="String" setter="" getter="" default="&quot;_on_{node_name}_{signal_name}&quot;">
+			The format of the default signal callback name (in the Signal Connection Dialog). The following substitutions are available: [code]{NodeName}[/code], [code]{nodeName}[/code], [code]{node_name}[/code], [code]{SignalName}[/code], [code]{signalName}[/code], and [code]{signal_name}[/code].
+		</member>
+		<member name="editor/naming/default_signal_callback_to_self_name" type="String" setter="" getter="" default="&quot;_on_{signal_name}&quot;">
+			The format of the default signal callback name when a signal connects to the same node that emits it (in the Signal Connection Dialog). The following substitutions are available: [code]{NodeName}[/code], [code]{nodeName}[/code], [code]{node_name}[/code], [code]{SignalName}[/code], [code]{signalName}[/code], and [code]{signal_name}[/code].
+		</member>
+		<member name="editor/naming/node_name_casing" type="int" setter="" getter="" default="0">
 			When creating node names automatically, set the type of casing in this project. This is mostly an editor setting.
 		</member>
-		<member name="editor/node_naming/name_num_separator" type="int" setter="" getter="" default="0">
+		<member name="editor/naming/node_name_num_separator" type="int" setter="" getter="" default="0">
 			What to use to separate node name from number. This is mostly an editor setting.
 		</member>
 		<member name="editor/run/main_run_args" type="String" setter="" getter="" default="&quot;&quot;">
@@ -2276,20 +2285,12 @@
 		<member name="rendering/textures/lossless_compression/force_png" type="bool" setter="" getter="" default="false">
 			If [code]true[/code], the texture importer will import lossless textures using the PNG format. Otherwise, it will default to using WebP.
 		</member>
-		<member name="rendering/textures/vram_compression/import_bptc" type="bool" setter="" getter="" default="false">
-			If [code]true[/code], the texture importer will import VRAM-compressed textures using the BPTC algorithm. This texture compression algorithm is only supported on desktop platforms, and only when using the Vulkan renderer.
+		<member name="rendering/textures/vram_compression/import_etc2_astc" type="bool" setter="" getter="" default="false">
+			If [code]true[/code], the texture importer will import VRAM-compressed textures using the Ericsson Texture Compression 2 algorithm for lower quality textures and normalmaps and Adaptable Scalable Texture Compression algorithm for high quality textures (in 4x4 block size).
 			[b]Note:[/b] Changing this setting does [i]not[/i] impact textures that were already imported before. To make this setting apply to textures that were already imported, exit the editor, remove the [code].godot/imported/[/code] folder located inside the project folder then restart the editor (see [member application/config/use_hidden_project_data_directory]).
 		</member>
-		<member name="rendering/textures/vram_compression/import_etc" type="bool" setter="" getter="" default="false">
-			If [code]true[/code], the texture importer will import VRAM-compressed textures using the Ericsson Texture Compression algorithm. This algorithm doesn't support alpha channels in textures.
-			[b]Note:[/b] Changing this setting does [i]not[/i] impact textures that were already imported before. To make this setting apply to textures that were already imported, exit the editor, remove the [code].godot/imported/[/code] folder located inside the project folder then restart the editor (see [member application/config/use_hidden_project_data_directory]).
-		</member>
-		<member name="rendering/textures/vram_compression/import_etc2" type="bool" setter="" getter="" default="true">
-			If [code]true[/code], the texture importer will import VRAM-compressed textures using the Ericsson Texture Compression 2 algorithm. This texture compression algorithm is only supported when using the Vulkan renderer.
-			[b]Note:[/b] Changing this setting does [i]not[/i] impact textures that were already imported before. To make this setting apply to textures that were already imported, exit the editor, remove the [code].godot/imported/[/code] folder located inside the project folder then restart the editor (see [member application/config/use_hidden_project_data_directory]).
-		</member>
-		<member name="rendering/textures/vram_compression/import_s3tc" type="bool" setter="" getter="" default="true">
-			If [code]true[/code], the texture importer will import VRAM-compressed textures using the S3 Texture Compression algorithm. This algorithm is only supported on desktop platforms and consoles.
+		<member name="rendering/textures/vram_compression/import_s3tc_bptc" type="bool" setter="" getter="" default="true">
+			If [code]true[/code], the texture importer will import VRAM-compressed textures using the S3 Texture Compression algorithm (DXT1-5) for lower quality textures and the the BPTC algorithm (BC6H and BC7) for high quality textures. This algorithm is only supported on PC desktop platforms and consoles.
 			[b]Note:[/b] Changing this setting does [i]not[/i] impact textures that were already imported before. To make this setting apply to textures that were already imported, exit the editor, remove the [code].godot/imported/[/code] folder located inside the project folder then restart the editor (see [member application/config/use_hidden_project_data_directory]).
 		</member>
 		<member name="rendering/textures/webp_compression/compression_method" type="int" setter="" getter="" default="2">

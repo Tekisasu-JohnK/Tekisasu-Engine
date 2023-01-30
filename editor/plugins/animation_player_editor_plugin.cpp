@@ -245,7 +245,7 @@ void AnimationPlayerEditor::_play_bw_pressed() {
 			player->stop(); //so it won't blend with itself
 		}
 		ERR_FAIL_COND_EDMSG(!_validate_tracks(player->get_animation(current)), "Animation tracks may have any invalid key, abort playing.");
-		player->play(current, -1, -1, true);
+		player->play_backwards(current);
 	}
 
 	//unstop
@@ -262,7 +262,7 @@ void AnimationPlayerEditor::_play_bw_from_pressed() {
 		}
 		ERR_FAIL_COND_EDMSG(!_validate_tracks(player->get_animation(current)), "Animation tracks may have any invalid key, abort playing.");
 		player->seek(time);
-		player->play(current, -1, -1, true);
+		player->play_backwards(current);
 	}
 
 	//unstop
@@ -452,7 +452,9 @@ float AnimationPlayerEditor::_get_editor_step() const {
 }
 
 void AnimationPlayerEditor::_animation_name_edited() {
-	player->stop();
+	if (player->is_playing()) {
+		player->stop();
+	}
 
 	String new_name = name->get_text();
 	if (!AnimationLibrary::is_valid_animation_name(new_name)) {
@@ -1103,9 +1105,24 @@ void AnimationPlayerEditor::_animation_duplicate() {
 		return;
 	}
 
+	int count = 2;
 	String new_name = current;
-	while (player->has_animation(new_name)) {
-		new_name = new_name + " (copy)";
+	PackedStringArray split = new_name.split("_");
+	int last_index = split.size() - 1;
+	if (last_index > 0 && split[last_index].is_valid_int() && split[last_index].to_int() >= 0) {
+		count = split[last_index].to_int();
+		split.remove_at(last_index);
+		new_name = String("_").join(split);
+	}
+	while (true) {
+		String attempt = new_name;
+		attempt += vformat("_%d", count);
+		if (player->has_animation(attempt)) {
+			count++;
+			continue;
+		}
+		new_name = attempt;
+		break;
 	}
 
 	if (new_name.contains("/")) {
@@ -1675,7 +1692,7 @@ AnimationPlayerEditor::AnimationPlayerEditor(AnimationPlayerEditorPlugin *p_plug
 	stop = memnew(Button);
 	stop->set_flat(true);
 	hb->add_child(stop);
-	stop->set_tooltip_text(TTR("Stop animation playback. (S)"));
+	stop->set_tooltip_text(TTR("Pause/stop animation playback. (S)"));
 
 	play = memnew(Button);
 	play->set_flat(true);

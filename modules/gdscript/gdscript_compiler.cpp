@@ -196,7 +196,11 @@ static bool _is_exact_type(const PropertyInfo &p_par_type, const GDScriptDataTyp
 	}
 }
 
-static bool _have_exact_arguments(const MethodBind *p_method, const Vector<GDScriptCodeGenerator::Address> &p_arguments) {
+static bool _can_use_ptrcall(const MethodBind *p_method, const Vector<GDScriptCodeGenerator::Address> &p_arguments) {
+	if (p_method->is_vararg()) {
+		// ptrcall won't work with vararg methods.
+		return false;
+	}
 	if (p_method->get_argument_count() != p_arguments.size()) {
 		// ptrcall won't work with default arguments.
 		return false;
@@ -563,7 +567,7 @@ GDScriptCodeGenerator::Address GDScriptCompiler::_parse_expression(CodeGen &code
 							self.mode = GDScriptCodeGenerator::Address::SELF;
 							MethodBind *method = ClassDB::get_method(codegen.script->native->get_name(), call->function_name);
 
-							if (_have_exact_arguments(method, arguments)) {
+							if (_can_use_ptrcall(method, arguments)) {
 								// Exact arguments, use ptrcall.
 								gen->write_call_ptrcall(result, self, method, arguments);
 							} else {
@@ -613,7 +617,7 @@ GDScriptCodeGenerator::Address GDScriptCompiler::_parse_expression(CodeGen &code
 									}
 									if (ClassDB::class_exists(class_name) && ClassDB::has_method(class_name, call->function_name)) {
 										MethodBind *method = ClassDB::get_method(class_name, call->function_name);
-										if (_have_exact_arguments(method, arguments)) {
+										if (_can_use_ptrcall(method, arguments)) {
 											// Exact arguments, use ptrcall.
 											gen->write_call_ptrcall(result, base, method, arguments);
 										} else {
@@ -1679,7 +1683,6 @@ Error GDScriptCompiler::_parse_block(CodeGen &codegen, const GDScriptParser::Sui
 			case GDScriptParser::Node::MATCH: {
 				const GDScriptParser::MatchNode *match = static_cast<const GDScriptParser::MatchNode *>(s);
 
-				gen->start_match();
 				codegen.start_block();
 
 				// Evaluate the match expression.
@@ -1718,7 +1721,6 @@ Error GDScriptCompiler::_parse_block(CodeGen &codegen, const GDScriptParser::Sui
 
 					const GDScriptParser::MatchBranchNode *branch = match->branches[j];
 
-					gen->start_match_branch(); // Need so lower level code can patch 'continue' jumps.
 					codegen.start_block(); // Create an extra block around for binds.
 
 					// Add locals in block before patterns, so temporaries don't use the stack address for binds.
@@ -1756,8 +1758,6 @@ Error GDScriptCompiler::_parse_block(CodeGen &codegen, const GDScriptParser::Sui
 				for (int j = 0; j < match->branches.size(); j++) {
 					gen->write_endif();
 				}
-
-				gen->end_match();
 			} break;
 			case GDScriptParser::Node::IF: {
 				const GDScriptParser::IfNode *if_n = static_cast<const GDScriptParser::IfNode *>(s);
@@ -1845,12 +1845,7 @@ Error GDScriptCompiler::_parse_block(CodeGen &codegen, const GDScriptParser::Sui
 				gen->write_break();
 			} break;
 			case GDScriptParser::Node::CONTINUE: {
-				const GDScriptParser::ContinueNode *cont = static_cast<const GDScriptParser::ContinueNode *>(s);
-				if (cont->is_for_match) {
-					gen->write_continue_match();
-				} else {
-					gen->write_continue();
-				}
+				gen->write_continue();
 			} break;
 			case GDScriptParser::Node::RETURN: {
 				const GDScriptParser::ReturnNode *return_n = static_cast<const GDScriptParser::ReturnNode *>(s);

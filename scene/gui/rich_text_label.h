@@ -31,6 +31,7 @@
 #ifndef RICH_TEXT_LABEL_H
 #define RICH_TEXT_LABEL_H
 
+#include "core/object/worker_thread_pool.h"
 #include "rich_text_effect.h"
 #include "scene/gui/popup_menu.h"
 #include "scene/gui/scroll_bar.h"
@@ -369,7 +370,7 @@ private:
 	Item *current = nullptr;
 	ItemFrame *current_frame = nullptr;
 
-	Thread thread;
+	WorkerThreadPool::TaskID task = WorkerThreadPool::INVALID_TASK_ID;
 	Mutex data_mutex;
 	bool threaded = false;
 	std::atomic<bool> stop_thread;
@@ -409,7 +410,8 @@ private:
 
 	void _invalidate_current_line(ItemFrame *p_frame);
 
-	static void _thread_function(void *self);
+	void _thread_function(void *p_userdata);
+	void _thread_end();
 	void _stop_thread();
 	bool _validate_line_caches();
 	void _process_line_caches();
@@ -524,9 +526,7 @@ private:
 	bool use_bbcode = false;
 	String text;
 
-	int fixed_width = -1;
-
-	bool fit_content_height = false;
+	bool fit_content = false;
 
 	struct ThemeCache {
 		Ref<StyleBox> normal_style;
@@ -640,8 +640,8 @@ public:
 	void set_shortcut_keys_enabled(bool p_enabled);
 	bool is_shortcut_keys_enabled() const;
 
-	void set_fit_content_height(bool p_enabled);
-	bool is_fit_content_height_enabled() const;
+	void set_fit_content(bool p_enabled);
+	bool is_fit_content_enabled() const;
 
 	bool search(const String &p_string, bool p_from_selection = false, bool p_search_previous = false);
 
@@ -731,7 +731,6 @@ public:
 
 	void install_effect(const Variant effect);
 
-	void set_fixed_size_to_width(int p_width);
 	virtual Size2 get_minimum_size() const override;
 
 	RichTextLabel(const String &p_text = String());

@@ -122,7 +122,7 @@ GDScriptParser::GDScriptParser() {
 	register_annotation(MethodInfo("@onready"), AnnotationInfo::VARIABLE, &GDScriptParser::onready_annotation);
 	// Export annotations.
 	register_annotation(MethodInfo("@export"), AnnotationInfo::VARIABLE, &GDScriptParser::export_annotations<PROPERTY_HINT_NONE, Variant::NIL>);
-	register_annotation(MethodInfo("@export_enum", PropertyInfo(Variant::STRING, "names")), AnnotationInfo::VARIABLE, &GDScriptParser::export_annotations<PROPERTY_HINT_ENUM, Variant::INT>, varray(), true);
+	register_annotation(MethodInfo("@export_enum", PropertyInfo(Variant::STRING, "names")), AnnotationInfo::VARIABLE, &GDScriptParser::export_annotations<PROPERTY_HINT_ENUM, Variant::NIL>, varray(), true);
 	register_annotation(MethodInfo("@export_file", PropertyInfo(Variant::STRING, "filter")), AnnotationInfo::VARIABLE, &GDScriptParser::export_annotations<PROPERTY_HINT_FILE, Variant::STRING>, varray(""), true);
 	register_annotation(MethodInfo("@export_dir"), AnnotationInfo::VARIABLE, &GDScriptParser::export_annotations<PROPERTY_HINT_DIR, Variant::STRING>);
 	register_annotation(MethodInfo("@export_global_file", PropertyInfo(Variant::STRING, "filter")), AnnotationInfo::VARIABLE, &GDScriptParser::export_annotations<PROPERTY_HINT_GLOBAL_FILE, Variant::STRING>, varray(""), true);
@@ -529,7 +529,7 @@ void GDScriptParser::parse_program() {
 		AnnotationNode *annotation = parse_annotation(AnnotationInfo::SCRIPT | AnnotationInfo::STANDALONE | AnnotationInfo::CLASS_LEVEL);
 		if (annotation != nullptr) {
 			if (annotation->applies_to(AnnotationInfo::SCRIPT)) {
-				annotation->apply(this, head);
+				head->annotations.push_back(annotation);
 			} else {
 				annotation_stack.push_back(annotation);
 				// This annotation must appear after script-level annotations
@@ -771,7 +771,6 @@ void GDScriptParser::parse_class_member(T *(GDScriptParser::*p_parse_function)()
 		return;
 	}
 
-	// Apply annotations.
 	for (AnnotationNode *&annotation : annotations) {
 		member->annotations.push_back(annotation);
 	}
@@ -841,14 +840,19 @@ void GDScriptParser::parse_class_body(bool p_is_multiline) {
 			case GDScriptTokenizer::Token::ANNOTATION: {
 				advance();
 
-				// Check for class-level annotations.
+				// Check for standalone and class-level annotations.
 				AnnotationNode *annotation = parse_annotation(AnnotationInfo::STANDALONE | AnnotationInfo::CLASS_LEVEL);
 				if (annotation != nullptr) {
 					if (annotation->applies_to(AnnotationInfo::STANDALONE)) {
 						if (previous.type != GDScriptTokenizer::Token::NEWLINE) {
 							push_error(R"(Expected newline after a standalone annotation.)");
 						}
-						annotation->apply(this, head);
+						if (annotation->name == "@export_category" || annotation->name == "@export_group" || annotation->name == "@export_subgroup") {
+							current_class->add_member_group(annotation);
+						} else {
+							// For potential non-group standalone annotations.
+							push_error(R"(Unexpected standalone annotation in class body.)");
+						}
 					} else {
 						annotation_stack.push_back(annotation);
 					}
@@ -1434,7 +1438,11 @@ GDScriptParser::AnnotationNode *GDScriptParser::parse_annotation(uint32_t p_vali
 	annotation->info = &valid_annotations[annotation->name];
 
 	if (!annotation->applies_to(p_valid_targets)) {
-		push_error(vformat(R"(Annotation "%s" is not allowed in this level.)", annotation->name));
+		if (annotation->applies_to(AnnotationInfo::SCRIPT)) {
+			push_error(vformat(R"(Annotation "%s" must be at the top of the script, before "extends" and "class_name".)", annotation->name));
+		} else {
+			push_error(vformat(R"(Annotation "%s" is not allowed in this level.)", annotation->name));
+		}
 		valid = false;
 	}
 
@@ -1466,7 +1474,7 @@ GDScriptParser::AnnotationNode *GDScriptParser::parse_annotation(uint32_t p_vali
 	match(GDScriptTokenizer::Token::NEWLINE); // Newline after annotation is optional.
 
 	if (valid) {
-		valid = validate_annotation_arguments(annotation);
+		valid = validate_annotation_argument_count(annotation);
 	}
 
 	return valid ? annotation : nullptr;
@@ -1697,6 +1705,7 @@ GDScriptParser::Node *GDScriptParser::parse_statement() {
 					case Node::CALL:
 					case Node::ASSIGNMENT:
 					case Node::AWAIT:
+					case Node::TERNARY_OPERATOR:
 						// Fine.
 						break;
 					case Node::LAMBDA:
@@ -1712,7 +1721,6 @@ GDScriptParser::Node *GDScriptParser::parse_statement() {
 		}
 	}
 
-	// Apply annotations to statement.
 	while (!is_annotation && result != nullptr && !annotation_stack.is_empty()) {
 		AnnotationNode *last_annotation = annotation_stack.back()->get();
 		if (last_annotation->applies_to(AnnotationInfo::STATEMENT)) {
@@ -1789,11 +1797,10 @@ GDScriptParser::BreakNode *GDScriptParser::parse_break() {
 
 GDScriptParser::ContinueNode *GDScriptParser::parse_continue() {
 	if (!can_continue) {
-		push_error(R"(Cannot use "continue" outside of a loop or pattern matching block.)");
+		push_error(R"(Cannot use "continue" outside of a loop.)");
 	}
 	current_suite->has_continue = true;
 	ContinueNode *cont = alloc_node<ContinueNode>();
-	cont->is_for_match = is_continue_match;
 	complete_extents(cont);
 	end_statement(R"("continue")");
 	return cont;
@@ -1819,12 +1826,10 @@ GDScriptParser::ForNode *GDScriptParser::parse_for() {
 	// Save break/continue state.
 	bool could_break = can_break;
 	bool could_continue = can_continue;
-	bool was_continue_match = is_continue_match;
 
 	// Allow break/continue.
 	can_break = true;
 	can_continue = true;
-	is_continue_match = false;
 
 	SuiteNode *suite = alloc_node<SuiteNode>();
 	if (n_for->variable) {
@@ -1842,7 +1847,6 @@ GDScriptParser::ForNode *GDScriptParser::parse_for() {
 	// Reset break/continue state.
 	can_break = could_break;
 	can_continue = could_continue;
-	is_continue_match = was_continue_match;
 
 	return n_for;
 }
@@ -1902,11 +1906,8 @@ GDScriptParser::MatchNode *GDScriptParser::parse_match() {
 		return match;
 	}
 
-#ifdef DEBUG_ENABLED
 	bool all_have_return = true;
 	bool have_wildcard = false;
-	bool have_wildcard_without_continue = false;
-#endif
 
 	while (!check(GDScriptTokenizer::Token::DEDENT) && !is_at_end()) {
 		MatchBranchNode *branch = parse_match_branch();
@@ -1916,31 +1917,22 @@ GDScriptParser::MatchNode *GDScriptParser::parse_match() {
 		}
 
 #ifdef DEBUG_ENABLED
-		if (have_wildcard_without_continue && !branch->patterns.is_empty()) {
+		if (have_wildcard && !branch->patterns.is_empty()) {
 			push_warning(branch->patterns[0], GDScriptWarning::UNREACHABLE_PATTERN);
 		}
-
-		if (branch->has_wildcard) {
-			have_wildcard = true;
-			if (!branch->block->has_continue) {
-				have_wildcard_without_continue = true;
-			}
-		}
-		if (!branch->block->has_return) {
-			all_have_return = false;
-		}
 #endif
+
+		have_wildcard = have_wildcard || branch->has_wildcard;
+		all_have_return = all_have_return && branch->block->has_return;
 		match->branches.push_back(branch);
 	}
 	complete_extents(match);
 
 	consume(GDScriptTokenizer::Token::DEDENT, R"(Expected an indented block after "match" statement.)");
 
-#ifdef DEBUG_ENABLED
 	if (all_have_return && have_wildcard) {
 		current_suite->has_return = true;
 	}
-#endif
 
 	return match;
 }
@@ -1979,14 +1971,6 @@ GDScriptParser::MatchBranchNode *GDScriptParser::parse_match_branch() {
 		return nullptr;
 	}
 
-	// Save continue state.
-	bool could_continue = can_continue;
-	bool was_continue_match = is_continue_match;
-	// Allow continue for match.
-	can_continue = true;
-	is_continue_match = true;
-
-
 	SuiteNode *suite = alloc_node<SuiteNode>();
 	if (branch->patterns.size() > 0) {
 		for (const KeyValue<StringName, IdentifierNode *> &E : branch->patterns[0]->binds) {
@@ -1999,10 +1983,6 @@ GDScriptParser::MatchBranchNode *GDScriptParser::parse_match_branch() {
 	branch->block = parse_suite("match pattern block", suite);
 	complete_extents(branch);
 
-	// Restore continue state.
-	can_continue = could_continue;
-	is_continue_match = was_continue_match;
-	
 	return branch;
 }
 
@@ -2161,7 +2141,6 @@ GDScriptParser::WhileNode *GDScriptParser::parse_while() {
 	// Save break/continue state.
 	bool could_break = can_break;
 	bool could_continue = can_continue;
-	bool was_continue_match = is_continue_match;
 
 	// Allow break/continue.
 	can_break = true;
@@ -2174,7 +2153,6 @@ GDScriptParser::WhileNode *GDScriptParser::parse_while() {
 	// Reset break/continue state.
 	can_break = could_break;
 	can_continue = could_continue;
-	is_continue_match = was_continue_match;
 
 	return n_while;
 }
@@ -3611,7 +3589,7 @@ bool GDScriptParser::AnnotationNode::applies_to(uint32_t p_target_kinds) const {
 	return (info->target_kind & p_target_kinds) > 0;
 }
 
-bool GDScriptParser::validate_annotation_arguments(AnnotationNode *p_annotation) {
+bool GDScriptParser::validate_annotation_argument_count(AnnotationNode *p_annotation) {
 	ERR_FAIL_COND_V_MSG(!valid_annotations.has(p_annotation->name), false, vformat(R"(Annotation "%s" not found to validate.)", p_annotation->name));
 
 	const MethodInfo &info = valid_annotations[p_annotation->name].info;
@@ -3624,62 +3602,6 @@ bool GDScriptParser::validate_annotation_arguments(AnnotationNode *p_annotation)
 	if (p_annotation->arguments.size() < info.arguments.size() - info.default_arguments.size()) {
 		push_error(vformat(R"(Annotation "%s" requires at least %d arguments, but %d were given.)", p_annotation->name, info.arguments.size() - info.default_arguments.size(), p_annotation->arguments.size()));
 		return false;
-	}
-
-	const List<PropertyInfo>::Element *E = info.arguments.front();
-	for (int i = 0; i < p_annotation->arguments.size(); i++) {
-		ExpressionNode *argument = p_annotation->arguments[i];
-		const PropertyInfo &parameter = E->get();
-
-		if (E->next() != nullptr) {
-			E = E->next();
-		}
-
-		switch (parameter.type) {
-			case Variant::STRING:
-			case Variant::STRING_NAME:
-			case Variant::NODE_PATH:
-				// Allow "quote-less strings", as long as they are recognized as identifiers.
-				if (argument->type == Node::IDENTIFIER) {
-					IdentifierNode *string = static_cast<IdentifierNode *>(argument);
-					Callable::CallError error;
-					Vector<Variant> args = varray(string->name);
-					const Variant *name = args.ptr();
-					Variant r;
-					Variant::construct(parameter.type, r, &(name), 1, error);
-					p_annotation->resolved_arguments.push_back(r);
-					if (error.error != Callable::CallError::CALL_OK) {
-						push_error(vformat(R"(Expected %s as argument %d of annotation "%s".)", Variant::get_type_name(parameter.type), i + 1, p_annotation->name));
-						p_annotation->resolved_arguments.remove_at(p_annotation->resolved_arguments.size() - 1);
-						return false;
-					}
-					break;
-				}
-				[[fallthrough]];
-			default: {
-				if (argument->type != Node::LITERAL) {
-					push_error(vformat(R"(Expected %s as argument %d of annotation "%s".)", Variant::get_type_name(parameter.type), i + 1, p_annotation->name));
-					return false;
-				}
-
-				Variant value = static_cast<LiteralNode *>(argument)->value;
-				if (!Variant::can_convert_strict(value.get_type(), parameter.type)) {
-					push_error(vformat(R"(Expected %s as argument %d of annotation "%s".)", Variant::get_type_name(parameter.type), i + 1, p_annotation->name));
-					return false;
-				}
-				Callable::CallError error;
-				const Variant *args = &value;
-				Variant r;
-				Variant::construct(parameter.type, r, &(args), 1, error);
-				p_annotation->resolved_arguments.push_back(r);
-				if (error.error != Callable::CallError::CALL_OK) {
-					push_error(vformat(R"(Expected %s as argument %d of annotation "%s".)", Variant::get_type_name(parameter.type), i + 1, p_annotation->name));
-					p_annotation->resolved_arguments.remove_at(p_annotation->resolved_arguments.size() - 1);
-					return false;
-				}
-				break;
-			}
-		}
 	}
 
 	return true;
@@ -3736,6 +3658,10 @@ bool GDScriptParser::export_annotations(const AnnotationNode *p_annotation, Node
 
 	String hint_string;
 	for (int i = 0; i < p_annotation->resolved_arguments.size(); i++) {
+		if (p_annotation->name != SNAME("@export_placeholder") && String(p_annotation->resolved_arguments[i]).contains(",")) {
+			push_error(vformat(R"(Argument %d of annotation "%s" contains a comma. Use separate arguments instead.)", i + 1, p_annotation->name), p_annotation->arguments[i]);
+			return false;
+		}
 		if (i > 0) {
 			hint_string += ",";
 		}
@@ -3880,6 +3806,24 @@ bool GDScriptParser::export_annotations(const AnnotationNode *p_annotation, Node
 			variable->export_info.hint_string = hint_prefix + ":" + variable->export_info.hint_string;
 			variable->export_info.type = Variant::ARRAY;
 		}
+	} else if (p_annotation->name == SNAME("@export_enum")) {
+		Variant::Type enum_type = Variant::INT;
+
+		if (export_type.kind == DataType::BUILTIN && export_type.builtin_type == Variant::STRING) {
+			enum_type = Variant::STRING;
+		} else if (export_type.is_variant() && variable->initializer != nullptr) {
+			DataType initializer_type = variable->initializer->get_datatype();
+			if (initializer_type.kind == DataType::BUILTIN && initializer_type.builtin_type == Variant::STRING) {
+				enum_type = Variant::STRING;
+			}
+		}
+
+		variable->export_info.type = enum_type;
+
+		if (!export_type.is_variant() && (export_type.kind != DataType::BUILTIN || export_type.builtin_type != enum_type)) {
+			push_error(vformat(R"("@export_enum" annotation requires a variable of type "int" or "String" but type "%s" was given instead.)", export_type.to_string()), variable);
+			return false;
+		}
 	} else {
 		// Validate variable type with export.
 		if (!export_type.is_variant() && (export_type.kind != DataType::BUILTIN || export_type.builtin_type != t_type)) {
@@ -3920,7 +3864,6 @@ bool GDScriptParser::export_group_annotations(const AnnotationNode *p_annotation
 		} break;
 	}
 
-	current_class->add_member_group(annotation);
 	return true;
 }
 

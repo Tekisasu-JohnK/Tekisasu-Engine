@@ -1704,25 +1704,13 @@ Control::CursorShape AnimationTimelineEdit::get_cursor_shape(const Point2 &p_pos
 	}
 }
 
-void AnimationTimelineEdit::_scroll_callback(Vector2 p_scroll_vec, bool p_alt) {
-	// Timeline has no vertical scroll, so we change it to horizontal.
-	p_scroll_vec.x += p_scroll_vec.y;
-	_pan_callback(-p_scroll_vec * 32);
-}
-
-void AnimationTimelineEdit::_pan_callback(Vector2 p_scroll_vec) {
+void AnimationTimelineEdit::_pan_callback(Vector2 p_scroll_vec, Ref<InputEvent> p_event) {
 	set_value(get_value() - p_scroll_vec.x / get_zoom_scale());
 }
 
-void AnimationTimelineEdit::_zoom_callback(Vector2 p_scroll_vec, Vector2 p_origin, bool p_alt) {
-	double new_zoom_value;
+void AnimationTimelineEdit::_zoom_callback(float p_zoom_factor, Vector2 p_origin, Ref<InputEvent> p_event) {
 	double current_zoom_value = get_zoom()->get_value();
-	if (current_zoom_value <= 0.1) {
-		new_zoom_value = MAX(0.01, current_zoom_value - 0.01 * SIGN(p_scroll_vec.y));
-	} else {
-		new_zoom_value = p_scroll_vec.y > 0 ? MAX(0.01, current_zoom_value / 1.05) : current_zoom_value * 1.05;
-	}
-	get_zoom()->set_value(new_zoom_value);
+	get_zoom()->set_value(MAX(0.01, current_zoom_value * p_zoom_factor));
 }
 
 void AnimationTimelineEdit::set_use_fps(bool p_use_fps) {
@@ -1798,7 +1786,8 @@ AnimationTimelineEdit::AnimationTimelineEdit() {
 	len_hb->hide();
 
 	panner.instantiate();
-	panner->set_callbacks(callable_mp(this, &AnimationTimelineEdit::_scroll_callback), callable_mp(this, &AnimationTimelineEdit::_pan_callback), callable_mp(this, &AnimationTimelineEdit::_zoom_callback));
+	panner->set_callbacks(callable_mp(this, &AnimationTimelineEdit::_pan_callback), callable_mp(this, &AnimationTimelineEdit::_zoom_callback));
+	panner->set_pan_axis(ViewPanner::PAN_AXIS_HORIZONTAL);
 
 	set_layout_direction(Control::LAYOUT_DIRECTION_LTR);
 }
@@ -1965,6 +1954,10 @@ void AnimationTrackEdit::_notification(int p_what) {
 					get_theme_icon(SNAME("TrackDiscrete"), SNAME("EditorIcons")),
 					get_theme_icon(SNAME("TrackCapture"), SNAME("EditorIcons"))
 				};
+				Ref<Texture2D> blend_icon[2] = {
+					get_theme_icon(SNAME("UseBlendEnable"), SNAME("EditorIcons")),
+					get_theme_icon(SNAME("UseBlendDisable"), SNAME("EditorIcons")),
+				};
 
 				int ofs = get_size().width - timeline->get_buttons_width();
 
@@ -1993,6 +1986,11 @@ void AnimationTrackEdit::_notification(int p_what) {
 					if (!animation->track_is_compressed(track) && animation->track_get_type(track) == Animation::TYPE_VALUE) {
 						draw_texture(update_icon, update_mode_rect.position);
 					}
+					if (animation->track_get_type(track) == Animation::TYPE_AUDIO) {
+						Ref<Texture2D> use_blend_icon = blend_icon[animation->audio_track_is_use_blend(track) ? 0 : 1];
+						Vector2 use_blend_icon_pos = update_mode_rect.position + (update_mode_rect.size - use_blend_icon->get_size()) / 2;
+						draw_texture(use_blend_icon, use_blend_icon_pos);
+					}
 					// Make it easier to click.
 					update_mode_rect.position.y = 0;
 					update_mode_rect.size.y = get_size().height;
@@ -2001,13 +1999,12 @@ void AnimationTrackEdit::_notification(int p_what) {
 					update_mode_rect.size.x += hsep / 2;
 
 					if (!read_only) {
-						if (animation->track_get_type(track) == Animation::TYPE_VALUE) {
+						if (animation->track_get_type(track) == Animation::TYPE_VALUE || animation->track_get_type(track) == Animation::TYPE_AUDIO) {
 							draw_texture(down_icon, Vector2(ofs, int(get_size().height - down_icon->get_height()) / 2));
 							update_mode_rect.size.x += down_icon->get_width();
 						} else if (animation->track_get_type(track) == Animation::TYPE_BEZIER) {
 							Ref<Texture2D> bezier_icon = get_theme_icon(SNAME("EditBezier"), SNAME("EditorIcons"));
 							update_mode_rect.size.x += down_icon->get_width();
-
 							update_mode_rect = Rect2();
 						} else {
 							update_mode_rect = Rect2();
@@ -2450,7 +2447,11 @@ String AnimationTrackEdit::get_tooltip(const Point2 &p_pos) const {
 	}
 
 	if (update_mode_rect.has_point(p_pos)) {
-		return TTR("Update Mode (How this property is set)");
+		if (animation->track_get_type(track) == Animation::TYPE_AUDIO) {
+			return TTR("Use Blend");
+		} else {
+			return TTR("Update Mode (How this property is set)");
+		}
 	}
 
 	if (interp_mode_rect.has_point(p_pos)) {
@@ -2652,9 +2653,14 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 					menu->connect("id_pressed", callable_mp(this, &AnimationTrackEdit::_menu_selected));
 				}
 				menu->clear();
-				menu->add_icon_item(get_theme_icon(SNAME("TrackContinuous"), SNAME("EditorIcons")), TTR("Continuous"), MENU_CALL_MODE_CONTINUOUS);
-				menu->add_icon_item(get_theme_icon(SNAME("TrackDiscrete"), SNAME("EditorIcons")), TTR("Discrete"), MENU_CALL_MODE_DISCRETE);
-				menu->add_icon_item(get_theme_icon(SNAME("TrackCapture"), SNAME("EditorIcons")), TTR("Capture"), MENU_CALL_MODE_CAPTURE);
+				if (animation->track_get_type(track) == Animation::TYPE_AUDIO) {
+					menu->add_icon_item(get_theme_icon(SNAME("UseBlendEnable"), SNAME("EditorIcons")), TTR("Use Blend"), MENU_USE_BLEND_ENABLED);
+					menu->add_icon_item(get_theme_icon(SNAME("UseBlendDisable"), SNAME("EditorIcons")), TTR("Don't Use Blend"), MENU_USE_BLEND_DISABLED);
+				} else {
+					menu->add_icon_item(get_theme_icon(SNAME("TrackContinuous"), SNAME("EditorIcons")), TTR("Continuous"), MENU_CALL_MODE_CONTINUOUS);
+					menu->add_icon_item(get_theme_icon(SNAME("TrackDiscrete"), SNAME("EditorIcons")), TTR("Discrete"), MENU_CALL_MODE_DISCRETE);
+					menu->add_icon_item(get_theme_icon(SNAME("TrackCapture"), SNAME("EditorIcons")), TTR("Capture"), MENU_CALL_MODE_CAPTURE);
+				}
 				menu->reset_size();
 
 				Vector2 popup_pos = get_screen_position() + update_mode_rect.position + Vector2(0, update_mode_rect.size.height);
@@ -2673,7 +2679,7 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 				menu->add_icon_item(get_theme_icon(SNAME("InterpRaw"), SNAME("EditorIcons")), TTR("Nearest"), MENU_INTERPOLATION_NEAREST);
 				menu->add_icon_item(get_theme_icon(SNAME("InterpLinear"), SNAME("EditorIcons")), TTR("Linear"), MENU_INTERPOLATION_LINEAR);
 				menu->add_icon_item(get_theme_icon(SNAME("InterpCubic"), SNAME("EditorIcons")), TTR("Cubic"), MENU_INTERPOLATION_CUBIC);
-				// Check is angle property.
+				// Check whether it is angle property.
 				AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
 				if (ape) {
 					AnimationPlayer *ap = ape->get_player();
@@ -3065,6 +3071,16 @@ void AnimationTrackEdit::_menu_selected(int p_index) {
 		case MENU_KEY_DELETE: {
 			emit_signal(SNAME("delete_request"));
 
+		} break;
+		case MENU_USE_BLEND_ENABLED:
+		case MENU_USE_BLEND_DISABLED: {
+			bool use_blend = p_index == MENU_USE_BLEND_ENABLED;
+			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
+			undo_redo->create_action(TTR("Change Animation Use Blend"));
+			undo_redo->add_do_method(animation.ptr(), "audio_track_set_use_blend", track, use_blend);
+			undo_redo->add_undo_method(animation.ptr(), "audio_track_set_use_blend", track, animation->audio_track_is_use_blend(track));
+			undo_redo->commit_action();
+			queue_redraw();
 		} break;
 	}
 }
@@ -3498,6 +3514,9 @@ void AnimationTrackEditor::_animation_track_remove_request(int p_track, Ref<Anim
 		undo_redo->add_undo_method(p_from_animation.ptr(), "track_set_interpolation_type", idx, p_from_animation->track_get_interpolation_type(idx));
 		if (p_from_animation->track_get_type(idx) == Animation::TYPE_VALUE) {
 			undo_redo->add_undo_method(p_from_animation.ptr(), "value_track_set_update_mode", idx, p_from_animation->value_track_get_update_mode(idx));
+		}
+		if (animation->track_get_type(idx) == Animation::TYPE_AUDIO) {
+			undo_redo->add_undo_method(animation.ptr(), "audio_track_set_use_blend", idx, animation->audio_track_is_use_blend(idx));
 		}
 
 		undo_redo->commit_action();
@@ -5358,32 +5377,23 @@ void AnimationTrackEditor::_toggle_bezier_edit() {
 	}
 }
 
-void AnimationTrackEditor::_scroll_callback(Vector2 p_scroll_vec, bool p_alt) {
-	if (p_alt) {
+void AnimationTrackEditor::_pan_callback(Vector2 p_scroll_vec, Ref<InputEvent> p_event) {
+	Ref<InputEventWithModifiers> iewm = p_event;
+	if (iewm.is_valid() && iewm->is_alt_pressed()) {
 		if (p_scroll_vec.x < 0 || p_scroll_vec.y < 0) {
 			goto_prev_step(true);
 		} else {
 			goto_next_step(true);
 		}
 	} else {
-		_pan_callback(-p_scroll_vec * 32);
+		timeline->set_value(timeline->get_value() - p_scroll_vec.x / timeline->get_zoom_scale());
+		scroll->set_v_scroll(scroll->get_v_scroll() - p_scroll_vec.y);
 	}
 }
 
-void AnimationTrackEditor::_pan_callback(Vector2 p_scroll_vec) {
-	timeline->set_value(timeline->get_value() - p_scroll_vec.x / timeline->get_zoom_scale());
-	scroll->set_v_scroll(scroll->get_v_scroll() - p_scroll_vec.y);
-}
-
-void AnimationTrackEditor::_zoom_callback(Vector2 p_scroll_vec, Vector2 p_origin, bool p_alt) {
-	double new_zoom_value;
+void AnimationTrackEditor::_zoom_callback(float p_zoom_factor, Vector2 p_origin, Ref<InputEvent> p_event) {
 	double current_zoom_value = timeline->get_zoom()->get_value();
-	if (current_zoom_value <= 0.1) {
-		new_zoom_value = MAX(0.01, current_zoom_value - 0.01 * SIGN(p_scroll_vec.y));
-	} else {
-		new_zoom_value = p_scroll_vec.y > 0 ? MAX(0.01, current_zoom_value / 1.05) : current_zoom_value * 1.05;
-	}
-	timeline->get_zoom()->set_value(new_zoom_value);
+	timeline->get_zoom()->set_value(MAX(0.01, current_zoom_value * p_zoom_factor));
 }
 
 void AnimationTrackEditor::_cancel_bezier_edit() {
@@ -5638,6 +5648,9 @@ void AnimationTrackEditor::_edit_menu_pressed(int p_option) {
 						if (tc.track_type == Animation::TYPE_VALUE) {
 							tc.update_mode = animation->value_track_get_update_mode(idx);
 						}
+						if (tc.track_type == Animation::TYPE_AUDIO) {
+							tc.use_blend = animation->audio_track_is_use_blend(idx);
+						}
 						tc.loop_wrap = animation->track_get_interpolation_loop_wrap(idx);
 						tc.enabled = animation->track_is_enabled(idx);
 						for (int i = 0; i < animation->track_get_key_count(idx); i++) {
@@ -5681,6 +5694,9 @@ void AnimationTrackEditor::_edit_menu_pressed(int p_option) {
 				undo_redo->add_do_method(animation.ptr(), "track_set_enabled", base_track, track_clipboard[i].enabled);
 				if (track_clipboard[i].track_type == Animation::TYPE_VALUE) {
 					undo_redo->add_do_method(animation.ptr(), "value_track_set_update_mode", base_track, track_clipboard[i].update_mode);
+				}
+				if (track_clipboard[i].track_type == Animation::TYPE_AUDIO) {
+					undo_redo->add_do_method(animation.ptr(), "audio_track_set_use_blend", base_track, track_clipboard[i].use_blend);
 				}
 
 				for (int j = 0; j < track_clipboard[i].keys.size(); j++) {
@@ -6398,7 +6414,7 @@ AnimationTrackEditor::AnimationTrackEditor() {
 	timeline->connect("length_changed", callable_mp(this, &AnimationTrackEditor::_update_length));
 
 	panner.instantiate();
-	panner->set_callbacks(callable_mp(this, &AnimationTrackEditor::_scroll_callback), callable_mp(this, &AnimationTrackEditor::_pan_callback), callable_mp(this, &AnimationTrackEditor::_zoom_callback));
+	panner->set_callbacks(callable_mp(this, &AnimationTrackEditor::_pan_callback), callable_mp(this, &AnimationTrackEditor::_zoom_callback));
 
 	scroll = memnew(ScrollContainer);
 	timeline_vbox->add_child(scroll);
