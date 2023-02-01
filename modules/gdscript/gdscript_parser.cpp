@@ -51,46 +51,8 @@
 static HashMap<StringName, Variant::Type> builtin_types;
 Variant::Type GDScriptParser::get_builtin_type(const StringName &p_type) {
 	if (builtin_types.is_empty()) {
-		builtin_types["bool"] = Variant::BOOL;
-		builtin_types["int"] = Variant::INT;
-		builtin_types["float"] = Variant::FLOAT;
-		builtin_types["String"] = Variant::STRING;
-		builtin_types["Vector2"] = Variant::VECTOR2;
-		builtin_types["Vector2i"] = Variant::VECTOR2I;
-		builtin_types["Rect2"] = Variant::RECT2;
-		builtin_types["Rect2i"] = Variant::RECT2I;
-		builtin_types["Transform2D"] = Variant::TRANSFORM2D;
-		builtin_types["Vector3"] = Variant::VECTOR3;
-		builtin_types["Vector3i"] = Variant::VECTOR3I;
-		builtin_types["Vector4"] = Variant::VECTOR4;
-		builtin_types["Vector4i"] = Variant::VECTOR4I;
-		builtin_types["AABB"] = Variant::AABB;
-		builtin_types["Plane"] = Variant::PLANE;
-		builtin_types["Quaternion"] = Variant::QUATERNION;
-		builtin_types["Basis"] = Variant::BASIS;
-		builtin_types["Transform3D"] = Variant::TRANSFORM3D;
-		builtin_types["Projection"] = Variant::PROJECTION;
-		builtin_types["Color"] = Variant::COLOR;
-		builtin_types["RID"] = Variant::RID;
-		builtin_types["Object"] = Variant::OBJECT;
-		builtin_types["StringName"] = Variant::STRING_NAME;
-		builtin_types["NodePath"] = Variant::NODE_PATH;
-		builtin_types["Dictionary"] = Variant::DICTIONARY;
-		builtin_types["Callable"] = Variant::CALLABLE;
-		builtin_types["Signal"] = Variant::SIGNAL;
-		builtin_types["Array"] = Variant::ARRAY;
-		builtin_types["PackedByteArray"] = Variant::PACKED_BYTE_ARRAY;
-		builtin_types["PackedInt32Array"] = Variant::PACKED_INT32_ARRAY;
-		builtin_types["PackedInt64Array"] = Variant::PACKED_INT64_ARRAY;
-		builtin_types["PackedFloat32Array"] = Variant::PACKED_FLOAT32_ARRAY;
-		builtin_types["PackedFloat64Array"] = Variant::PACKED_FLOAT64_ARRAY;
-		builtin_types["PackedStringArray"] = Variant::PACKED_STRING_ARRAY;
-		builtin_types["PackedVector2Array"] = Variant::PACKED_VECTOR2_ARRAY;
-		builtin_types["PackedVector3Array"] = Variant::PACKED_VECTOR3_ARRAY;
-		builtin_types["PackedColorArray"] = Variant::PACKED_COLOR_ARRAY;
-		// NIL is not here, hence the -1.
-		if (builtin_types.size() != Variant::VARIANT_MAX - 1) {
-			ERR_PRINT("Outdated parser: amount of built-in types don't match the amount of types in Variant.");
+		for (int i = 1; i < Variant::VARIANT_MAX; i++) {
+			builtin_types[Variant::get_type_name((Variant::Type)i)] = (Variant::Type)i;
 		}
 	}
 
@@ -529,7 +491,12 @@ void GDScriptParser::parse_program() {
 		AnnotationNode *annotation = parse_annotation(AnnotationInfo::SCRIPT | AnnotationInfo::STANDALONE | AnnotationInfo::CLASS_LEVEL);
 		if (annotation != nullptr) {
 			if (annotation->applies_to(AnnotationInfo::SCRIPT)) {
-				head->annotations.push_back(annotation);
+				// `@icon` needs to be applied in the parser. See GH-72444.
+				if (annotation->name == SNAME("@icon")) {
+					annotation->apply(this, head);
+				} else {
+					head->annotations.push_back(annotation);
+				}
 			} else {
 				annotation_stack.push_back(annotation);
 				// This annotation must appear after script-level annotations
@@ -847,7 +814,7 @@ void GDScriptParser::parse_class_body(bool p_is_multiline) {
 						if (previous.type != GDScriptTokenizer::Token::NEWLINE) {
 							push_error(R"(Expected newline after a standalone annotation.)");
 						}
-						if (annotation->name == "@export_category" || annotation->name == "@export_group" || annotation->name == "@export_subgroup") {
+						if (annotation->name == SNAME("@export_category") || annotation->name == SNAME("@export_group") || annotation->name == SNAME("@export_subgroup")) {
 							current_class->add_member_group(annotation);
 						} else {
 							// For potential non-group standalone annotations.
@@ -982,14 +949,14 @@ GDScriptParser::VariableNode *GDScriptParser::parse_property(VariableNode *p_var
 
 	// Run with a loop because order doesn't matter.
 	for (int i = 0; i < 2; i++) {
-		if (function->name == "set") {
+		if (function->name == SNAME("set")) {
 			if (setter_used) {
 				push_error(R"(Properties can only have one setter.)");
 			} else {
 				parse_property_setter(property);
 				setter_used = true;
 			}
-		} else if (function->name == "get") {
+		} else if (function->name == SNAME("get")) {
 			if (getter_used) {
 				push_error(R"(Properties can only have one getter.)");
 			} else {
@@ -1474,7 +1441,7 @@ GDScriptParser::AnnotationNode *GDScriptParser::parse_annotation(uint32_t p_vali
 	match(GDScriptTokenizer::Token::NEWLINE); // Newline after annotation is optional.
 
 	if (valid) {
-		valid = validate_annotation_argument_count(annotation);
+		valid = validate_annotation_arguments(annotation);
 	}
 
 	return valid ? annotation : nullptr;
@@ -2921,7 +2888,7 @@ GDScriptParser::ExpressionNode *GDScriptParser::parse_call(ExpressionNode *p_pre
 
 	// Arguments.
 	CompletionType ct = COMPLETION_CALL_ARGUMENTS;
-	if (call->function_name == "load") {
+	if (call->function_name == SNAME("load")) {
 		ct = COMPLETION_RESOURCE_PATH;
 	}
 	push_completion_call(call);
@@ -3589,7 +3556,7 @@ bool GDScriptParser::AnnotationNode::applies_to(uint32_t p_target_kinds) const {
 	return (info->target_kind & p_target_kinds) > 0;
 }
 
-bool GDScriptParser::validate_annotation_argument_count(AnnotationNode *p_annotation) {
+bool GDScriptParser::validate_annotation_arguments(AnnotationNode *p_annotation) {
 	ERR_FAIL_COND_V_MSG(!valid_annotations.has(p_annotation->name), false, vformat(R"(Annotation "%s" not found to validate.)", p_annotation->name));
 
 	const MethodInfo &info = valid_annotations[p_annotation->name].info;
@@ -3603,6 +3570,27 @@ bool GDScriptParser::validate_annotation_argument_count(AnnotationNode *p_annota
 		push_error(vformat(R"(Annotation "%s" requires at least %d arguments, but %d were given.)", p_annotation->name, info.arguments.size() - info.default_arguments.size(), p_annotation->arguments.size()));
 		return false;
 	}
+
+	// `@icon`'s argument needs to be resolved in the parser. See GH-72444.
+	if (p_annotation->name == SNAME("@icon")) {
+		ExpressionNode *argument = p_annotation->arguments[0];
+
+		if (argument->type != Node::LITERAL) {
+			push_error(R"(Argument 1 of annotation "@icon" must be a string literal.)", argument);
+			return false;
+		}
+
+		Variant value = static_cast<LiteralNode *>(argument)->value;
+
+		if (value.get_type() != Variant::STRING) {
+			push_error(R"(Argument 1 of annotation "@icon" must be a string literal.)", argument);
+			return false;
+		}
+
+		p_annotation->resolved_arguments.push_back(value);
+	}
+
+	// For other annotations, see `GDScriptAnalyzer::resolve_annotation()`.
 
 	return true;
 }

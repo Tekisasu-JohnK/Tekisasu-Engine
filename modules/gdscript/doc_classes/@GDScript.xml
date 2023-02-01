@@ -227,18 +227,6 @@
 				[/codeblock]
 			</description>
 		</method>
-		<method name="str" qualifiers="vararg">
-			<return type="String" />
-			<description>
-				Converts one or more arguments to a [String] in the best way possible.
-				[codeblock]
-				var a = [10, 20, 30]
-				var b = str(a);
-				len(a) # Returns 3
-				len(b) # Returns 12
-				[/codeblock]
-			</description>
-		</method>
 		<method name="type_exists">
 			<return type="bool" />
 			<param index="0" name="type" type="StringName" />
@@ -563,6 +551,7 @@
 				[/codeblock]
 				[b]Note:[/b] Only the script can have a custom icon. Inner classes are not supported.
 				[b]Note:[/b] As annotations describe their subject, the [code]@icon[/code] annotation must be placed before the class definition and inheritance.
+				[b]Note:[/b] Unlike other annotations, the argument of the [code]@icon[/code] annotation must be a string literal (constant expressions are not supported).
 			</description>
 		</annotation>
 		<annotation name="@onready">

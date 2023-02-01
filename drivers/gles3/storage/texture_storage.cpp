@@ -1547,7 +1547,7 @@ RID TextureStorage::decal_allocate() {
 void TextureStorage::decal_initialize(RID p_rid) {
 }
 
-void TextureStorage::decal_set_extents(RID p_decal, const Vector3 &p_extents) {
+void TextureStorage::decal_set_size(RID p_decal, const Vector3 &p_size) {
 }
 
 void TextureStorage::decal_set_texture(RID p_decal, RS::DecalTexture p_type, RID p_texture) {
@@ -1822,6 +1822,10 @@ void TextureStorage::_clear_render_target(RenderTarget *rt) {
 		rt->overridden.color = RID();
 	} else if (rt->color) {
 		glDeleteTextures(1, &rt->color);
+		if (rt->texture.is_valid()) {
+			Texture *tex = get_texture(rt->texture);
+			tex->tex_id = 0;
+		}
 	}
 	rt->color = 0;
 

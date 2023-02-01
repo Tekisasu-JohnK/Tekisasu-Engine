@@ -636,6 +636,18 @@ Error ResourceLoaderText::load() {
 						}
 					}
 
+					if (value.get_type() == Variant::ARRAY) {
+						Array set_array = value;
+						bool is_get_valid = false;
+						Variant get_value = res->get(assign, &is_get_valid);
+						if (is_get_valid && get_value.get_type() == Variant::ARRAY) {
+							Array get_array = get_value;
+							if (!set_array.is_same_typed(get_array)) {
+								value = Array(set_array, get_array.get_typed_builtin(), get_array.get_typed_class_name(), get_array.get_typed_script());
+							}
+						}
+					}
+
 					if (set_valid) {
 						res->set(assign, value);
 					}
@@ -743,6 +755,18 @@ Error ResourceLoaderText::load() {
 					if (mr.is_valid()) {
 						missing_resource_properties[assign] = mr;
 						set_valid = false;
+					}
+				}
+
+				if (value.get_type() == Variant::ARRAY) {
+					Array set_array = value;
+					bool is_get_valid = false;
+					Variant get_value = resource->get(assign, &is_get_valid);
+					if (is_get_valid && get_value.get_type() == Variant::ARRAY) {
+						Array get_array = get_value;
+						if (!set_array.is_same_typed(get_array)) {
+							value = Array(set_array, get_array.get_typed_builtin(), get_array.get_typed_class_name(), get_array.get_typed_script());
+						}
 					}
 				}
 
@@ -2355,15 +2379,15 @@ Error ResourceFormatSaverText::set_uid(const String &p_path, ResourceUID::ID p_u
 	String local_path = ProjectSettings::get_singleton()->localize_path(p_path);
 	Error err = OK;
 	{
-		Ref<FileAccess> fo = FileAccess::open(p_path, FileAccess::READ);
-		if (fo.is_null()) {
+		Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::READ);
+		if (file.is_null()) {
 			ERR_FAIL_V(ERR_CANT_OPEN);
 		}
 
 		ResourceLoaderText loader;
 		loader.local_path = local_path;
 		loader.res_path = loader.local_path;
-		err = loader.set_uid(fo, p_uid);
+		err = loader.set_uid(file, p_uid);
 	}
 
 	if (err == OK) {

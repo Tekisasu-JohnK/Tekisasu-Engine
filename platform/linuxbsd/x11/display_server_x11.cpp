@@ -3672,8 +3672,23 @@ Rect2i DisplayServerX11::window_get_popup_safe_rect(WindowID p_window) const {
 void DisplayServerX11::popup_open(WindowID p_window) {
 	_THREAD_SAFE_METHOD_
 
+	bool has_popup_ancestor = false;
+	WindowID transient_root = p_window;
+	while (true) {
+		WindowID parent = windows[transient_root].transient_parent;
+		if (parent == INVALID_WINDOW_ID) {
+			break;
+		} else {
+			transient_root = parent;
+			if (windows[parent].is_popup) {
+				has_popup_ancestor = true;
+				break;
+			}
+		}
+	}
+
 	WindowData &wd = windows[p_window];
-	if (wd.is_popup) {
+	if (wd.is_popup || has_popup_ancestor) {
 		// Find current popup parent, or root popup if new window is not transient.
 		List<WindowID>::Element *C = nullptr;
 		List<WindowID>::Element *E = popup_list.back();
@@ -4897,7 +4912,7 @@ DisplayServerX11::WindowID DisplayServerX11::_create_window(WindowMode p_mode, V
 	//   handling decorations and placement.
 	//   On the other hand, focus changes need to be handled manually when this is set.
 	// - save_under is a hint for the WM to keep the content of windows behind to avoid repaint.
-	if (wd.is_popup || wd.no_focus) {
+	if (wd.no_focus) {
 		windowAttributes.override_redirect = True;
 		windowAttributes.save_under = True;
 		valuemask |= CWOverrideRedirect | CWSaveUnder;
