@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="SpinBox" inherits="Range" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="SpinBox" inherits="Range" version="3.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Numerical input text field.
 	</brief_description>
@@ -38,6 +38,9 @@
 	<members>
 		<member name="align" type="int" setter="set_align" getter="get_align" enum="LineEdit.Align" default="0">
 			Sets the text alignment of the [SpinBox].
+		</member>
+		<member name="custom_arrow_step" type="float" setter="set_custom_arrow_step" getter="get_custom_arrow_step" default="0.0">
+			If not [code]0[/code], [code]value[/code] will always be rounded to a multiple of [code]custom_arrow_step[/code] when interacting with the arrow buttons of the [SpinBox].
 		</member>
 		<member name="editable" type="bool" setter="set_editable" getter="is_editable" default="true">
 			If [code]true[/code], the [SpinBox] will be editable. Otherwise, it will be read only.

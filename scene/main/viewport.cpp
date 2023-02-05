@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  viewport.cpp                                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  viewport.cpp                                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "viewport.h"
 
@@ -184,6 +184,7 @@ public:
 Viewport::GUI::GUI() {
 	dragging = false;
 	drag_successful = false;
+	mouse_in_window = true;
 	mouse_focus = nullptr;
 	mouse_click_grabber = nullptr;
 	mouse_focus_mask = 0;
@@ -398,21 +399,26 @@ void Viewport::_notification(int p_what) {
 				_process_picking(false);
 			}
 		} break;
-		case SceneTree::NOTIFICATION_WM_MOUSE_EXIT: {
-			_drop_physics_mouseover();
-
-			// Unlike on loss of focus (NOTIFICATION_WM_WINDOW_FOCUS_OUT), do not
-			// drop the gui mouseover here, as a scrollbar may be dragged while the
-			// mouse is outside the window (without the window having lost focus).
-			// See bug #39634
+		case NOTIFICATION_WM_MOUSE_ENTER: {
+			gui.mouse_in_window = true;
 		} break;
-		case SceneTree::NOTIFICATION_WM_FOCUS_OUT: {
+		case NOTIFICATION_WM_MOUSE_EXIT: {
+			gui.mouse_in_window = false;
 			_drop_physics_mouseover();
-
+			_drop_mouse_over();
+			// When the mouse exits the window, we want to end mouse_over, but
+			// not mouse_focus, because, for example, we want to continue
+			// dragging a scrollbar even if the mouse has left the window.
+		} break;
+		case NOTIFICATION_WM_FOCUS_OUT: {
+			_drop_physics_mouseover();
 			if (gui.mouse_focus) {
-				//if mouse is being pressed, send a release event
 				_drop_mouse_focus();
 			}
+			// When the window focus changes, we want to end mouse_focus, but
+			// not the mouse_over. Note: The OS will trigger a separate mouse
+			// exit event if the change in focus results in the mouse exiting
+			// the window.
 		} break;
 	}
 }
@@ -547,7 +553,7 @@ void Viewport::_process_picking(bool p_ignore_paused) {
 				ObjectID canvas_layer_id;
 				if (E->get()) {
 					// A descendant CanvasLayer
-					canvas_transform = E->get()->get_transform();
+					canvas_transform = E->get()->get_final_transform();
 					canvas_layer_id = E->get()->get_instance_id();
 				} else {
 					// This Viewport's builtin canvas
@@ -723,6 +729,10 @@ void Viewport::set_size(const Size2 &p_size) {
 
 	_update_stretch_transform();
 	update_configuration_warning();
+
+	for (Set<ViewportTexture *>::Element *E = viewport_textures.front(); E; E = E->next()) {
+		E->get()->emit_changed();
+	}
 
 	emit_signal("size_changed");
 }
@@ -1404,6 +1414,8 @@ void Viewport::_vp_input_text(const String &p_text) {
 }
 
 void Viewport::_vp_input(const Ref<InputEvent> &p_ev) {
+	ERR_FAIL_COND(p_ev.is_null());
+
 	if (disable_input) {
 		return;
 	}
@@ -1426,6 +1438,8 @@ void Viewport::_vp_input(const Ref<InputEvent> &p_ev) {
 }
 
 void Viewport::_vp_unhandled_input(const Ref<InputEvent> &p_ev) {
+	ERR_FAIL_COND(p_ev.is_null());
+
 	if (disable_input) {
 		return;
 	}
@@ -1861,9 +1875,6 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 
 	if (mb.is_valid()) {
 		gui.key_event_accepted = false;
-
-		Control *over = nullptr;
-
 		Point2 mpos = mb->get_position();
 		if (mb->is_pressed()) {
 			Size2 pos = mpos;
@@ -2057,6 +2068,8 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 			// it is different, rather than wait for it to be updated the next time the
 			// mouse is moved, notify the control so that it can e.g. drop the highlight.
 			// This code is duplicated from the mm.is_valid()-case further below.
+
+			Control *over = nullptr;
 			if (gui.mouse_focus) {
 				over = gui.mouse_focus;
 			} else {
@@ -2086,8 +2099,6 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 		Point2 mpos = mm->get_position();
 
 		gui.last_mouse_pos = mpos;
-
-		Control *over = nullptr;
 
 		// D&D
 		if (!gui.drag_attempted && gui.mouse_focus && mm->get_button_mask() & BUTTON_MASK_LEFT) {
@@ -2135,12 +2146,10 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 			}
 		}
 
-		// These sections of code are reused in the mb.is_valid() case further up
-		// for the purpose of notifying controls about potential changes in focus
-		// when the mousebutton is released.
+		Control *over = nullptr;
 		if (gui.mouse_focus) {
 			over = gui.mouse_focus;
-		} else {
+		} else if (gui.mouse_in_window) {
 			over = _gui_find_control(mpos);
 		}
 
@@ -2189,10 +2198,9 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 
 			if (over) {
 				_gui_call_notification(over, Control::NOTIFICATION_MOUSE_ENTER);
+				gui.mouse_over = over;
 			}
 		}
-
-		gui.mouse_over = over;
 
 		Control *drag_preview = _gui_get_drag_preview();
 		if (drag_preview) {
@@ -2238,8 +2246,6 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 						if (tooltip == gui.tooltip_label->get_text()) {
 							is_tooltip_shown = true;
 						}
-					} else if (tooltip == String(gui.tooltip_popup->call("get_tooltip_text"))) {
-						is_tooltip_shown = true;
 					}
 				} else {
 					_gui_cancel_tooltip();
@@ -2303,9 +2309,11 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 	Ref<InputEventScreenTouch> touch_event = p_event;
 	if (touch_event.is_valid()) {
 		Size2 pos = touch_event->get_position();
+		const int touch_index = touch_event->get_index();
 		if (touch_event->is_pressed()) {
 			Control *over = _gui_find_control(pos);
 			if (over) {
+				gui.touch_focus[touch_index] = over->get_instance_id();
 				if (!gui.modal_stack.empty()) {
 					Control *top = gui.modal_stack.back()->get();
 					if (over != top && !top->is_a_parent_of(over)) {
@@ -2321,18 +2329,26 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 					}
 					touch_event->set_position(pos);
 					_gui_call_input(over, touch_event);
+					set_input_as_handled();
 				}
-				set_input_as_handled();
 				return;
 			}
-		} else if (touch_event->get_index() == 0 && gui.last_mouse_focus) {
-			if (gui.last_mouse_focus->can_process()) {
+		} else {
+			ObjectID control_id = gui.touch_focus[touch_index];
+			Control *over = Object::cast_to<Control>(ObjectDB::get_instance(control_id));
+			if (over && over->can_process()) {
 				touch_event = touch_event->xformed_by(Transform2D()); //make a copy
-				touch_event->set_position(gui.focus_inv_xform.xform(pos));
+				if (over == gui.last_mouse_focus) {
+					pos = gui.focus_inv_xform.xform(pos);
+				} else {
+					pos = over->get_global_transform_with_canvas().affine_inverse().xform(pos);
+				}
+				touch_event->set_position(pos);
 
-				_gui_call_input(gui.last_mouse_focus, touch_event);
+				_gui_call_input(over, touch_event);
+				set_input_as_handled();
 			}
-			set_input_as_handled();
+			gui.touch_focus.erase(touch_index);
 			return;
 		}
 	}
@@ -2364,7 +2380,9 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 
 	Ref<InputEventScreenDrag> drag_event = p_event;
 	if (drag_event.is_valid()) {
-		Control *over = gui.mouse_focus;
+		const int drag_event_index = drag_event->get_index();
+		ObjectID control_id = gui.touch_focus[drag_event_index];
+		Control *over = Object::cast_to<Control>(ObjectDB::get_instance(control_id));
 		if (!over) {
 			over = _gui_find_control(drag_event->get_position());
 		}

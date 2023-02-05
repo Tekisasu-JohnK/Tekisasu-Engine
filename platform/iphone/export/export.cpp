@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  export.cpp                                                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  export.cpp                                                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "export.h"
 #include "core/io/image_loader.h"
@@ -81,6 +81,7 @@ class EditorExportPlatformIOS : public EditorExportPlatform {
 		String modules_buildphase;
 		String modules_buildgrp;
 		Vector<String> capabilities;
+		bool use_swift_runtime;
 	};
 	struct ExportArchitecture {
 		String name;
@@ -207,7 +208,8 @@ public:
 
 	virtual Error export_project(const Ref<EditorExportPreset> &p_preset, bool p_debug, const String &p_path, int p_flags = 0);
 
-	virtual bool can_export(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const;
+	virtual bool has_valid_export_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const;
+	virtual bool has_valid_project_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error) const;
 
 	virtual void get_platform_features(List<String> *r_features) {
 		r_features->push_back("mobile");
@@ -370,6 +372,9 @@ void EditorExportPlatformIOS::get_export_options(List<ExportOption> *r_options) 
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/short_version"), "1.0"));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/version"), "1.0"));
 	r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "application/copyright"), ""));
+
+	r_options->push_back(ExportOption(PropertyInfo(Variant::INT, "application/icon_interpolation", PROPERTY_HINT_ENUM, "Nearest neighbor,Bilinear,Cubic,Trilinear,Lanczos"), 4));
+	r_options->push_back(ExportOption(PropertyInfo(Variant::INT, "application/launch_screens_interpolation", PROPERTY_HINT_ENUM, "Nearest neighbor,Bilinear,Cubic,Trilinear,Lanczos"), 4));
 
 	Vector<PluginConfigIOS> found_plugins = get_plugins();
 	for (int i = 0; i < found_plugins.size(); i++) {
@@ -697,6 +702,35 @@ void EditorExportPlatformIOS::_fix_config_file(const Ref<EditorExportPreset> &p_
 				}
 			}
 			strnew += lines[i].replace("$pbx_locale_build_reference", locale_files);
+		} else if (lines[i].find("$swift_runtime_migration") != -1) {
+			String value = !p_config.use_swift_runtime ? "" : "LastSwiftMigration = 1250;";
+			strnew += lines[i].replace("$swift_runtime_migration", value) + "\n";
+		} else if (lines[i].find("$swift_runtime_build_settings") != -1) {
+			String value = !p_config.use_swift_runtime ? "" : R"(
+            CLANG_ENABLE_MODULES = YES;
+            SWIFT_OBJC_BRIDGING_HEADER = "$binary/dummy.h";
+            SWIFT_VERSION = 5.0;
+            )";
+			value = value.replace("$binary", p_config.binary_name);
+			strnew += lines[i].replace("$swift_runtime_build_settings", value) + "\n";
+		} else if (lines[i].find("$swift_runtime_fileref") != -1) {
+			String value = !p_config.use_swift_runtime ? "" : R"(
+            90B4C2AA2680BC560039117A /* dummy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "dummy.h"; sourceTree = "<group>"; };
+            90B4C2B52680C7E90039117A /* dummy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "dummy.swift"; sourceTree = "<group>"; };
+            )";
+			strnew += lines[i].replace("$swift_runtime_fileref", value) + "\n";
+		} else if (lines[i].find("$swift_runtime_binary_files") != -1) {
+			String value = !p_config.use_swift_runtime ? "" : R"(
+            90B4C2AA2680BC560039117A /* dummy.h */,
+            90B4C2B52680C7E90039117A /* dummy.swift */,
+            )";
+			strnew += lines[i].replace("$swift_runtime_binary_files", value) + "\n";
+		} else if (lines[i].find("$swift_runtime_buildfile") != -1) {
+			String value = !p_config.use_swift_runtime ? "" : "90B4C2B62680C7E90039117A /* dummy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90B4C2B52680C7E90039117A /* dummy.swift */; };";
+			strnew += lines[i].replace("$swift_runtime_buildfile", value) + "\n";
+		} else if (lines[i].find("$swift_runtime_build_phase") != -1) {
+			String value = !p_config.use_swift_runtime ? "" : "90B4C2B62680C7E90039117A /* dummy.swift */,";
+			strnew += lines[i].replace("$swift_runtime_build_phase", value) + "\n";
 		} else {
 			strnew += lines[i] + "\n";
 		}
@@ -841,7 +875,7 @@ Error EditorExportPlatformIOS::_export_icons(const Ref<EditorExportPreset> &p_pr
 				add_message(EXPORT_MESSAGE_ERROR, TTR("Export Icons"), vformat("Icon (%s) must be opaque.", info.preset_key));
 				return ERR_UNCONFIGURED;
 			}
-			img->resize(side_size, side_size);
+			img->resize(side_size, side_size, (Image::Interpolation)(p_preset->get("application/icon_interpolation").operator int()));
 			err = img->save_png(p_iconset_dir + info.export_name);
 			if (err) {
 				memdelete(da);
@@ -864,7 +898,7 @@ Error EditorExportPlatformIOS::_export_icons(const Ref<EditorExportPreset> &p_pr
 			}
 			if (img->get_width() != side_size || img->get_height() != side_size) {
 				add_message(EXPORT_MESSAGE_WARNING, TTR("Export Icons"), vformat("Icon (%s): '%s' has incorrect size %s and was automatically resized to %s.", info.preset_key, icon_path, img->get_size(), Vector2(side_size, side_size)));
-				img->resize(side_size, side_size);
+				img->resize(side_size, side_size, (Image::Interpolation)(p_preset->get("application/icon_interpolation").operator int()));
 				err = img->save_png(p_iconset_dir + info.export_name);
 			} else {
 				err = da->copy(icon_path, p_iconset_dir + info.export_name);
@@ -913,7 +947,7 @@ Error EditorExportPlatformIOS::_export_loading_screen_file(const Ref<EditorExpor
 		Ref<Image> image;
 		String image_path = p_dest_dir.plus_file("splash@2x.png");
 		image.instance();
-		Error err = image->load(custom_launch_image_2x);
+		Error err = ImageLoader::load_image(custom_launch_image_2x, image);
 
 		if (err) {
 			image.unref();
@@ -927,7 +961,7 @@ Error EditorExportPlatformIOS::_export_loading_screen_file(const Ref<EditorExpor
 		image.unref();
 		image_path = p_dest_dir.plus_file("splash@3x.png");
 		image.instance();
-		err = image->load(custom_launch_image_3x);
+		err = ImageLoader::load_image(custom_launch_image_3x, image);
 
 		if (err) {
 			image.unref();
@@ -944,7 +978,7 @@ Error EditorExportPlatformIOS::_export_loading_screen_file(const Ref<EditorExpor
 
 		if (!splash_path.empty()) {
 			splash.instance();
-			const Error err = splash->load(splash_path);
+			const Error err = ImageLoader::load_image(splash_path, splash);
 			if (err) {
 				splash.unref();
 			}
@@ -998,9 +1032,9 @@ Error EditorExportPlatformIOS::_export_loading_screen_images(const Ref<EditorExp
 				float aspect_ratio = (float)img->get_width() / (float)img->get_height();
 				if (boot_logo_scale) {
 					if (info.height * aspect_ratio <= info.width) {
-						img->resize(info.height * aspect_ratio, info.height);
+						img->resize(info.height * aspect_ratio, info.height, (Image::Interpolation)(p_preset->get("application/launch_screens_interpolation").operator int()));
 					} else {
-						img->resize(info.width, info.width / aspect_ratio);
+						img->resize(info.width, info.width / aspect_ratio, (Image::Interpolation)(p_preset->get("application/launch_screens_interpolation").operator int()));
 					}
 				}
 				Ref<Image> new_img = memnew(Image);
@@ -1037,17 +1071,17 @@ Error EditorExportPlatformIOS::_export_loading_screen_images(const Ref<EditorExp
 				if (info.rotate) {
 					if (boot_logo_scale) {
 						if (info.width * aspect_ratio <= info.height) {
-							img_bs->resize(info.width * aspect_ratio, info.width);
+							img_bs->resize(info.width * aspect_ratio, info.width, (Image::Interpolation)(p_preset->get("application/launch_screens_interpolation").operator int()));
 						} else {
-							img_bs->resize(info.height, info.height / aspect_ratio);
+							img_bs->resize(info.height, info.height / aspect_ratio, (Image::Interpolation)(p_preset->get("application/launch_screens_interpolation").operator int()));
 						}
 					}
 				} else {
 					if (boot_logo_scale) {
 						if (info.height * aspect_ratio <= info.width) {
-							img_bs->resize(info.height * aspect_ratio, info.height);
+							img_bs->resize(info.height * aspect_ratio, info.height, (Image::Interpolation)(p_preset->get("application/launch_screens_interpolation").operator int()));
 						} else {
-							img_bs->resize(info.width, info.width / aspect_ratio);
+							img_bs->resize(info.width, info.width / aspect_ratio, (Image::Interpolation)(p_preset->get("application/launch_screens_interpolation").operator int()));
 						}
 					}
 				}
@@ -1618,6 +1652,10 @@ Error EditorExportPlatformIOS::_export_ios_plugins(const Ref<EditorExportPreset>
 
 		plugin_initialization_cpp_code += "\t" + initialization_method;
 		plugin_deinitialization_cpp_code += "\t" + deinitialization_method;
+
+		if (plugin.use_swift_runtime) {
+			p_config_data.use_swift_runtime = true;
+		}
 	}
 
 	// Updating `Info.plist`
@@ -1802,7 +1840,8 @@ Error EditorExportPlatformIOS::export_project(const Ref<EditorExportPreset> &p_p
 		"",
 		"",
 		"",
-		Vector<String>()
+		Vector<String>(),
+		false
 	};
 
 	Vector<IOSExportAsset> assets;
@@ -2095,7 +2134,7 @@ Error EditorExportPlatformIOS::export_project(const Ref<EditorExportPreset> &p_p
 	return OK;
 }
 
-bool EditorExportPlatformIOS::can_export(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const {
+bool EditorExportPlatformIOS::has_valid_export_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const {
 	String err;
 	bool valid = false;
 
@@ -2120,7 +2159,18 @@ bool EditorExportPlatformIOS::can_export(const Ref<EditorExportPreset> &p_preset
 	valid = dvalid || rvalid;
 	r_missing_templates = !valid;
 
-	// Validate the rest of the configuration.
+	if (!err.empty()) {
+		r_error = err;
+	}
+
+	return valid;
+}
+
+bool EditorExportPlatformIOS::has_valid_project_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error) const {
+	String err;
+	bool valid = true;
+
+	// Validate the project configuration.
 
 	String team_id = p_preset->get("application/app_store_team_id");
 	if (team_id.length() == 0) {

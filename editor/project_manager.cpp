@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  project_manager.cpp                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  project_manager.cpp                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "project_manager.h"
 
@@ -43,6 +43,7 @@
 #include "editor_scale.h"
 #include "editor_settings.h"
 #include "editor_themes.h"
+#include "main/main.h"
 #include "scene/gui/center_container.h"
 #include "scene/gui/line_edit.h"
 #include "scene/gui/margin_container.h"
@@ -430,17 +431,17 @@ private:
 				return;
 			}
 
-			ProjectSettings *current = memnew(ProjectSettings);
-
-			int err = current->setup(dir2, "");
+			// Load project.godot as ConfigFile to set the new name.
+			ConfigFile cfg;
+			String project_godot = dir2.plus_file("project.godot");
+			Error err = cfg.load(project_godot);
 			if (err != OK) {
-				set_message(vformat(TTR("Couldn't load project.godot in project path (error %d). It may be missing or corrupted."), err), MESSAGE_ERROR);
+				set_message(vformat(TTR("Couldn't load project at '%s' (error %d). It may be missing or corrupted."), project_godot, err), MESSAGE_ERROR);
 			} else {
-				ProjectSettings::CustomMap edited_settings;
-				edited_settings["application/config/name"] = project_name->get_text().strip_edges();
-
-				if (current->save_custom(dir2.plus_file("project.godot"), edited_settings, Vector<String>(), true) != OK) {
-					set_message(TTR("Couldn't edit project.godot in project path."), MESSAGE_ERROR);
+				cfg.set_value("application", "config/name", project_name->get_text().strip_edges());
+				err = cfg.save(project_godot);
+				if (err != OK) {
+					set_message(vformat(TTR("Couldn't save project at '%s' (error %d)."), project_godot, err), MESSAGE_ERROR);
 				}
 			}
 
@@ -529,7 +530,6 @@ private:
 
 					Vector<String> failed_files;
 
-					int idx = 0;
 					while (ret == UNZ_OK) {
 						//get filename
 						unz_file_info info;
@@ -569,7 +569,6 @@ private:
 							}
 						}
 
-						idx++;
 						ret = unzGoToNextFile(pkg);
 					}
 
@@ -688,18 +687,19 @@ public:
 			rasterizer_container->hide();
 			get_ok()->set_disabled(false);
 
-			ProjectSettings *current = memnew(ProjectSettings);
-
-			int err = current->setup(project_path->get_text(), "");
+			// Fetch current name from project.godot to prefill the text input.
+			ConfigFile cfg;
+			String project_godot = project_path->get_text().plus_file("project.godot");
+			Error err = cfg.load(project_godot);
 			if (err != OK) {
-				set_message(vformat(TTR("Couldn't load project.godot in project path (error %d). It may be missing or corrupted."), err), MESSAGE_ERROR);
+				set_message(vformat(TTR("Couldn't load project at '%s' (error %d). It may be missing or corrupted."), project_godot, err), MESSAGE_ERROR);
 				status_rect->show();
 				msg->show();
 				get_ok()->set_disabled(true);
-			} else if (current->has_setting("application/config/name")) {
-				String proj = current->get("application/config/name");
-				project_name->set_text(proj);
-				_text_changed(proj);
+			} else {
+				String cur_name = cfg.get_value("application", "config/name", "");
+				project_name->set_text(cur_name);
+				_text_changed(cur_name);
 			}
 
 			project_name->call_deferred("grab_focus");
@@ -1790,11 +1790,13 @@ void ProjectManager::_notification(int p_what) {
 			}
 		} break;
 		case NOTIFICATION_READY: {
+#ifndef ANDROID_ENABLED
 			if (_project_list->get_project_count() >= 1) {
 				// Focus on the search box immediately to allow the user
 				// to search without having to reach for their mouse
 				project_filter->search_box->grab_focus();
 			}
+#endif
 
 			if (asset_library) {
 				// Suggest browsing asset library to get templates/demos.
@@ -2015,22 +2017,15 @@ void ProjectManager::_open_selected_projects() {
 
 		List<String> args;
 
+		const Vector<String> &forwardable_args = Main::get_forwardable_cli_arguments(Main::CLI_SCOPE_TOOL);
+		for (int i = 0; i < forwardable_args.size(); i++) {
+			args.push_back(forwardable_args[i]);
+		}
+
 		args.push_back("--path");
 		args.push_back(path);
 
 		args.push_back("--editor");
-
-		if (OS::get_singleton()->is_stdout_debug_enabled()) {
-			args.push_back("--debug");
-		}
-
-		if (OS::get_singleton()->is_stdout_verbose()) {
-			args.push_back("--verbose");
-		}
-
-		if (OS::get_singleton()->is_disable_crash_handler()) {
-			args.push_back("--disable-crash-handler");
-		}
 
 		String exec = OS::get_singleton()->get_executable_path();
 
@@ -2115,12 +2110,13 @@ void ProjectManager::_run_project_confirm() {
 
 		List<String> args;
 
+		const Vector<String> &forwardable_args = Main::get_forwardable_cli_arguments(Main::CLI_SCOPE_PROJECT);
+		for (int j = 0; j < forwardable_args.size(); j++) {
+			args.push_back(forwardable_args[j]);
+		}
+
 		args.push_back("--path");
 		args.push_back(path);
-
-		if (OS::get_singleton()->is_disable_crash_handler()) {
-			args.push_back("--disable-crash-handler");
-		}
 
 		String exec = OS::get_singleton()->get_executable_path();
 
@@ -2337,6 +2333,7 @@ void ProjectManager::_on_filter_option_changed() {
 }
 
 void ProjectManager::_on_tab_changed(int p_tab) {
+#ifndef ANDROID_ENABLED
 	if (p_tab == 0) { // Projects
 		// Automatically grab focus when the user moves from the Templates tab
 		// back to the Projects tab.
@@ -2348,6 +2345,7 @@ void ProjectManager::_on_tab_changed(int p_tab) {
 
 	// The Templates tab's search field is focused on display in the asset
 	// library editor plugin code.
+#endif
 }
 
 void ProjectManager::_bind_methods() {
@@ -2440,6 +2438,13 @@ ProjectManager::ProjectManager() {
 	FileDialog::set_default_show_hidden_files(EditorSettings::get_singleton()->get("filesystem/file_dialog/show_hidden_files"));
 
 	set_anchors_and_margins_preset(Control::PRESET_WIDE);
+
+	int swap_cancel_ok = EDITOR_GET("interface/editor/accept_dialog_cancel_ok_buttons");
+	if (swap_cancel_ok != 0) { // 0 is auto, set in register_scene based on OS.
+		// Swap on means OK first.
+		AcceptDialog::set_swap_ok_cancel(swap_cancel_ok == 2);
+	}
+
 	set_theme(create_custom_theme());
 
 	gui_base = memnew(Control);

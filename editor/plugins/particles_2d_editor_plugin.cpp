@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  particles_2d_editor_plugin.cpp                                       */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  particles_2d_editor_plugin.cpp                                        */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "particles_2d_editor_plugin.h"
 
@@ -82,13 +82,16 @@ void Particles2DEditorPlugin::_selection_changed() {
 void Particles2DEditorPlugin::_menu_callback(int p_idx) {
 	switch (p_idx) {
 		case MENU_GENERATE_VISIBILITY_RECT: {
-			float gen_time = particles->get_lifetime();
-			if (gen_time < 1.0) {
-				generate_seconds->set_value(1.0);
+			// Add one second to the default generation lifetime, since the progress is updated every second.
+			generate_seconds->set_value(MAX(1.0, trunc(particles->get_lifetime()) + 1.0));
+
+			if (generate_seconds->get_value() >= 11.0 + CMP_EPSILON) {
+				// Only pop up the time dialog if the particle's lifetime is long enough to warrant shortening it.
+				generate_visibility_rect->popup_centered_minsize();
 			} else {
-				generate_seconds->set_value(trunc(gen_time) + 1.0);
+				// Generate the visibility rect immediately.
+				_generate_visibility_rect();
 			}
-			generate_visibility_rect->popup_centered_minsize();
 		} break;
 		case MENU_LOAD_EMISSION_MASK: {
 			file->popup_centered_ratio();
@@ -126,7 +129,7 @@ void Particles2DEditorPlugin::_generate_visibility_rect() {
 
 	float running = 0.0;
 
-	EditorProgress ep("gen_vrect", TTR("Generating Visibility Rect"), int(time));
+	EditorProgress ep("gen_vrect", TTR("Generating Visibility Rect (Waiting for Particle Simulation)"), int(time));
 
 	bool was_emitting = particles->is_emitting();
 	if (!was_emitting) {

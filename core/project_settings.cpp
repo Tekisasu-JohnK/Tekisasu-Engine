@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  project_settings.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  project_settings.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "project_settings.h"
 
@@ -1049,6 +1049,7 @@ ProjectSettings::ProjectSettings() {
 	// Initialization of engine variables should be done in the setup() method,
 	// so that the values can be overridden from project.godot or project.binary.
 
+	CRASH_COND_MSG(singleton != nullptr, "Instantiating a new ProjectSettings singleton is not supported.");
 	singleton = this;
 	last_order = NO_BUILTIN_ORDER_BASE;
 	last_builtin_order = 0;
@@ -1072,21 +1073,25 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF("application/config/custom_user_dir_name", "");
 	GLOBAL_DEF("application/config/project_settings_override", "");
 
-	GLOBAL_DEF("display/window/size/width", 384);
+	GLOBAL_DEF("display/window/size/width", 1024);
 	ProjectSettings::get_singleton()->set_custom_property_info("display/window/size/width", PropertyInfo(Variant::INT, "display/window/size/width", PROPERTY_HINT_RANGE, "0,7680,1,or_greater")); // 8K resolution
-	GLOBAL_DEF("display/window/size/height", 216);
+	GLOBAL_DEF("display/window/size/height", 600);
 	ProjectSettings::get_singleton()->set_custom_property_info("display/window/size/height", PropertyInfo(Variant::INT, "display/window/size/height", PROPERTY_HINT_RANGE, "0,4320,1,or_greater")); // 8K resolution
-	GLOBAL_DEF("display/window/size/resizable", false);
+	GLOBAL_DEF("display/window/size/resizable", true);
 	GLOBAL_DEF("display/window/size/borderless", false);
 	GLOBAL_DEF("display/window/size/fullscreen", false);
 	GLOBAL_DEF("display/window/size/always_on_top", false);
-	GLOBAL_DEF("display/window/size/test_width", 1152);
+	GLOBAL_DEF("display/window/size/test_width", 0);
 	ProjectSettings::get_singleton()->set_custom_property_info("display/window/size/test_width", PropertyInfo(Variant::INT, "display/window/size/test_width", PROPERTY_HINT_RANGE, "0,7680,1,or_greater")); // 8K resolution
-	GLOBAL_DEF("display/window/size/test_height", 648);
+	GLOBAL_DEF("display/window/size/test_height", 0);
 	ProjectSettings::get_singleton()->set_custom_property_info("display/window/size/test_height", PropertyInfo(Variant::INT, "display/window/size/test_height", PROPERTY_HINT_RANGE, "0,4320,1,or_greater")); // 8K resolution
 
 	GLOBAL_DEF("audio/default_bus_layout", "res://default_bus_layout.tres");
 	custom_prop_info["audio/default_bus_layout"] = PropertyInfo(Variant::STRING, "audio/default_bus_layout", PROPERTY_HINT_FILE, "*.tres");
+	GLOBAL_DEF_RST("audio/2d_panning_strength", 1.0f);
+	custom_prop_info["audio/2d_panning_strength"] = PropertyInfo(Variant::REAL, "audio/2d_panning_strength", PROPERTY_HINT_RANGE, "0,4,0.01");
+	GLOBAL_DEF_RST("audio/3d_panning_strength", 1.0f);
+	custom_prop_info["audio/3d_panning_strength"] = PropertyInfo(Variant::REAL, "audio/3d_panning_strength", PROPERTY_HINT_RANGE, "0,4,0.01");
 
 	PoolStringArray extensions = PoolStringArray();
 	extensions.push_back("gd");

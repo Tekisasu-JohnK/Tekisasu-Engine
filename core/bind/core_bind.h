@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  core_bind.h                                                          */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  core_bind.h                                                           */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef CORE_BIND_H
 #define CORE_BIND_H
@@ -51,7 +51,7 @@ protected:
 
 public:
 	static _ResourceLoader *get_singleton() { return singleton; }
-	Ref<ResourceInteractiveLoader> load_interactive(const String &p_path, const String &p_type_hint = "");
+	Ref<ResourceInteractiveLoader> load_interactive(const String &p_path, const String &p_type_hint = "", bool p_no_cache = false);
 	RES load(const String &p_path, const String &p_type_hint = "", bool p_no_cache = false);
 	PoolVector<String> get_recognized_extensions_for_type(const String &p_type);
 	void set_abort_on_missing_resources(bool p_abort);
@@ -152,10 +152,30 @@ public:
 		OPENGL_CONTEXT, // HGLRC, X11::GLXContext, NSOpenGLContext*, EGLContext* ...
 	};
 
+	enum TTSUtteranceEvent {
+		TTS_UTTERANCE_STARTED,
+		TTS_UTTERANCE_ENDED,
+		TTS_UTTERANCE_CANCELED,
+		TTS_UTTERANCE_BOUNDARY,
+		TTS_UTTERANCE_MAX,
+	};
+
 	void global_menu_add_item(const String &p_menu, const String &p_label, const Variant &p_signal, const Variant &p_meta);
 	void global_menu_add_separator(const String &p_menu);
 	void global_menu_remove_item(const String &p_menu, int p_idx);
 	void global_menu_clear(const String &p_menu);
+
+	bool tts_is_speaking() const;
+	bool tts_is_paused() const;
+	Array tts_get_voices() const;
+	PoolStringArray tts_get_voices_for_language(const String &p_language) const;
+
+	void tts_speak(const String &p_text, const String &p_voice, int p_volume = 50, float p_pitch = 1.f, float p_rate = 1.f, int p_utterance_id = 0, bool p_interrupt = false);
+	void tts_pause();
+	void tts_resume();
+	void tts_stop();
+
+	void tts_set_utterance_callback(TTSUtteranceEvent p_event, Object *p_object, String p_callback);
 
 	Point2 get_mouse_position() const;
 	void set_window_title(const String &p_title);
@@ -244,6 +264,7 @@ public:
 	int get_low_processor_usage_mode_sleep_usec() const;
 
 	String get_executable_path() const;
+	String read_string_from_stdin();
 	int execute(const String &p_path, const Vector<String> &p_arguments, bool p_blocking = true, Array p_output = Array(), bool p_read_stderr = false, bool p_open_console = false);
 
 	Error kill(int p_pid);
@@ -251,6 +272,10 @@ public:
 
 	bool is_process_running(int p_pid) const;
 	int get_process_id() const;
+
+	void set_restart_on_exit(bool p_restart, const Vector<String> &p_restart_arguments = Vector<String>());
+	bool is_restart_on_exit_set() const;
+	Vector<String> get_restart_on_exit_arguments() const;
 
 	bool has_environment(const String &p_var) const;
 	String get_environment(const String &p_var) const;
@@ -274,8 +299,23 @@ public:
 	void dump_memory_to_file(const String &p_file);
 	void dump_resources_to_file(const String &p_file);
 
+	enum VirtualKeyboardType {
+		KEYBOARD_TYPE_DEFAULT,
+		KEYBOARD_TYPE_MULTILINE,
+		KEYBOARD_TYPE_NUMBER,
+		KEYBOARD_TYPE_NUMBER_DECIMAL,
+		KEYBOARD_TYPE_PHONE,
+		KEYBOARD_TYPE_EMAIL_ADDRESS,
+		KEYBOARD_TYPE_PASSWORD,
+		KEYBOARD_TYPE_URL
+	};
+
+	void _show_virtual_keyboard(const String &p_existing_text = "", bool p_multiline = false) {
+		show_virtual_keyboard(p_existing_text, p_multiline ? KEYBOARD_TYPE_MULTILINE : KEYBOARD_TYPE_DEFAULT);
+	}
+
 	bool has_virtual_keyboard() const;
-	void show_virtual_keyboard(const String &p_existing_text = "", bool p_multiline = false);
+	void show_virtual_keyboard(const String &p_existing_text = "", VirtualKeyboardType p_type = KEYBOARD_TYPE_DEFAULT);
 	void hide_virtual_keyboard();
 	int get_virtual_keyboard_height();
 
@@ -410,9 +450,11 @@ VARIANT_ENUM_CAST(_OS::VideoDriver);
 VARIANT_ENUM_CAST(_OS::PowerState);
 VARIANT_ENUM_CAST(_OS::Weekday);
 VARIANT_ENUM_CAST(_OS::Month);
+VARIANT_ENUM_CAST(_OS::VirtualKeyboardType);
 VARIANT_ENUM_CAST(_OS::SystemDir);
 VARIANT_ENUM_CAST(_OS::ScreenOrientation);
 VARIANT_ENUM_CAST(_OS::HandleType);
+VARIANT_ENUM_CAST(_OS::TTSUtteranceEvent);
 
 class _Geometry : public Object {
 	GDCLASS(_Geometry, Object);

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  spin_box.cpp                                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  spin_box.cpp                                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "spin_box.h"
 #include "core/math/expression.h"
@@ -40,12 +40,16 @@ Size2 SpinBox::get_minimum_size() const {
 
 void SpinBox::_value_changed(double) {
 	String value = String::num(get_value(), Math::range_step_decimals(get_step()));
-	if (prefix != "") {
-		value = prefix + " " + value;
+
+	if (!line_edit->has_focus()) {
+		if (prefix != "") {
+			value = prefix + " " + value;
+		}
+		if (suffix != "") {
+			value += " " + suffix;
+		}
 	}
-	if (suffix != "") {
-		value += " " + suffix;
-	}
+
 	line_edit->set_text(value);
 }
 
@@ -75,7 +79,8 @@ void SpinBox::_line_edit_input(const Ref<InputEvent> &p_event) {
 void SpinBox::_range_click_timeout() {
 	if (!drag.enabled && Input::get_singleton()->is_mouse_button_pressed(BUTTON_LEFT)) {
 		bool up = get_local_mouse_position().y < (get_size().height / 2);
-		set_value(get_value() + (up ? get_step() : -get_step()));
+		double step = get_custom_arrow_step() != 0.0 ? get_custom_arrow_step() : get_step();
+		set_value(get_value() + (up ? step : -step));
 
 		if (range_click_timer->is_one_shot()) {
 			range_click_timer->set_wait_time(0.075);
@@ -97,11 +102,15 @@ void SpinBox::_release_mouse() {
 }
 
 void SpinBox::_gui_input(const Ref<InputEvent> &p_event) {
+	ERR_FAIL_COND(p_event.is_null());
+
 	if (!is_editable()) {
 		return;
 	}
 
 	Ref<InputEventMouseButton> mb = p_event;
+
+	double step = get_custom_arrow_step() != 0.0 ? get_custom_arrow_step() : get_step();
 
 	if (mb.is_valid() && mb->is_pressed()) {
 		bool up = mb->get_position().y < (get_size().height / 2);
@@ -110,7 +119,7 @@ void SpinBox::_gui_input(const Ref<InputEvent> &p_event) {
 			case BUTTON_LEFT: {
 				line_edit->grab_focus();
 
-				set_value(get_value() + (up ? get_step() : -get_step()));
+				set_value(get_value() + (up ? step : -step));
 
 				range_click_timer->set_wait_time(0.6);
 				range_click_timer->set_one_shot(true);
@@ -125,13 +134,13 @@ void SpinBox::_gui_input(const Ref<InputEvent> &p_event) {
 			} break;
 			case BUTTON_WHEEL_UP: {
 				if (line_edit->has_focus()) {
-					set_value(get_value() + get_step() * mb->get_factor());
+					set_value(get_value() + step * mb->get_factor());
 					accept_event();
 				}
 			} break;
 			case BUTTON_WHEEL_DOWN: {
 				if (line_edit->has_focus()) {
-					set_value(get_value() - get_step() * mb->get_factor());
+					set_value(get_value() - step * mb->get_factor());
 					accept_event();
 				}
 			} break;
@@ -150,8 +159,8 @@ void SpinBox::_gui_input(const Ref<InputEvent> &p_event) {
 	if (mm.is_valid() && mm->get_button_mask() & BUTTON_MASK_LEFT) {
 		if (drag.enabled) {
 			drag.diff_y += mm->get_relative().y;
-			float diff_y = -0.01 * Math::pow(ABS(drag.diff_y), 1.8f) * SGN(drag.diff_y);
-			set_value(CLAMP(drag.base_val + get_step() * diff_y, get_min(), get_max()));
+			double diff_y = -0.01 * Math::pow(ABS(drag.diff_y), 1.8f) * SGN(drag.diff_y);
+			set_value(CLAMP(drag.base_val + step * diff_y, get_min(), get_max()));
 		} else if (drag.allowed && drag.capture_pos.distance_to(mm->get_position()) > 2) {
 			Input::get_singleton()->set_mouse_mode(Input::MOUSE_MODE_CAPTURED);
 			drag.enabled = true;
@@ -159,6 +168,12 @@ void SpinBox::_gui_input(const Ref<InputEvent> &p_event) {
 			drag.diff_y = 0;
 		}
 	}
+}
+
+void SpinBox::_line_edit_focus_enter() {
+	int col = line_edit->get_cursor_position();
+	_value_changed(0); // Update the LineEdit's text.
+	line_edit->set_cursor_position(col);
 }
 
 void SpinBox::_line_edit_focus_exit() {
@@ -240,6 +255,14 @@ void SpinBox::apply() {
 	_text_entered(line_edit->get_text());
 }
 
+void SpinBox::set_custom_arrow_step(double p_custom_arrow_step) {
+	custom_arrow_step = p_custom_arrow_step;
+}
+
+double SpinBox::get_custom_arrow_step() const {
+	return custom_arrow_step;
+}
+
 void SpinBox::_bind_methods() {
 	//ClassDB::bind_method(D_METHOD("_value_changed"),&SpinBox::_value_changed);
 	ClassDB::bind_method(D_METHOD("_gui_input"), &SpinBox::_gui_input);
@@ -250,9 +273,12 @@ void SpinBox::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_suffix"), &SpinBox::get_suffix);
 	ClassDB::bind_method(D_METHOD("set_prefix", "prefix"), &SpinBox::set_prefix);
 	ClassDB::bind_method(D_METHOD("get_prefix"), &SpinBox::get_prefix);
-	ClassDB::bind_method(D_METHOD("set_editable", "editable"), &SpinBox::set_editable);
+	ClassDB::bind_method(D_METHOD("set_editable", "enabled"), &SpinBox::set_editable);
 	ClassDB::bind_method(D_METHOD("is_editable"), &SpinBox::is_editable);
+	ClassDB::bind_method(D_METHOD("set_custom_arrow_step", "arrow_step"), &SpinBox::set_custom_arrow_step);
+	ClassDB::bind_method(D_METHOD("get_custom_arrow_step"), &SpinBox::get_custom_arrow_step);
 	ClassDB::bind_method(D_METHOD("apply"), &SpinBox::apply);
+	ClassDB::bind_method(D_METHOD("_line_edit_focus_enter"), &SpinBox::_line_edit_focus_enter);
 	ClassDB::bind_method(D_METHOD("_line_edit_focus_exit"), &SpinBox::_line_edit_focus_exit);
 	ClassDB::bind_method(D_METHOD("get_line_edit"), &SpinBox::get_line_edit);
 	ClassDB::bind_method(D_METHOD("_line_edit_input"), &SpinBox::_line_edit_input);
@@ -262,6 +288,7 @@ void SpinBox::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "editable"), "set_editable", "is_editable");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "prefix"), "set_prefix", "get_prefix");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "suffix"), "set_suffix", "get_suffix");
+	ADD_PROPERTY(PropertyInfo(Variant::REAL, "custom_arrow_step", PROPERTY_HINT_RANGE, "0,10000,0.0001,or_greater"), "set_custom_arrow_step", "get_custom_arrow_step");
 }
 
 SpinBox::SpinBox() {
@@ -273,6 +300,7 @@ SpinBox::SpinBox() {
 	line_edit->set_mouse_filter(MOUSE_FILTER_PASS);
 	//connect("value_changed",this,"_value_changed");
 	line_edit->connect("text_entered", this, "_text_entered", Vector<Variant>(), CONNECT_DEFERRED);
+	line_edit->connect("focus_entered", this, "_line_edit_focus_enter", Vector<Variant>(), CONNECT_DEFERRED);
 	line_edit->connect("focus_exited", this, "_line_edit_focus_exit", Vector<Variant>(), CONNECT_DEFERRED);
 	line_edit->connect("gui_input", this, "_line_edit_input");
 

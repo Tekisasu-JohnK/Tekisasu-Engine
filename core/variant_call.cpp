@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  variant_call.cpp                                                     */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  variant_call.cpp                                                      */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "variant.h"
 
@@ -552,6 +552,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM2(Dictionary, merge);
 	VCALL_LOCALMEM1R(Dictionary, has);
 	VCALL_LOCALMEM1R(Dictionary, has_all);
+	VCALL_LOCALMEM1R(Dictionary, find_key);
 	VCALL_LOCALMEM1R(Dictionary, erase);
 	VCALL_LOCALMEM0R(Dictionary, hash);
 	VCALL_LOCALMEM0R(Dictionary, keys);
@@ -577,6 +578,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM2(Array, insert);
 	VCALL_LOCALMEM1(Array, remove);
 	VCALL_LOCALMEM0R(Array, front);
+	VCALL_LOCALMEM0R(Array, pick_random)
 	VCALL_LOCALMEM0R(Array, back);
 	VCALL_LOCALMEM2R(Array, find);
 	VCALL_LOCALMEM2R(Array, rfind);
@@ -696,6 +698,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM1(PoolByteArray, push_back);
 	VCALL_LOCALMEM1(PoolByteArray, fill);
 	VCALL_LOCALMEM1(PoolByteArray, resize);
+	VCALL_LOCALMEM0(PoolByteArray, clear);
 	VCALL_LOCALMEM2R(PoolByteArray, insert);
 	VCALL_LOCALMEM1(PoolByteArray, remove);
 	VCALL_LOCALMEM1(PoolByteArray, append);
@@ -715,6 +718,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM1(PoolIntArray, push_back);
 	VCALL_LOCALMEM1(PoolIntArray, fill);
 	VCALL_LOCALMEM1(PoolIntArray, resize);
+	VCALL_LOCALMEM0(PoolIntArray, clear);
 	VCALL_LOCALMEM2R(PoolIntArray, insert);
 	VCALL_LOCALMEM1(PoolIntArray, remove);
 	VCALL_LOCALMEM1(PoolIntArray, append);
@@ -733,6 +737,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM1(PoolRealArray, push_back);
 	VCALL_LOCALMEM1(PoolRealArray, fill);
 	VCALL_LOCALMEM1(PoolRealArray, resize);
+	VCALL_LOCALMEM0(PoolRealArray, clear);
 	VCALL_LOCALMEM2R(PoolRealArray, insert);
 	VCALL_LOCALMEM1(PoolRealArray, remove);
 	VCALL_LOCALMEM1(PoolRealArray, append);
@@ -751,6 +756,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM1(PoolStringArray, push_back);
 	VCALL_LOCALMEM1(PoolStringArray, fill);
 	VCALL_LOCALMEM1(PoolStringArray, resize);
+	VCALL_LOCALMEM0(PoolStringArray, clear);
 	VCALL_LOCALMEM2R(PoolStringArray, insert);
 	VCALL_LOCALMEM1(PoolStringArray, remove);
 	VCALL_LOCALMEM1(PoolStringArray, append);
@@ -770,6 +776,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM1(PoolVector2Array, push_back);
 	VCALL_LOCALMEM1(PoolVector2Array, fill);
 	VCALL_LOCALMEM1(PoolVector2Array, resize);
+	VCALL_LOCALMEM0(PoolVector2Array, clear);
 	VCALL_LOCALMEM2R(PoolVector2Array, insert);
 	VCALL_LOCALMEM1(PoolVector2Array, remove);
 	VCALL_LOCALMEM1(PoolVector2Array, append);
@@ -788,6 +795,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM1(PoolVector3Array, push_back);
 	VCALL_LOCALMEM1(PoolVector3Array, fill);
 	VCALL_LOCALMEM1(PoolVector3Array, resize);
+	VCALL_LOCALMEM0(PoolVector3Array, clear);
 	VCALL_LOCALMEM2R(PoolVector3Array, insert);
 	VCALL_LOCALMEM1(PoolVector3Array, remove);
 	VCALL_LOCALMEM1(PoolVector3Array, append);
@@ -806,6 +814,7 @@ struct _VariantCall {
 	VCALL_LOCALMEM1(PoolColorArray, push_back);
 	VCALL_LOCALMEM1(PoolColorArray, fill);
 	VCALL_LOCALMEM1(PoolColorArray, resize);
+	VCALL_LOCALMEM0(PoolColorArray, clear);
 	VCALL_LOCALMEM2R(PoolColorArray, insert);
 	VCALL_LOCALMEM1(PoolColorArray, remove);
 	VCALL_LOCALMEM1(PoolColorArray, append);
@@ -1930,6 +1939,7 @@ void register_variant_methods() {
 	ADDFUNC2NC(DICTIONARY, NIL, Dictionary, merge, DICTIONARY, "dictionary", BOOL, "overwrite", varray(false));
 	ADDFUNC1R(DICTIONARY, BOOL, Dictionary, has, NIL, "key", varray());
 	ADDFUNC1R(DICTIONARY, BOOL, Dictionary, has_all, ARRAY, "keys", varray());
+	ADDFUNC1R(DICTIONARY, NIL, Dictionary, find_key, NIL, "value", varray());
 	ADDFUNC1RNC(DICTIONARY, BOOL, Dictionary, erase, NIL, "key", varray());
 	ADDFUNC0R(DICTIONARY, INT, Dictionary, hash, varray());
 	ADDFUNC0R(DICTIONARY, ARRAY, Dictionary, keys, varray());
@@ -1951,6 +1961,7 @@ void register_variant_methods() {
 	ADDFUNC1NC(ARRAY, NIL, Array, remove, INT, "position", varray());
 	ADDFUNC1NC(ARRAY, NIL, Array, erase, NIL, "value", varray());
 	ADDFUNC0R(ARRAY, NIL, Array, front, varray());
+	ADDFUNC0R(ARRAY, NIL, Array, pick_random, varray())
 	ADDFUNC0R(ARRAY, NIL, Array, back, varray());
 	ADDFUNC2R(ARRAY, INT, Array, find, NIL, "what", INT, "from", varray(0));
 	ADDFUNC2R(ARRAY, INT, Array, rfind, NIL, "what", INT, "from", varray(-1));
@@ -1981,6 +1992,7 @@ void register_variant_methods() {
 	ADDFUNC1(POOL_BYTE_ARRAY, NIL, PoolByteArray, remove, INT, "idx", varray());
 	ADDFUNC2R(POOL_BYTE_ARRAY, INT, PoolByteArray, insert, INT, "idx", INT, "byte", varray());
 	ADDFUNC1(POOL_BYTE_ARRAY, NIL, PoolByteArray, resize, INT, "idx", varray());
+	ADDFUNC0(POOL_BYTE_ARRAY, NIL, PoolByteArray, clear, varray());
 	ADDFUNC0(POOL_BYTE_ARRAY, NIL, PoolByteArray, invert, varray());
 	ADDFUNC2R(POOL_BYTE_ARRAY, POOL_BYTE_ARRAY, PoolByteArray, subarray, INT, "from", INT, "to", varray());
 	ADDFUNC2R(POOL_BYTE_ARRAY, INT, PoolByteArray, find, INT, "value", INT, "from", varray(0));
@@ -2006,6 +2018,7 @@ void register_variant_methods() {
 	ADDFUNC1(POOL_INT_ARRAY, NIL, PoolIntArray, remove, INT, "idx", varray());
 	ADDFUNC2R(POOL_INT_ARRAY, INT, PoolIntArray, insert, INT, "idx", INT, "integer", varray());
 	ADDFUNC1(POOL_INT_ARRAY, NIL, PoolIntArray, resize, INT, "idx", varray());
+	ADDFUNC0(POOL_INT_ARRAY, NIL, PoolIntArray, clear, varray());
 	ADDFUNC0(POOL_INT_ARRAY, NIL, PoolIntArray, invert, varray());
 	ADDFUNC2R(POOL_INT_ARRAY, INT, PoolIntArray, find, INT, "value", INT, "from", varray(0));
 	ADDFUNC2R(POOL_INT_ARRAY, INT, PoolIntArray, rfind, INT, "value", INT, "from", varray(-1));
@@ -2023,6 +2036,7 @@ void register_variant_methods() {
 	ADDFUNC1(POOL_REAL_ARRAY, NIL, PoolRealArray, remove, INT, "idx", varray());
 	ADDFUNC2R(POOL_REAL_ARRAY, INT, PoolRealArray, insert, INT, "idx", REAL, "value", varray());
 	ADDFUNC1(POOL_REAL_ARRAY, NIL, PoolRealArray, resize, INT, "idx", varray());
+	ADDFUNC0(POOL_REAL_ARRAY, NIL, PoolRealArray, clear, varray());
 	ADDFUNC0(POOL_REAL_ARRAY, NIL, PoolRealArray, invert, varray());
 	ADDFUNC2R(POOL_REAL_ARRAY, INT, PoolRealArray, find, REAL, "value", INT, "from", varray(0));
 	ADDFUNC2R(POOL_REAL_ARRAY, INT, PoolRealArray, rfind, REAL, "value", INT, "from", varray(-1));
@@ -2040,6 +2054,7 @@ void register_variant_methods() {
 	ADDFUNC1(POOL_STRING_ARRAY, NIL, PoolStringArray, remove, INT, "idx", varray());
 	ADDFUNC2R(POOL_STRING_ARRAY, INT, PoolStringArray, insert, INT, "idx", STRING, "string", varray());
 	ADDFUNC1(POOL_STRING_ARRAY, NIL, PoolStringArray, resize, INT, "idx", varray());
+	ADDFUNC0(POOL_STRING_ARRAY, NIL, PoolStringArray, clear, varray());
 	ADDFUNC0(POOL_STRING_ARRAY, NIL, PoolStringArray, invert, varray());
 	ADDFUNC1(POOL_STRING_ARRAY, STRING, PoolStringArray, join, STRING, "delimiter", varray());
 	ADDFUNC2R(POOL_STRING_ARRAY, INT, PoolStringArray, find, STRING, "value", INT, "from", varray(0));
@@ -2058,6 +2073,7 @@ void register_variant_methods() {
 	ADDFUNC1(POOL_VECTOR2_ARRAY, NIL, PoolVector2Array, remove, INT, "idx", varray());
 	ADDFUNC2R(POOL_VECTOR2_ARRAY, INT, PoolVector2Array, insert, INT, "idx", VECTOR2, "vector2", varray());
 	ADDFUNC1(POOL_VECTOR2_ARRAY, NIL, PoolVector2Array, resize, INT, "idx", varray());
+	ADDFUNC0(POOL_VECTOR2_ARRAY, NIL, PoolVector2Array, clear, varray());
 	ADDFUNC0(POOL_VECTOR2_ARRAY, NIL, PoolVector2Array, invert, varray());
 	ADDFUNC2R(POOL_VECTOR2_ARRAY, INT, PoolVector2Array, find, VECTOR2, "value", INT, "from", varray(0));
 	ADDFUNC2R(POOL_VECTOR2_ARRAY, INT, PoolVector2Array, rfind, VECTOR2, "value", INT, "from", varray(-1));
@@ -2075,6 +2091,7 @@ void register_variant_methods() {
 	ADDFUNC1(POOL_VECTOR3_ARRAY, NIL, PoolVector3Array, remove, INT, "idx", varray());
 	ADDFUNC2R(POOL_VECTOR3_ARRAY, INT, PoolVector3Array, insert, INT, "idx", VECTOR3, "vector3", varray());
 	ADDFUNC1(POOL_VECTOR3_ARRAY, NIL, PoolVector3Array, resize, INT, "idx", varray());
+	ADDFUNC0(POOL_VECTOR3_ARRAY, NIL, PoolVector3Array, clear, varray());
 	ADDFUNC0(POOL_VECTOR3_ARRAY, NIL, PoolVector3Array, invert, varray());
 	ADDFUNC2R(POOL_VECTOR3_ARRAY, INT, PoolVector3Array, find, VECTOR3, "value", INT, "from", varray(0));
 	ADDFUNC2R(POOL_VECTOR3_ARRAY, INT, PoolVector3Array, rfind, VECTOR3, "value", INT, "from", varray(-1));
@@ -2092,6 +2109,7 @@ void register_variant_methods() {
 	ADDFUNC1(POOL_COLOR_ARRAY, NIL, PoolColorArray, remove, INT, "idx", varray());
 	ADDFUNC2R(POOL_COLOR_ARRAY, INT, PoolColorArray, insert, INT, "idx", COLOR, "color", varray());
 	ADDFUNC1(POOL_COLOR_ARRAY, NIL, PoolColorArray, resize, INT, "idx", varray());
+	ADDFUNC0(POOL_COLOR_ARRAY, NIL, PoolColorArray, clear, varray());
 	ADDFUNC0(POOL_COLOR_ARRAY, NIL, PoolColorArray, invert, varray());
 	ADDFUNC2R(POOL_COLOR_ARRAY, INT, PoolColorArray, find, COLOR, "value", INT, "from", varray(0));
 	ADDFUNC2R(POOL_COLOR_ARRAY, INT, PoolColorArray, rfind, COLOR, "value", INT, "from", varray(-1));

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="PopupMenu" inherits="Popup" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="PopupMenu" inherits="Popup" version="3.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		PopupMenu displays a list of options.
 	</brief_description>
@@ -478,6 +478,9 @@
 		<member name="hide_on_state_item_selection" type="bool" setter="set_hide_on_state_item_selection" getter="is_hide_on_state_item_selection" default="false">
 			If [code]true[/code], hides the [PopupMenu] when a state item is selected.
 		</member>
+		<member name="max_height" type="float" setter="set_max_height" getter="get_max_height" default="0.0">
+			If non-zero, the [code]PopupMenu[/code] will be resized vertically to that maximum value, showing a scrollbar if the content doesn't fit.
+		</member>
 		<member name="submenu_popup_delay" type="float" setter="set_submenu_popup_delay" getter="get_submenu_popup_delay" default="0.3">
 			Sets the delay time in seconds for the submenu item to popup on mouse hovering. If the popup menu is added as a child of another (acting as a submenu), it will inherit the delay time of the parent menu item.
 		</member>
@@ -493,6 +496,7 @@
 			<argument index="0" name="id" type="int" />
 			<description>
 				Emitted when an item of some [code]id[/code] is pressed or its accelerator is activated.
+				[b]Note:[/b] If [code]id[/code] is negative (either explicitly or due to overflow), this will return the corresponding index instead.
 			</description>
 		</signal>
 		<signal name="index_pressed">

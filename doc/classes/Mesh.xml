@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Mesh" inherits="Resource" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="Mesh" inherits="Resource" version="3.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		A [Resource] that contains vertex array-based geometry.
 	</brief_description>
@@ -40,7 +40,7 @@
 		<method name="generate_triangle_mesh" qualifiers="const">
 			<return type="TriangleMesh" />
 			<description>
-				Generate a [TriangleMesh] from the mesh.
+				Generate a [TriangleMesh] from the mesh. Considers only surfaces using one of these primitive types: [constant PRIMITIVE_TRIANGLES], [constant PRIMITIVE_TRIANGLE_STRIP], or [constant PRIMITIVE_TRIANGLE_FAN].
 			</description>
 		</method>
 		<method name="get_aabb" qualifiers="const">

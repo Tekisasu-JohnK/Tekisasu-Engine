@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  visual_script_editor.cpp                                             */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  visual_script_editor.cpp                                              */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "visual_script_editor.h"
 
@@ -869,7 +869,49 @@ void VisualScriptEditor::_update_graph(int p_only_id) {
 							EditorResourcePreview::get_singleton()->queue_edited_resource_preview(res, this, "_button_resource_previewed", arr);
 
 						} else if (pi.type == Variant::INT && pi.hint == PROPERTY_HINT_ENUM) {
-							button->set_text(pi.hint_string.get_slice(",", value));
+							bool found = false;
+							Vector<String> options = pi.hint_string.split(",");
+							int64_t current_val = 0;
+							for (int j = 0; j < options.size(); j++) {
+								const Vector<String> text_split = options[j].split(":");
+								if (text_split.size() != 1) {
+									current_val = text_split[1].to_int64();
+								}
+								if (value.operator int() == current_val) {
+									button->set_text(text_split[0]);
+									found = true;
+									break;
+								}
+								current_val += 1;
+							}
+							if (!found) {
+								button->set_text(value);
+							}
+						} else if (pi.type == Variant::INT && pi.hint == PROPERTY_HINT_FLAGS) {
+							Vector<String> value_texts;
+							const Vector<String> options = pi.hint_string.split(",");
+							uint32_t v = value;
+							for (int j = 0; j < options.size(); j++) {
+								uint32_t current_val;
+								Vector<String> text_split = options[j].split(":");
+								if (text_split.size() != -1) {
+									current_val = text_split[1].to_int();
+								} else {
+									current_val = 1 << i;
+								}
+								if ((v & current_val) == current_val) {
+									value_texts.push_back(text_split[0]);
+								}
+							}
+							if (value_texts.size() != 0) {
+								String value_text = value_texts[0];
+								for (int j = 1; j < value_texts.size(); j++) {
+									value_text += " | " + value_texts[j];
+								}
+								button->set_text(value_text);
+							} else {
+								button->set_text(value);
+							}
 						} else {
 							button->set_text(value);
 						}

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  project_settings_editor.cpp                                          */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  project_settings_editor.cpp                                           */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "project_settings_editor.h"
 
@@ -110,8 +110,6 @@ void ProjectSettingsEditor::_notification(int p_what) {
 			search_box->set_right_icon(get_icon("Search", "EditorIcons"));
 			search_box->set_clear_button_enabled(true);
 
-			action_add_error->add_color_override("font_color", get_color("error_color", "Editor"));
-
 			translation_list->connect("button_pressed", this, "_translation_delete");
 			_update_actions();
 
@@ -161,7 +159,6 @@ void ProjectSettingsEditor::_notification(int p_what) {
 			search_button->set_icon(get_icon("Search", "EditorIcons"));
 			search_box->set_right_icon(get_icon("Search", "EditorIcons"));
 			search_box->set_clear_button_enabled(true);
-			action_add_error->add_color_override("font_color", get_color("error_color", "Editor"));
 			popup_add->set_item_icon(popup_add->get_item_index(INPUT_KEY_PHYSICAL), get_icon("KeyboardPhysical", "EditorIcons"));
 			popup_add->set_item_icon(popup_add->get_item_index(INPUT_KEY), get_icon("Keyboard", "EditorIcons"));
 			popup_add->set_item_icon(popup_add->get_item_index(INPUT_JOY_BUTTON), get_icon("JoyButton", "EditorIcons"));
@@ -197,6 +194,16 @@ void ProjectSettingsEditor::_action_selected() {
 	edit_idx = -1;
 }
 
+String _check_new_action_name(const String &p_name) {
+	if (p_name.empty() || !_validate_action_name(p_name)) {
+		return TTR("Invalid action name. It cannot be empty nor contain '/', ':', '=', '\\' or '\"'.");
+	}
+	if (ProjectSettings::get_singleton()->has_setting("input/" + p_name)) {
+		return vformat(TTR("An action with the name '%s' already exists."), p_name);
+	}
+	return String();
+}
+
 void ProjectSettingsEditor::_action_edited() {
 	TreeItem *ti = input_editor->get_selected();
 	if (!ti) {
@@ -211,25 +218,17 @@ void ProjectSettingsEditor::_action_edited() {
 			return;
 		}
 
-		if (new_name == "" || !_validate_action_name(new_name)) {
+		const String error = _check_new_action_name(new_name);
+		if (!error.empty()) {
 			ti->set_text(0, old_name);
 			add_at = "input/" + old_name;
 
-			message->set_text(TTR("Invalid action name. It cannot be empty nor contain '/', ':', '=', '\\' or '\"'"));
+			message->set_text(error);
 			message->popup_centered(Size2(300, 100) * EDSCALE);
 			return;
 		}
 
 		String action_prop = "input/" + new_name;
-
-		if (ProjectSettings::get_singleton()->has_setting(action_prop)) {
-			ti->set_text(0, old_name);
-			add_at = "input/" + old_name;
-
-			message->set_text(vformat(TTR("An action with the name '%s' already exists."), new_name));
-			message->popup_centered(Size2(300, 100) * EDSCALE);
-			return;
-		}
 
 		int order = ProjectSettings::get_singleton()->get_order(add_at);
 		Dictionary action = ProjectSettings::get_singleton()->get(add_at);
@@ -743,6 +742,11 @@ void ProjectSettingsEditor::_update_actions() {
 			continue;
 		}
 
+		const bool is_builtin = ProjectSettings::get_singleton()->get_input_presets().find(pi.name) != nullptr;
+		if (is_builtin && !show_builtin_actions) {
+			continue;
+		}
+
 		Dictionary action = ProjectSettings::get_singleton()->get(pi.name);
 		Array events = action["events"];
 
@@ -760,7 +764,7 @@ void ProjectSettingsEditor::_update_actions() {
 		item->set_custom_bg_color(1, get_color("prop_subsection", "Editor"));
 
 		item->add_button(2, get_icon("Add", "EditorIcons"), 1, false, TTR("Add Event"));
-		if (!ProjectSettings::get_singleton()->get_input_presets().find(pi.name)) {
+		if (!is_builtin) {
 			item->add_button(2, get_icon("Remove", "EditorIcons"), 2, false, TTR("Remove"));
 			item->set_editable(0, true);
 		}
@@ -957,26 +961,9 @@ void ProjectSettingsEditor::_item_del() {
 }
 
 void ProjectSettingsEditor::_action_check(String p_action) {
-	if (p_action == "") {
-		action_add->set_disabled(true);
-	} else {
-		if (!_validate_action_name(p_action)) {
-			action_add_error->set_text(TTR("Invalid action name. It cannot be empty nor contain '/', ':', '=', '\\' or '\"'."));
-			action_add_error->show();
-			action_add->set_disabled(true);
-			return;
-		}
-		if (ProjectSettings::get_singleton()->has_setting("input/" + p_action)) {
-			action_add_error->set_text(vformat(TTR("An action with the name '%s' already exists."), p_action));
-			action_add_error->show();
-			action_add->set_disabled(true);
-			return;
-		}
-
-		action_add->set_disabled(false);
-	}
-
-	action_add_error->hide();
+	String error = _check_new_action_name(p_action);
+	action_add->set_tooltip(error);
+	action_add->set_disabled(!error.empty());
 }
 
 void ProjectSettingsEditor::_action_adds(String) {
@@ -1014,8 +1001,12 @@ void ProjectSettingsEditor::_action_add() {
 
 	r->select(0);
 	input_editor->ensure_cursor_is_visible();
-	action_add_error->hide();
 	action_name->clear();
+}
+
+void ProjectSettingsEditor::_set_show_builtin_actions(bool p_show) {
+	show_builtin_actions = p_show;
+	_update_actions();
 }
 
 void ProjectSettingsEditor::_item_checked(const String &p_item, bool p_check) {
@@ -1331,6 +1322,24 @@ void ProjectSettingsEditor::_translation_res_select() {
 	call_deferred("_update_translations");
 }
 
+void ProjectSettingsEditor::_translation_res_option_popup(bool p_arrow_clicked) {
+	TreeItem *ed = translation_remap_options->get_edited();
+	ERR_FAIL_COND(!ed);
+
+	locale_select->set_locale(ed->get_tooltip(1));
+	locale_select->popup_locale_dialog();
+}
+
+void ProjectSettingsEditor::_translation_res_option_selected(const String &p_locale) {
+	TreeItem *ed = translation_remap_options->get_edited();
+	ERR_FAIL_COND(!ed);
+
+	ed->set_text(1, TranslationServer::get_singleton()->get_locale_name(p_locale));
+	ed->set_tooltip(1, p_locale);
+
+	ProjectSettingsEditor::_translation_res_option_changed();
+}
+
 void ProjectSettingsEditor::_translation_res_option_changed() {
 	if (updating_translations) {
 		return;
@@ -1350,20 +1359,11 @@ void ProjectSettingsEditor::_translation_res_option_changed() {
 	String key = k->get_metadata(0);
 	int idx = ed->get_metadata(0);
 	String path = ed->get_metadata(1);
-	int which = ed->get_range(1);
-
-	Vector<String> langs = TranslationServer::get_all_locales();
-
-	ERR_FAIL_INDEX(which, langs.size());
+	String locale = ed->get_tooltip(1);
 
 	ERR_FAIL_COND(!remaps.has(key));
 	PoolStringArray r = remaps[key];
-	ERR_FAIL_INDEX(idx, r.size());
-	if (translation_locales_idxs_remap.size() > which) {
-		r.set(idx, path + ":" + langs[translation_locales_idxs_remap[which]]);
-	} else {
-		r.set(idx, path + ":" + langs[which]);
-	}
+	r.set(idx, path + ":" + locale);
 	remaps[key] = r;
 
 	updating_translations = true;
@@ -1441,86 +1441,6 @@ void ProjectSettingsEditor::_translation_res_option_delete(Object *p_item, int p
 	undo_redo->commit_action();
 }
 
-void ProjectSettingsEditor::_translation_filter_option_changed() {
-	int sel_id = translation_locale_filter_mode->get_selected_id();
-	TreeItem *t = translation_filter->get_edited();
-	String locale = t->get_tooltip(0);
-	bool checked = t->is_checked(0);
-
-	Variant prev;
-	Array f_locales_all;
-
-	if (ProjectSettings::get_singleton()->has_setting("locale/locale_filter")) {
-		f_locales_all = ProjectSettings::get_singleton()->get("locale/locale_filter");
-		prev = f_locales_all;
-
-		if (f_locales_all.size() != 2) {
-			f_locales_all.clear();
-			f_locales_all.append(sel_id);
-			f_locales_all.append(Array());
-		}
-	} else {
-		f_locales_all.append(sel_id);
-		f_locales_all.append(Array());
-	}
-
-	Array f_locales = f_locales_all[1];
-	int l_idx = f_locales.find(locale);
-
-	if (checked) {
-		if (l_idx == -1) {
-			f_locales.append(locale);
-		}
-	} else {
-		if (l_idx != -1) {
-			f_locales.remove(l_idx);
-		}
-	}
-
-	f_locales = f_locales.sort();
-
-	undo_redo->create_action(TTR("Changed Locale Filter"));
-	undo_redo->add_do_property(ProjectSettings::get_singleton(), "locale/locale_filter", f_locales_all);
-	undo_redo->add_undo_property(ProjectSettings::get_singleton(), "locale/locale_filter", prev);
-	undo_redo->add_do_method(this, "_update_translations");
-	undo_redo->add_undo_method(this, "_update_translations");
-	undo_redo->add_do_method(this, "_settings_changed");
-	undo_redo->add_undo_method(this, "_settings_changed");
-	undo_redo->commit_action();
-}
-
-void ProjectSettingsEditor::_translation_filter_mode_changed(int p_mode) {
-	int sel_id = translation_locale_filter_mode->get_selected_id();
-
-	Variant prev;
-	Array f_locales_all;
-
-	if (ProjectSettings::get_singleton()->has_setting("locale/locale_filter")) {
-		f_locales_all = ProjectSettings::get_singleton()->get("locale/locale_filter");
-		prev = f_locales_all;
-
-		if (f_locales_all.size() != 2) {
-			f_locales_all.clear();
-			f_locales_all.append(sel_id);
-			f_locales_all.append(Array());
-		} else {
-			f_locales_all[0] = sel_id;
-		}
-	} else {
-		f_locales_all.append(sel_id);
-		f_locales_all.append(Array());
-	}
-
-	undo_redo->create_action(TTR("Changed Locale Filter Mode"));
-	undo_redo->add_do_property(ProjectSettings::get_singleton(), "locale/locale_filter", f_locales_all);
-	undo_redo->add_undo_property(ProjectSettings::get_singleton(), "locale/locale_filter", prev);
-	undo_redo->add_do_method(this, "_update_translations");
-	undo_redo->add_undo_method(this, "_update_translations");
-	undo_redo->add_do_method(this, "_settings_changed");
-	undo_redo->add_undo_method(this, "_settings_changed");
-	undo_redo->commit_action();
-}
-
 void ProjectSettingsEditor::_update_translations() {
 	//update translations
 
@@ -1545,64 +1465,6 @@ void ProjectSettingsEditor::_update_translations() {
 		}
 	}
 
-	Vector<String> langs = TranslationServer::get_all_locales();
-	Vector<String> names = TranslationServer::get_all_locale_names();
-
-	//update filter tab
-	Array l_filter_all;
-
-	bool is_arr_empty = true;
-	if (ProjectSettings::get_singleton()->has_setting("locale/locale_filter")) {
-		l_filter_all = ProjectSettings::get_singleton()->get("locale/locale_filter");
-
-		if (l_filter_all.size() == 2) {
-			translation_locale_filter_mode->select(l_filter_all[0]);
-			is_arr_empty = false;
-		}
-	}
-	if (is_arr_empty) {
-		l_filter_all.append(0);
-		l_filter_all.append(Array());
-		translation_locale_filter_mode->select(0);
-	}
-
-	int filter_mode = l_filter_all[0];
-	Array l_filter = l_filter_all[1];
-
-	int s = names.size();
-	bool is_short_list_when_show_all_selected = filter_mode == SHOW_ALL_LOCALES && translation_filter_treeitems.size() < s;
-	bool is_full_list_when_show_only_selected = filter_mode == SHOW_ONLY_SELECTED_LOCALES && translation_filter_treeitems.size() == s;
-	bool should_recreate_locales_list = is_short_list_when_show_all_selected || is_full_list_when_show_only_selected;
-
-	if (!translation_locales_list_created || should_recreate_locales_list) {
-		translation_locales_list_created = true;
-		translation_filter->clear();
-		root = translation_filter->create_item(nullptr);
-		translation_filter->set_hide_root(true);
-		translation_filter_treeitems.clear();
-		for (int i = 0; i < s; i++) {
-			String n = names[i];
-			String l = langs[i];
-			bool is_checked = l_filter.has(l);
-			if (filter_mode == SHOW_ONLY_SELECTED_LOCALES && !is_checked) {
-				continue;
-			}
-
-			TreeItem *t = translation_filter->create_item(root);
-			t->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
-			t->set_text(0, vformat("[%s] %s", l, n));
-			t->set_editable(0, true);
-			t->set_tooltip(0, l);
-			t->set_checked(0, is_checked);
-			translation_filter_treeitems.push_back(t);
-		}
-	} else {
-		for (int i = 0; i < translation_filter_treeitems.size(); i++) {
-			TreeItem *t = translation_filter_treeitems[i];
-			t->set_checked(0, l_filter.has(t->get_tooltip(0)));
-		}
-	}
-
 	//update translation remaps
 
 	String remap_selected;
@@ -1617,32 +1479,6 @@ void ProjectSettingsEditor::_update_translations() {
 	translation_remap->set_hide_root(true);
 	translation_remap_options->set_hide_root(true);
 	translation_res_option_add_button->set_disabled(true);
-
-	translation_locales_idxs_remap.clear();
-	translation_locales_idxs_remap.resize(l_filter.size());
-	int fl_idx_count = translation_locales_idxs_remap.size();
-
-	String langnames = "";
-	int l_idx = 0;
-	for (int i = 0; i < names.size(); i++) {
-		if (filter_mode == SHOW_ONLY_SELECTED_LOCALES && fl_idx_count != 0) {
-			if (l_filter.size() > 0) {
-				if (l_filter.find(langs[i]) != -1) {
-					if (langnames.length() > 0) {
-						langnames += ",";
-					}
-					langnames += vformat("[%s] %s", langs[i], names[i]);
-					translation_locales_idxs_remap.write[l_idx] = i;
-					l_idx++;
-				}
-			}
-		} else {
-			if (i > 0) {
-				langnames += ",";
-			}
-			langnames += vformat("[%s] %s", langs[i], names[i]);
-		}
-	}
 
 	if (ProjectSettings::get_singleton()->has_setting("locale/translation_remaps")) {
 		Dictionary remaps = ProjectSettings::get_singleton()->get("locale/translation_remaps");
@@ -1678,21 +1514,11 @@ void ProjectSettingsEditor::_update_translations() {
 					t2->set_tooltip(0, path);
 					t2->set_metadata(0, j);
 					t2->add_button(0, get_icon("Remove", "EditorIcons"), 0, false, TTR("Remove"));
-					t2->set_cell_mode(1, TreeItem::CELL_MODE_RANGE);
-					t2->set_text(1, langnames);
+					t2->set_cell_mode(1, TreeItem::CELL_MODE_CUSTOM);
+					t2->set_text(1, TranslationServer::get_singleton()->get_locale_name(locale));
 					t2->set_editable(1, true);
 					t2->set_metadata(1, path);
-					int idx = langs.find(locale);
-					if (idx < 0) {
-						idx = 0;
-					}
-
-					int f_idx = translation_locales_idxs_remap.find(idx);
-					if (f_idx != -1 && fl_idx_count > 0 && filter_mode == SHOW_ONLY_SELECTED_LOCALES) {
-						t2->set_range(1, f_idx);
-					} else {
-						t2->set_range(1, idx);
-					}
+					t2->set_tooltip(1, locale);
 				}
 			}
 		}
@@ -1718,6 +1544,11 @@ void ProjectSettingsEditor::_toggle_search_bar(bool p_pressed) {
 
 void ProjectSettingsEditor::set_plugins_page() {
 	tab_container->set_current_tab(plugin_settings->get_index());
+}
+
+void ProjectSettingsEditor::set_general_page(const String &p_category) {
+	tab_container->set_current_tab(general_editor->get_index());
+	globals_editor->set_current_section(p_category);
 }
 
 TabContainer *ProjectSettingsEditor::get_tabs() {
@@ -1765,6 +1596,7 @@ void ProjectSettingsEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_action_edited"), &ProjectSettingsEditor::_action_edited);
 	ClassDB::bind_method(D_METHOD("_action_activated"), &ProjectSettingsEditor::_action_activated);
 	ClassDB::bind_method(D_METHOD("_action_button_pressed"), &ProjectSettingsEditor::_action_button_pressed);
+	ClassDB::bind_method(D_METHOD("_set_show_builtin_actions"), &ProjectSettingsEditor::_set_show_builtin_actions);
 	ClassDB::bind_method(D_METHOD("_update_actions"), &ProjectSettingsEditor::_update_actions);
 	ClassDB::bind_method(D_METHOD("_wait_for_key"), &ProjectSettingsEditor::_wait_for_key);
 	ClassDB::bind_method(D_METHOD("_add_item"), &ProjectSettingsEditor::_add_item, DEFVAL(Variant()));
@@ -1777,6 +1609,7 @@ void ProjectSettingsEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_settings_changed"), &ProjectSettingsEditor::_settings_changed);
 	ClassDB::bind_method(D_METHOD("_translation_add"), &ProjectSettingsEditor::_translation_add);
 	ClassDB::bind_method(D_METHOD("_translation_file_open"), &ProjectSettingsEditor::_translation_file_open);
+	ClassDB::bind_method(D_METHOD("_translation_res_option_selected"), &ProjectSettingsEditor::_translation_res_option_selected);
 
 	ClassDB::bind_method(D_METHOD("_translation_res_add"), &ProjectSettingsEditor::_translation_res_add);
 	ClassDB::bind_method(D_METHOD("_translation_res_file_open"), &ProjectSettingsEditor::_translation_res_file_open);
@@ -1786,9 +1619,7 @@ void ProjectSettingsEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_translation_res_option_changed"), &ProjectSettingsEditor::_translation_res_option_changed);
 	ClassDB::bind_method(D_METHOD("_translation_res_delete"), &ProjectSettingsEditor::_translation_res_delete);
 	ClassDB::bind_method(D_METHOD("_translation_res_option_delete"), &ProjectSettingsEditor::_translation_res_option_delete);
-
-	ClassDB::bind_method(D_METHOD("_translation_filter_option_changed"), &ProjectSettingsEditor::_translation_filter_option_changed);
-	ClassDB::bind_method(D_METHOD("_translation_filter_mode_changed"), &ProjectSettingsEditor::_translation_filter_mode_changed);
+	ClassDB::bind_method(D_METHOD("_translation_res_option_popup"), &ProjectSettingsEditor::_translation_res_option_popup);
 
 	ClassDB::bind_method(D_METHOD("_toggle_search_bar"), &ProjectSettingsEditor::_toggle_search_bar);
 
@@ -1817,15 +1648,15 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	tab_container->set_use_hidden_tabs_for_min_size(true);
 	add_child(tab_container);
 
-	VBoxContainer *props_base = memnew(VBoxContainer);
-	props_base->set_alignment(BoxContainer::ALIGN_BEGIN);
-	props_base->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	tab_container->add_child(props_base);
-	props_base->set_name(TTR("General"));
+	general_editor = memnew(VBoxContainer);
+	general_editor->set_alignment(BoxContainer::ALIGN_BEGIN);
+	general_editor->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+	tab_container->add_child(general_editor);
+	general_editor->set_name(TTR("General"));
 
 	HBoxContainer *hbc = memnew(HBoxContainer);
 	hbc->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	props_base->add_child(hbc);
+	general_editor->add_child(hbc);
 
 	search_button = memnew(Button);
 	search_button->set_toggle_mode(true);
@@ -1873,7 +1704,7 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	search_bar->add_child(search_box);
 
 	globals_editor = memnew(SectionedInspector);
-	props_base->add_child(globals_editor);
+	general_editor->add_child(globals_editor);
 	globals_editor->get_inspector()->set_undo_redo(EditorNode::get_singleton()->get_undo_redo());
 	globals_editor->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	globals_editor->register_search_box(search_box);
@@ -1900,7 +1731,7 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	set_hide_on_ok(true);
 
 	restart_container = memnew(PanelContainer);
-	props_base->add_child(restart_container);
+	general_editor->add_child(restart_container);
 	HBoxContainer *restart_hb = memnew(HBoxContainer);
 	restart_container->add_child(restart_hb);
 	restart_icon = memnew(TextureRect);
@@ -1941,14 +1772,11 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	l->set_text(TTR("Action:"));
 
 	action_name = memnew(LineEdit);
+	action_name->set_clear_button_enabled(true);
 	action_name->set_h_size_flags(SIZE_EXPAND_FILL);
 	hbc->add_child(action_name);
 	action_name->connect("text_entered", this, "_action_adds");
 	action_name->connect("text_changed", this, "_action_check");
-
-	action_add_error = memnew(Label);
-	hbc->add_child(action_add_error);
-	action_add_error->hide();
 
 	add = memnew(Button);
 	hbc->add_child(add);
@@ -1956,6 +1784,12 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	add->set_disabled(true);
 	add->connect("pressed", this, "_action_add");
 	action_add = add;
+
+	show_builtin_actions_checkbutton = memnew(CheckButton);
+	hbc->add_child(show_builtin_actions_checkbutton);
+	show_builtin_actions_checkbutton->set_text(TTR("Show Built-in Actions"));
+	show_builtin_actions_checkbutton->set_pressed(false);
+	show_builtin_actions_checkbutton->connect("toggled", this, "_set_show_builtin_actions");
 
 	input_editor = memnew(Tree);
 	vbc->add_child(input_editor);
@@ -2039,9 +1873,6 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	translations->set_tab_align(TabContainer::ALIGN_LEFT);
 	translations->set_name(TTR("Localization"));
 	tab_container->add_child(translations);
-	//remap for properly select language in popup
-	translation_locales_idxs_remap = Vector<int>();
-	translation_locales_list_created = false;
 
 	{
 		VBoxContainer *tvb = memnew(VBoxContainer);
@@ -2060,6 +1891,10 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 		translation_list = memnew(Tree);
 		translation_list->set_v_size_flags(SIZE_EXPAND_FILL);
 		tmc->add_child(translation_list);
+
+		locale_select = memnew(EditorLocaleDialog);
+		locale_select->connect("locale_selected", this, "_translation_res_option_selected");
+		add_child(locale_select);
 
 		translation_file_open = memnew(EditorFileDialog);
 		add_child(translation_file_open);
@@ -2113,37 +1948,15 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 		translation_remap_options->set_column_titles_visible(true);
 		translation_remap_options->set_column_expand(0, true);
 		translation_remap_options->set_column_expand(1, false);
-		translation_remap_options->set_column_min_width(1, 200);
+		translation_remap_options->set_column_min_width(1, 250 * EDSCALE);
 		translation_remap_options->connect("item_edited", this, "_translation_res_option_changed");
 		translation_remap_options->connect("button_pressed", this, "_translation_res_option_delete");
+		translation_remap_options->connect("custom_popup_edited", this, "_translation_res_option_popup");
 
 		translation_res_option_file_open = memnew(EditorFileDialog);
 		add_child(translation_res_option_file_open);
 		translation_res_option_file_open->set_mode(EditorFileDialog::MODE_OPEN_FILES);
 		translation_res_option_file_open->connect("files_selected", this, "_translation_res_option_add");
-	}
-
-	{
-		VBoxContainer *tvb = memnew(VBoxContainer);
-		translations->add_child(tvb);
-		tvb->set_name(TTR("Locales Filter"));
-		VBoxContainer *tmc = memnew(VBoxContainer);
-		tmc->set_v_size_flags(SIZE_EXPAND_FILL);
-		tvb->add_child(tmc);
-
-		translation_locale_filter_mode = memnew(OptionButton);
-		translation_locale_filter_mode->add_item(TTR("Show All Locales"), SHOW_ALL_LOCALES);
-		translation_locale_filter_mode->add_item(TTR("Show Selected Locales Only"), SHOW_ONLY_SELECTED_LOCALES);
-		translation_locale_filter_mode->select(0);
-		tmc->add_margin_child(TTR("Filter mode:"), translation_locale_filter_mode);
-		translation_locale_filter_mode->connect("item_selected", this, "_translation_filter_mode_changed");
-
-		translation_filter = memnew(Tree);
-		translation_filter->set_v_size_flags(SIZE_EXPAND_FILL);
-		translation_filter->set_columns(1);
-		tmc->add_child(memnew(Label(TTR("Locales:"))));
-		tmc->add_child(translation_filter);
-		translation_filter->connect("item_edited", this, "_translation_filter_option_changed");
 	}
 
 	autoload_settings = memnew(EditorAutoloadSettings);
@@ -2166,4 +1979,5 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	add_child(timer);
 
 	updating_translations = false;
+	show_builtin_actions = false;
 }

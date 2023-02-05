@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  shader_compiler_gles3.cpp                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  shader_compiler_gles3.cpp                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "shader_compiler_gles3.h"
 
@@ -114,6 +114,8 @@ static int _get_datatype_size(SL::DataType p_type) {
 			return 16;
 		case SL::TYPE_STRUCT:
 			return 0;
+		default: {
+		}
 	}
 
 	ERR_FAIL_V(0);
@@ -185,6 +187,8 @@ static int _get_datatype_alignment(SL::DataType p_type) {
 			return 16;
 		case SL::TYPE_STRUCT:
 			return 0;
+		default: {
+		}
 	}
 
 	ERR_FAIL_V(0);
@@ -1216,6 +1220,10 @@ ShaderCompilerGLES3::ShaderCompilerGLES3() {
 	actions[VS::SHADER_SPATIAL].renames["DEPTH"] = "gl_FragDepth";
 	actions[VS::SHADER_SPATIAL].renames["ALPHA_SCISSOR"] = "alpha_scissor";
 	actions[VS::SHADER_SPATIAL].renames["OUTPUT_IS_SRGB"] = "SHADER_IS_SRGB";
+	actions[VS::SHADER_SPATIAL].renames["NODE_POSITION_WORLD"] = "world_transform[3].xyz";
+	actions[VS::SHADER_SPATIAL].renames["CAMERA_POSITION_WORLD"] = "camera_matrix[3].xyz";
+	actions[VS::SHADER_SPATIAL].renames["CAMERA_DIRECTION_WORLD"] = "camera_inverse_matrix[3].xyz";
+	actions[VS::SHADER_SPATIAL].renames["NODE_POSITION_VIEW"] = "(world_transform * camera_inverse_matrix)[3].xyz";
 
 	//for light
 	actions[VS::SHADER_SPATIAL].renames["VIEW"] = "view";

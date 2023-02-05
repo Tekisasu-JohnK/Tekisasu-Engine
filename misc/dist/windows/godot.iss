@@ -1,8 +1,8 @@
-#define MyAppName "Tekisasu Engine"
-#define MyAppVersion "3.5.1"
-#define MyAppPublisher "Tekisasu"
-#define MyAppURL "https://dev.tekisasu.com/"
-#define MyAppExeName "Tekisasu-Engine.exe"
+#define MyAppName "Godot Engine"
+#define MyAppVersion "3.6"
+#define MyAppPublisher "Godot Engine contributors"
+#define MyAppURL "https://godotengine.org/"
+#define MyAppExeName "godot.exe"
 
 [Setup]
 AppId={{60D07AAA-400E-40F5-B073-A796C34D9D78}

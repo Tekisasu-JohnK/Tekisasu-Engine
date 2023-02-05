@@ -325,10 +325,10 @@ vec4 apply_fxaa(vec4 color, float exposure, vec2 uv_interp, vec2 pixel_size) {
 	const float FXAA_SPAN_MAX = 8.0;
 	const vec3 luma = vec3(0.299, 0.587, 0.114);
 
-	vec4 rgbNW = textureLod(source, uv_interp + vec2(-1.0, -1.0) * pixel_size, 0.0);
-	vec4 rgbNE = textureLod(source, uv_interp + vec2(1.0, -1.0) * pixel_size, 0.0);
-	vec4 rgbSW = textureLod(source, uv_interp + vec2(-1.0, 1.0) * pixel_size, 0.0);
-	vec4 rgbSE = textureLod(source, uv_interp + vec2(1.0, 1.0) * pixel_size, 0.0);
+	vec4 rgbNW = textureLod(source, uv_interp + vec2(-0.5, -0.5) * pixel_size, 0.0);
+	vec4 rgbNE = textureLod(source, uv_interp + vec2(0.5, -0.5) * pixel_size, 0.0);
+	vec4 rgbSW = textureLod(source, uv_interp + vec2(-0.5, 0.5) * pixel_size, 0.0);
+	vec4 rgbSE = textureLod(source, uv_interp + vec2(0.5, 0.5) * pixel_size, 0.0);
 	vec3 rgbM = color.rgb;
 
 #ifdef DISABLE_ALPHA
@@ -467,12 +467,6 @@ void main() {
 	color.rgb = apply_cas(color.rgb, full_exposure, uv_interp, sharpen_intensity);
 #endif
 
-#ifdef USE_DEBANDING
-	// For best results, debanding should be done before tonemapping.
-	// Otherwise, we're adding noise to an already-quantized image.
-	color.rgb += screen_space_dither(gl_FragCoord.xy);
-#endif
-
 	// Early Tonemap & SRGB Conversion; note that Linear tonemapping does not clamp to [0, 1]; some operations below expect a [0, 1] range and will clamp
 	color.rgb = apply_tonemapping(color.rgb, white);
 
@@ -505,6 +499,12 @@ void main() {
 
 #ifdef USE_COLOR_CORRECTION
 	color.rgb = apply_color_correction(color.rgb, color_correction);
+#endif
+
+#ifdef USE_DEBANDING
+	// Debanding should be done at the end of tonemapping, but before writing to the LDR buffer.
+	// Otherwise, we're adding noise to an already-quantized image.
+	color.rgb += screen_space_dither(gl_FragCoord.xy);
 #endif
 
 	frag_color = color;

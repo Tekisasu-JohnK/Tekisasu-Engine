@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  texture.cpp                                                          */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  texture.cpp                                                           */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "texture.h"
 
@@ -835,7 +835,7 @@ StreamTexture::~StreamTexture() {
 	VS::get_singleton()->free(texture);
 }
 
-RES ResourceFormatLoaderStreamTexture::load(const String &p_path, const String &p_original_path, Error *r_error) {
+RES ResourceFormatLoaderStreamTexture::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_no_subresource_cache) {
 	Ref<StreamTexture> st;
 	st.instance();
 	Error err = st->load(p_path);
@@ -1046,35 +1046,28 @@ bool AtlasTexture::get_rect_region(const Rect2 &p_rect, const Rect2 &p_src_rect,
 		return false;
 	}
 
-	Rect2 rc = region;
-
 	Rect2 src = p_src_rect;
 	if (src.size == Size2()) {
-		src.size = rc.size;
+		src.size = region.size;
 	}
 	Vector2 scale = p_rect.size / src.size;
 
-	src.position += (rc.position - margin.position);
-	Rect2 src_c = rc.clip(src);
-	if (src_c.size == Size2()) {
+	src.position += (region.position - margin.position);
+	Rect2 src_clipped = region.clip(src);
+	if (src_clipped.size == Size2()) {
 		return false;
 	}
-	Vector2 ofs = (src_c.position - src.position);
 
+	Vector2 ofs = (src_clipped.position - src.position);
 	if (scale.x < 0) {
-		float mx = (margin.size.width - margin.position.x);
-		mx -= margin.position.x;
-		ofs.x = -(ofs.x + mx);
+		ofs.x += (src_clipped.size.x - src.size.x);
 	}
 	if (scale.y < 0) {
-		float my = margin.size.height - margin.position.y;
-		my -= margin.position.y;
-		ofs.y = -(ofs.y + my);
+		ofs.y += (src_clipped.size.y - src.size.y);
 	}
-	Rect2 dr(p_rect.position + ofs * scale, src_c.size * scale);
 
-	r_rect = dr;
-	r_src_rect = src_c;
+	r_rect = Rect2(p_rect.position + ofs * scale, src_clipped.size * scale);
+	r_src_rect = src_clipped;
 	return true;
 }
 
@@ -1725,11 +1718,16 @@ void GradientTexture::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_gradient"), &GradientTexture::get_gradient);
 
 	ClassDB::bind_method(D_METHOD("set_width", "width"), &GradientTexture::set_width);
+	// The `get_width()` method is already exposed by the parent class Texture.
+
+	ClassDB::bind_method(D_METHOD("set_use_hdr", "enabled"), &GradientTexture::set_use_hdr);
+	ClassDB::bind_method(D_METHOD("is_using_hdr"), &GradientTexture::is_using_hdr);
 
 	ClassDB::bind_method(D_METHOD("_update"), &GradientTexture::_update);
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "gradient", PROPERTY_HINT_RESOURCE_TYPE, "Gradient"), "set_gradient", "get_gradient");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "width", PROPERTY_HINT_RANGE, "1,4096"), "set_width", "get_width");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_hdr"), "set_use_hdr", "is_using_hdr");
 }
 
 void GradientTexture::set_gradient(Ref<Gradient> p_gradient) {
@@ -1767,27 +1765,43 @@ void GradientTexture::_update() {
 		return;
 	}
 
-	PoolVector<uint8_t> data;
-	data.resize(width * 4);
-	{
-		PoolVector<uint8_t>::Write wd8 = data.write();
+	if (use_hdr) {
+		// High dynamic range.
+		Ref<Image> image = memnew(Image(width, 1, false, Image::FORMAT_RGBAF));
 		Gradient &g = **gradient;
-
+		// `create()` isn't available for non-uint8_t data, so fill in the data manually.
+		image->lock();
 		for (int i = 0; i < width; i++) {
 			float ofs = float(i) / (width - 1);
-			Color color = g.get_color_at_offset(ofs);
-
-			wd8[i * 4 + 0] = uint8_t(CLAMP(color.r * 255.0, 0, 255));
-			wd8[i * 4 + 1] = uint8_t(CLAMP(color.g * 255.0, 0, 255));
-			wd8[i * 4 + 2] = uint8_t(CLAMP(color.b * 255.0, 0, 255));
-			wd8[i * 4 + 3] = uint8_t(CLAMP(color.a * 255.0, 0, 255));
+			image->set_pixel(i, 0, g.get_color_at_offset(ofs));
 		}
+		image->unlock();
+
+		VS::get_singleton()->texture_allocate(texture, width, 1, 0, Image::FORMAT_RGBAF, VS::TEXTURE_TYPE_2D, VS::TEXTURE_FLAG_FILTER);
+		VS::get_singleton()->texture_set_data(texture, image);
+	} else {
+		// Low dynamic range. "Overbright" colors will be clamped.
+		PoolVector<uint8_t> data;
+		data.resize(width * 4);
+		{
+			PoolVector<uint8_t>::Write wd8 = data.write();
+			Gradient &g = **gradient;
+
+			for (int i = 0; i < width; i++) {
+				float ofs = float(i) / (width - 1);
+				Color color = g.get_color_at_offset(ofs);
+
+				wd8[i * 4 + 0] = uint8_t(CLAMP(color.r * 255.0, 0, 255));
+				wd8[i * 4 + 1] = uint8_t(CLAMP(color.g * 255.0, 0, 255));
+				wd8[i * 4 + 2] = uint8_t(CLAMP(color.b * 255.0, 0, 255));
+				wd8[i * 4 + 3] = uint8_t(CLAMP(color.a * 255.0, 0, 255));
+			}
+		}
+
+		Ref<Image> image = memnew(Image(width, 1, false, Image::FORMAT_RGBA8, data));
+		VS::get_singleton()->texture_allocate(texture, width, 1, 0, Image::FORMAT_RGBA8, VS::TEXTURE_TYPE_2D, VS::TEXTURE_FLAG_FILTER);
+		VS::get_singleton()->texture_set_data(texture, image);
 	}
-
-	Ref<Image> image = memnew(Image(width, 1, false, Image::FORMAT_RGBA8, data));
-
-	VS::get_singleton()->texture_allocate(texture, width, 1, 0, Image::FORMAT_RGBA8, VS::TEXTURE_TYPE_2D, VS::TEXTURE_FLAG_FILTER);
-	VS::get_singleton()->texture_set_data(texture, image);
 
 	emit_changed();
 }
@@ -1798,6 +1812,19 @@ void GradientTexture::set_width(int p_width) {
 }
 int GradientTexture::get_width() const {
 	return width;
+}
+
+void GradientTexture::set_use_hdr(bool p_enabled) {
+	if (p_enabled == use_hdr) {
+		return;
+	}
+
+	use_hdr = p_enabled;
+	_queue_update();
+}
+
+bool GradientTexture::is_using_hdr() const {
+	return use_hdr;
 }
 
 Ref<Image> GradientTexture::get_data() const {
@@ -2705,7 +2732,7 @@ void TextureArray::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("create", "width", "height", "depth", "format", "flags"), &TextureArray::create, DEFVAL(FLAGS_DEFAULT_TEXTURE_ARRAY));
 }
 
-RES ResourceFormatLoaderTextureLayered::load(const String &p_path, const String &p_original_path, Error *r_error) {
+RES ResourceFormatLoaderTextureLayered::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_no_subresource_cache) {
 	if (r_error) {
 		*r_error = ERR_CANT_OPEN;
 	}

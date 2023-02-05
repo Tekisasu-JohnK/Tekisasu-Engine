@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  node.cpp                                                             */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  node.cpp                                                              */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "node.h"
 
@@ -429,11 +429,7 @@ void Node::move_child(Node *p_child, int p_pos) {
 	for (int i = motion_from; i <= motion_to; i++) {
 		data.children[i]->notification(NOTIFICATION_MOVED_IN_PARENT);
 	}
-	for (const Map<StringName, GroupData>::Element *E = p_child->data.grouped.front(); E; E = E->next()) {
-		if (E->get().group) {
-			E->get().group->changed = true;
-		}
-	}
+	p_child->_propagate_groups_dirty();
 
 	data.blocked--;
 }
@@ -444,6 +440,18 @@ void Node::raise() {
 	}
 
 	data.parent->move_child(this, data.parent->data.children.size() - 1);
+}
+
+void Node::_propagate_groups_dirty() {
+	for (const Map<StringName, GroupData>::Element *E = data.grouped.front(); E; E = E->next()) {
+		if (E->get().group) {
+			E->get().group->changed = true;
+		}
+	}
+
+	for (int i = 0; i < data.children.size(); i++) {
+		data.children[i]->_propagate_groups_dirty();
+	}
 }
 
 void Node::add_child_notify(Node *p_child) {
@@ -1276,7 +1284,7 @@ void Node::_add_child_nocheck(Node *p_child, const StringName &p_name) {
 	}
 }
 
-void Node::add_child(Node *p_child, bool p_legible_unique_name) {
+void Node::add_child(Node *p_child, bool p_force_readable_name) {
 	ERR_FAIL_NULL(p_child);
 	ERR_FAIL_COND_MSG(p_child == this, vformat("Can't add child '%s' to itself.", p_child->get_name())); // adding to itself!
 	ERR_FAIL_COND_MSG(p_child->data.parent, vformat("Can't add child '%s' to '%s', already has a parent '%s'.", p_child->get_name(), get_name(), p_child->data.parent->get_name())); //Fail if node has a parent
@@ -1286,16 +1294,16 @@ void Node::add_child(Node *p_child, bool p_legible_unique_name) {
 	ERR_FAIL_COND_MSG(data.blocked > 0, "Parent node is busy setting up children, add_node() failed. Consider using call_deferred(\"add_child\", child) instead.");
 
 	/* Validate name */
-	_validate_child_name(p_child, p_legible_unique_name);
+	_validate_child_name(p_child, p_force_readable_name);
 
 	_add_child_nocheck(p_child, p_child->data.name);
 }
 
-void Node::add_child_below_node(Node *p_node, Node *p_child, bool p_legible_unique_name) {
+void Node::add_child_below_node(Node *p_node, Node *p_child, bool p_force_readable_name) {
 	ERR_FAIL_NULL(p_node);
 	ERR_FAIL_NULL(p_child);
 
-	add_child(p_child, p_legible_unique_name);
+	add_child(p_child, p_force_readable_name);
 
 	if (p_node->data.parent == this) {
 		move_child(p_child, p_node->get_position_in_parent() + 1);
@@ -1458,12 +1466,23 @@ Node *Node::get_node_or_null(const NodePath &p_path) const {
 Node *Node::get_node(const NodePath &p_path) const {
 	Node *node = get_node_or_null(p_path);
 	if (unlikely(!node)) {
+		// Try to get a clear description of this node in the error message.
+		String desc;
+		if (is_inside_tree()) {
+			desc = get_path();
+		} else {
+			desc = get_name();
+			if (desc.empty()) {
+				desc = get_class();
+			}
+		}
+
 		if (p_path.is_absolute()) {
 			ERR_FAIL_V_MSG(nullptr,
-					vformat("(Node not found: \"%s\" (absolute path attempted from \"%s\").)", p_path, get_path()));
+					vformat("(Node not found: \"%s\" (absolute path attempted from \"%s\").)", p_path, desc));
 		} else {
 			ERR_FAIL_V_MSG(nullptr,
-					vformat("(Node not found: \"%s\" (relative to \"%s\").)", p_path, get_path()));
+					vformat("(Node not found: \"%s\" (relative to \"%s\").)", p_path, desc));
 		}
 	}
 
@@ -2118,6 +2137,8 @@ void Node::get_storable_properties(Set<StringName> &r_storable_properties) const
 }
 
 String Node::to_string() {
+	// This code doesn't print the script's name, it calls to_string() if you override it in a Node's script,
+	// which you only do if you specifically want to customize how the node should be represented by print().
 	if (get_script_instance()) {
 		bool valid;
 		String ret = get_script_instance()->to_string(&valid);
@@ -2866,10 +2887,14 @@ void Node::print_stray_nodes() {
 }
 
 void Node::queue_delete() {
+	// There are users which instantiate multiple scene trees for their games.
+	// Use the node's own tree to handle its deletion when relevant.
 	if (is_inside_tree()) {
 		get_tree()->queue_delete(this);
 	} else {
-		SceneTree::get_singleton()->queue_delete(this);
+		SceneTree *tree = SceneTree::get_singleton();
+		ERR_FAIL_NULL_MSG(tree, "Can't queue free a node when no SceneTree is available.");
+		tree->queue_delete(this);
 	}
 }
 
@@ -2971,11 +2996,11 @@ void Node::_bind_methods() {
 	GLOBAL_DEF("node/name_casing", NAME_CASING_PASCAL_CASE);
 	ProjectSettings::get_singleton()->set_custom_property_info("node/name_casing", PropertyInfo(Variant::INT, "node/name_casing", PROPERTY_HINT_ENUM, "PascalCase,camelCase,snake_case"));
 
-	ClassDB::bind_method(D_METHOD("add_child_below_node", "node", "child_node", "legible_unique_name"), &Node::add_child_below_node, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("add_child_below_node", "node", "child_node", "force_readable_name"), &Node::add_child_below_node, DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("set_name", "name"), &Node::set_name);
 	ClassDB::bind_method(D_METHOD("get_name"), &Node::get_name);
-	ClassDB::bind_method(D_METHOD("add_child", "node", "legible_unique_name"), &Node::add_child, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("add_child", "node", "force_readable_name"), &Node::add_child, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("remove_child", "node"), &Node::remove_child);
 	ClassDB::bind_method(D_METHOD("get_child_count"), &Node::get_child_count);
 	ClassDB::bind_method(D_METHOD("get_children"), &Node::_get_children);
@@ -3053,6 +3078,8 @@ void Node::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_scene_instance_load_placeholder", "load_placeholder"), &Node::set_scene_instance_load_placeholder);
 	ClassDB::bind_method(D_METHOD("get_scene_instance_load_placeholder"), &Node::get_scene_instance_load_placeholder);
+	ClassDB::bind_method(D_METHOD("set_editable_instance", "node", "is_editable"), &Node::set_editable_instance);
+	ClassDB::bind_method(D_METHOD("is_editable_instance", "node"), &Node::is_editable_instance);
 
 	ClassDB::bind_method(D_METHOD("get_viewport"), &Node::get_viewport);
 

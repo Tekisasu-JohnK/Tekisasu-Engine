@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  spatial_editor_gizmos.cpp                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  spatial_editor_gizmos.cpp                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "spatial_editor_gizmos.h"
 
@@ -51,6 +51,7 @@
 #include "scene/3d/ray_cast.h"
 #include "scene/3d/reflection_probe.h"
 #include "scene/3d/room.h"
+#include "scene/3d/shape_cast.h"
 #include "scene/3d/soft_body.h"
 #include "scene/3d/spring_arm.h"
 #include "scene/3d/sprite_3d.h"
@@ -1449,6 +1450,7 @@ void CameraSpatialGizmoPlugin::redraw(EditorSpatialGizmo *p_gizmo) {
 #undef ADD_QUAD
 
 	p_gizmo->add_lines(lines, material);
+	p_gizmo->add_collision_segments(lines);
 	p_gizmo->add_handles(handles, get_material("handles"));
 
 	ClippedCamera *clipcam = Object::cast_to<ClippedCamera>(camera);
@@ -1997,6 +1999,44 @@ void RayCastSpatialGizmoPlugin::redraw(EditorSpatialGizmo *p_gizmo) {
 	}
 
 	p_gizmo->add_collision_segments(raycast->get_debug_line_vertices());
+}
+
+/////
+
+ShapeCastGizmoPlugin::ShapeCastGizmoPlugin() {
+	const Color gizmo_color = EDITOR_GET("editors/3d_gizmos/gizmo_colors/shape");
+	create_material("shape_material", gizmo_color);
+	const float gizmo_value = gizmo_color.get_v();
+	const Color gizmo_color_disabled = Color(gizmo_value, gizmo_value, gizmo_value, 0.65);
+	create_material("shape_material_disabled", gizmo_color_disabled);
+}
+
+bool ShapeCastGizmoPlugin::has_gizmo(Spatial *p_spatial) {
+	return Object::cast_to<ShapeCast>(p_spatial) != nullptr;
+}
+
+String ShapeCastGizmoPlugin::get_name() const {
+	return "ShapeCast";
+}
+
+int ShapeCastGizmoPlugin::get_priority() const {
+	return -1;
+}
+
+void ShapeCastGizmoPlugin::redraw(EditorSpatialGizmo *p_gizmo) {
+	ShapeCast *shapecast = Object::cast_to<ShapeCast>(p_gizmo->get_spatial_node());
+
+	p_gizmo->clear();
+
+	const Ref<SpatialMaterial> material = shapecast->is_enabled() ? shapecast->get_debug_material() : get_material("shape_material_disabled");
+
+	p_gizmo->add_lines(shapecast->get_debug_line_vertices(), material);
+
+	if (shapecast->get_shape().is_valid()) {
+		p_gizmo->add_lines(shapecast->get_debug_shape_vertices(), material);
+	}
+
+	p_gizmo->add_collision_segments(shapecast->get_debug_line_vertices());
 }
 
 /////

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  editor_resource_picker.cpp                                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_resource_picker.cpp                                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "editor_resource_picker.h"
 
@@ -51,6 +51,7 @@ void EditorResourcePicker::_update_resource() {
 	if (edited_resource == RES()) {
 		assign_button->set_icon(Ref<Texture>());
 		assign_button->set_text(TTR("[empty]"));
+		assign_button->set_tooltip("");
 	} else {
 		assign_button->set_icon(EditorNode::get_singleton()->get_object_icon(edited_resource.operator->(), "Object"));
 
@@ -58,14 +59,15 @@ void EditorResourcePicker::_update_resource() {
 			assign_button->set_text(edited_resource->get_name());
 		} else if (edited_resource->get_path().is_resource_file()) {
 			assign_button->set_text(edited_resource->get_path().get_file());
-			assign_button->set_tooltip(edited_resource->get_path());
 		} else {
 			assign_button->set_text(edited_resource->get_class());
 		}
 
+		String resource_path;
 		if (edited_resource->get_path().is_resource_file()) {
-			assign_button->set_tooltip(edited_resource->get_path());
+			resource_path = edited_resource->get_path() + "\n";
 		}
+		assign_button->set_tooltip(resource_path + TTR("Type:") + " " + edited_resource->get_class());
 
 		// Preview will override the above, so called at the end.
 		EditorResourcePreview::get_singleton()->queue_edited_resource_preview(edited_resource, this, "_update_resource_preview", edited_resource->get_instance_id());
@@ -86,7 +88,7 @@ void EditorResourcePicker::_update_resource_preview(const String &p_path, const 
 	if (p_preview.is_valid()) {
 		preview_rect->set_margin(MARGIN_LEFT, assign_button->get_icon()->get_width() + assign_button->get_stylebox("normal")->get_default_margin(MARGIN_LEFT) + get_constant("hseparation", "Button"));
 
-		if (type == "GradientTexture") {
+		if (type == "GradientTexture" || type == "Gradient") {
 			preview_rect->set_stretch_mode(TextureRect::STRETCH_SCALE);
 			assign_button->set_custom_minimum_size(Size2(1, 1));
 		} else {
@@ -520,6 +522,8 @@ void EditorResourcePicker::_get_allowed_types(bool p_with_convert, Set<String> *
 				p_vector->insert("Texture");
 			} else if (base == "ShaderMaterial") {
 				p_vector->insert("Shader");
+			} else if (base == "Texture") {
+				p_vector->insert("Image");
 			}
 		}
 	}
@@ -638,16 +642,33 @@ void EditorResourcePicker::drop_data_fw(const Point2 &p_point, const Variant &p_
 				String at = E->get().strip_edges();
 
 				if (at == "SpatialMaterial" && ClassDB::is_parent_class(dropped_resource->get_class(), "Texture")) {
-					Ref<SpatialMaterial> mat = memnew(SpatialMaterial);
+					// Use existing resource if possible and only replace its data.
+					Ref<SpatialMaterial> mat = edited_resource;
+					if (mat.is_null()) {
+						mat.instance();
+					}
 					mat->set_texture(SpatialMaterial::TextureParam::TEXTURE_ALBEDO, dropped_resource);
 					dropped_resource = mat;
 					break;
 				}
 
 				if (at == "ShaderMaterial" && ClassDB::is_parent_class(dropped_resource->get_class(), "Shader")) {
-					Ref<ShaderMaterial> mat = memnew(ShaderMaterial);
+					Ref<ShaderMaterial> mat = edited_resource;
+					if (mat.is_null()) {
+						mat.instance();
+					}
 					mat->set_shader(dropped_resource);
 					dropped_resource = mat;
+					break;
+				}
+
+				if (at == "Texture" && ClassDB::is_parent_class(dropped_resource->get_class(), "Image")) {
+					Ref<ImageTexture> texture = edited_resource;
+					if (texture.is_null()) {
+						texture.instance();
+					}
+					texture->create_from_image(dropped_resource);
+					dropped_resource = texture;
 					break;
 				}
 			}

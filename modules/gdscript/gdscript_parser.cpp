@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  gdscript_parser.cpp                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  gdscript_parser.cpp                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "gdscript_parser.h"
 
@@ -82,8 +82,51 @@ void GDScriptParser::_set_end_statement_error(String p_name) {
 }
 
 bool GDScriptParser::_enter_indent_block(BlockNode *p_block) {
+	if (!_parse_colon()) {
+		return false;
+	}
+
+	if (tokenizer->get_token() != GDScriptTokenizer::TK_NEWLINE) {
+		// Be more Python-like.
+		IndentLevel current_level = indent_level.back()->get();
+		indent_level.push_back(current_level);
+		return true;
+	}
+
+	return _parse_indent_block_newlines(p_block);
+}
+
+bool GDScriptParser::_enter_inner_class_indent_block() {
+	if (!_parse_colon()) {
+		return false;
+	}
+
+	if (tokenizer->get_token() != GDScriptTokenizer::TK_NEWLINE) {
+		// Check Python-like one-liner class declaration "class Foo: pass".
+		// Note: only "pass" is allowed on the same line after the colon.
+		if (tokenizer->get_token() != GDScriptTokenizer::TK_CF_PASS) {
+			return false;
+		}
+
+		GDScriptTokenizer::Token token = tokenizer->get_token(1);
+		if (token != GDScriptTokenizer::TK_NEWLINE && token != GDScriptTokenizer::TK_EOF) {
+			int line = tokenizer->get_token_line();
+			int col = tokenizer->get_token_column();
+			String message = "Invalid syntax: unexpected \"";
+			message += GDScriptTokenizer::get_token_name(token);
+			message += "\".";
+			_set_error(message, line, col);
+			return false;
+		}
+		return true;
+	}
+
+	return _parse_indent_block_newlines();
+}
+
+bool GDScriptParser::_parse_colon() {
 	if (tokenizer->get_token() != GDScriptTokenizer::TK_COLON) {
-		// report location at the previous token (on the previous line)
+		// Report location at the previous token (on the previous line).
 		int error_line = tokenizer->get_token_line(-1);
 		int error_column = tokenizer->get_token_column(-1);
 		_set_error("':' expected at end of line.", error_line, error_column);
@@ -95,19 +138,12 @@ bool GDScriptParser::_enter_indent_block(BlockNode *p_block) {
 		return false;
 	}
 
-	if (tokenizer->get_token() != GDScriptTokenizer::TK_NEWLINE) {
-		// be more python-like
-		IndentLevel current_level = indent_level.back()->get();
-		indent_level.push_back(current_level);
-		return true;
-		//_set_error("newline expected after ':'.");
-		//return false;
-	}
+	return true;
+}
 
+bool GDScriptParser::_parse_indent_block_newlines(BlockNode *p_block) {
 	while (true) {
-		if (tokenizer->get_token() != GDScriptTokenizer::TK_NEWLINE) {
-			return false; //wtf
-		} else if (tokenizer->get_token(1) == GDScriptTokenizer::TK_EOF) {
+		if (tokenizer->get_token(1) == GDScriptTokenizer::TK_EOF) {
 			return false;
 		} else if (tokenizer->get_token(1) != GDScriptTokenizer::TK_NEWLINE) {
 			int indent = tokenizer->get_token_line_indent();
@@ -126,14 +162,13 @@ bool GDScriptParser::_enter_indent_block(BlockNode *p_block) {
 			indent_level.push_back(new_indent);
 			tokenizer->advance();
 			return true;
-
 		} else if (p_block) {
 			NewLineNode *nl = alloc_node<NewLineNode>();
 			nl->line = tokenizer->get_token_line();
 			p_block->statements.push_back(nl);
 		}
 
-		tokenizer->advance(); // go to next newline
+		tokenizer->advance(); // Go to the next newline.
 	}
 }
 
@@ -3840,13 +3875,18 @@ void GDScriptParser::_parse_class(ClassNode *p_class) {
 					}
 				}
 
-				if (!_enter_indent_block()) {
-					_set_error("Indented block expected.");
+				if (!_enter_inner_class_indent_block()) {
+					if (!error_set) {
+						_set_error("Indented block or \"pass\" expected.");
+					}
 					return;
 				}
-				current_class = newclass;
-				_parse_class(newclass);
-				current_class = p_class;
+
+				if (tokenizer->get_token() != GDScriptTokenizer::TK_CF_PASS) {
+					current_class = newclass;
+					_parse_class(newclass);
+					current_class = p_class;
+				}
 
 			} break;
 			/* this is for functions....
@@ -4310,7 +4350,7 @@ void GDScriptParser::_parse_class(ClassNode *p_class) {
 											_set_error("Expected \")\" in the layers 2D navigation hint.");
 											return;
 										}
-										current_export.hint = PROPERTY_HINT_LAYERS_2D_PHYSICS;
+										current_export.hint = PROPERTY_HINT_LAYERS_2D_NAVIGATION;
 										break;
 									}
 
@@ -5746,6 +5786,7 @@ bool GDScriptParser::_parse_type(DataType &r_type, bool p_can_be_void) {
 					can_index = false;
 					tokenizer->advance();
 				} break;
+				case GDScriptTokenizer::TK_CURSOR:
 				case GDScriptTokenizer::TK_IDENTIFIER: {
 					if (can_index) {
 						_set_error("Unexpected identifier.");

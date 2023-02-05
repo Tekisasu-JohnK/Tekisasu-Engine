@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  control.cpp                                                          */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  control.cpp                                                           */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "control.h"
 
@@ -172,6 +172,12 @@ void Control::set_custom_minimum_size(const Size2 &p_custom) {
 	if (p_custom == data.custom_minimum_size) {
 		return;
 	}
+
+	if (isnan(p_custom.x) || isnan(p_custom.y)) {
+		// Prevent infinite loop.
+		return;
+	}
+
 	data.custom_minimum_size = p_custom;
 	minimum_size_changed();
 }
@@ -426,6 +432,10 @@ void Control::_validate_property(PropertyInfo &property) const {
 
 		property.hint_string = hint_string;
 	}
+
+	if (property.name == "rect_scale") {
+		property.hint = PROPERTY_HINT_LINK;
+	}
 }
 
 Control *Control::get_parent_control() const {
@@ -475,6 +485,7 @@ void Control::_update_canvas_item_transform() {
 void Control::_notification(int p_notification) {
 	switch (p_notification) {
 		case NOTIFICATION_ENTER_TREE: {
+			_invalidate_theme_cache();
 		} break;
 		case NOTIFICATION_POST_ENTER_TREE: {
 			data.minimum_size_valid = false;
@@ -490,53 +501,45 @@ void Control::_notification(int p_notification) {
 		case NOTIFICATION_ENTER_CANVAS: {
 			data.parent = Object::cast_to<Control>(get_parent());
 
+			if (data.theme.is_null() && data.parent && data.parent->data.theme_owner) {
+				data.theme_owner = data.parent->data.theme_owner;
+				notification(NOTIFICATION_THEME_CHANGED);
+			}
+
 			if (is_set_as_toplevel()) {
 				data.SI = get_viewport()->_gui_add_subwindow_control(this);
-
-				if (data.theme.is_null() && data.parent && data.parent->data.theme_owner) {
-					data.theme_owner = data.parent->data.theme_owner;
-					notification(NOTIFICATION_THEME_CHANGED);
-				}
-
 			} else {
-				Node *parent = this; //meh
-				Control *parent_control = nullptr;
-				bool subwindow = false;
+				Node *parent = get_parent();
+				bool is_subwindow = false;
+				bool has_parent_control = false;
 
 				while (parent) {
-					parent = parent->get_parent();
-
-					if (!parent) {
-						break;
-					}
-
 					CanvasItem *ci = Object::cast_to<CanvasItem>(parent);
 					if (ci && ci->is_set_as_toplevel()) {
-						subwindow = true;
+						is_subwindow = true;
 						break;
 					}
 
-					parent_control = Object::cast_to<Control>(parent);
-
+					Control *parent_control = Object::cast_to<Control>(parent);
 					if (parent_control) {
+						has_parent_control = true;
 						break;
 					} else if (ci) {
+						// Continue.
 					} else {
 						break;
 					}
+
+					parent = parent->get_parent();
 				}
 
-				if (parent_control) {
-					//do nothing, has a parent control
-					if (data.theme.is_null() && parent_control->data.theme_owner) {
-						data.theme_owner = parent_control->data.theme_owner;
-						notification(NOTIFICATION_THEME_CHANGED);
-					}
-				} else if (subwindow) {
-					//is a subwindow (process input before other controls for that canvas)
+				if (has_parent_control) {
+					// Do nothing, has a parent control.
+				} else if (is_subwindow) {
+					// Is a subwindow (process input before other controls for that canvas).
 					data.SI = get_viewport()->_gui_add_subwindow_control(this);
 				} else {
-					//is a regular root control
+					// Is a regular root control.
 					Viewport *viewport = get_viewport();
 					ERR_FAIL_COND(!viewport);
 					data.RI = viewport->_gui_add_root_control(this);
@@ -547,7 +550,7 @@ void Control::_notification(int p_notification) {
 				if (data.parent_canvas_item) {
 					data.parent_canvas_item->connect("item_rect_changed", this, "_size_changed");
 				} else {
-					//connect viewport
+					// Connect viewport.
 					Viewport *viewport = get_viewport();
 					ERR_FAIL_COND(!viewport);
 					viewport->connect("size_changed", this, "_size_changed");
@@ -632,6 +635,7 @@ void Control::_notification(int p_notification) {
 
 		} break;
 		case NOTIFICATION_THEME_CHANGED: {
+			_invalidate_theme_cache();
 			minimum_size_changed();
 			update();
 		} break;
@@ -902,9 +906,15 @@ Ref<Texture> Control::get_icon(const StringName &p_name, const StringName &p_the
 		}
 	}
 
+	if (data.theme_icon_cache.has(p_theme_type) && data.theme_icon_cache[p_theme_type].has(p_name)) {
+		return data.theme_icon_cache[p_theme_type][p_name];
+	}
+
 	List<StringName> theme_types;
 	_get_theme_type_dependencies(p_theme_type, &theme_types);
-	return get_theme_item_in_types<Ref<Texture>>(data.theme_owner, Theme::DATA_TYPE_ICON, p_name, theme_types);
+	Ref<Texture> icon = get_theme_item_in_types<Ref<Texture>>(data.theme_owner, Theme::DATA_TYPE_ICON, p_name, theme_types);
+	data.theme_icon_cache[p_theme_type][p_name] = icon;
+	return icon;
 }
 
 Ref<Shader> Control::get_shader(const StringName &p_name, const StringName &p_theme_type) const {
@@ -957,9 +967,15 @@ Ref<StyleBox> Control::get_stylebox(const StringName &p_name, const StringName &
 		}
 	}
 
+	if (data.theme_style_cache.has(p_theme_type) && data.theme_style_cache[p_theme_type].has(p_name)) {
+		return data.theme_style_cache[p_theme_type][p_name];
+	}
+
 	List<StringName> theme_types;
 	_get_theme_type_dependencies(p_theme_type, &theme_types);
-	return get_theme_item_in_types<Ref<StyleBox>>(data.theme_owner, Theme::DATA_TYPE_STYLEBOX, p_name, theme_types);
+	Ref<StyleBox> style = get_theme_item_in_types<Ref<StyleBox>>(data.theme_owner, Theme::DATA_TYPE_STYLEBOX, p_name, theme_types);
+	data.theme_style_cache[p_theme_type][p_name] = style;
+	return style;
 }
 
 Ref<Font> Control::get_font(const StringName &p_name, const StringName &p_theme_type) const {
@@ -970,9 +986,15 @@ Ref<Font> Control::get_font(const StringName &p_name, const StringName &p_theme_
 		}
 	}
 
+	if (data.theme_font_cache.has(p_theme_type) && data.theme_font_cache[p_theme_type].has(p_name)) {
+		return data.theme_font_cache[p_theme_type][p_name];
+	}
+
 	List<StringName> theme_types;
 	_get_theme_type_dependencies(p_theme_type, &theme_types);
-	return get_theme_item_in_types<Ref<Font>>(data.theme_owner, Theme::DATA_TYPE_FONT, p_name, theme_types);
+	Ref<Font> font = get_theme_item_in_types<Ref<Font>>(data.theme_owner, Theme::DATA_TYPE_FONT, p_name, theme_types);
+	data.theme_font_cache[p_theme_type][p_name] = font;
+	return font;
 }
 
 Color Control::get_color(const StringName &p_name, const StringName &p_theme_type) const {
@@ -983,9 +1005,15 @@ Color Control::get_color(const StringName &p_name, const StringName &p_theme_typ
 		}
 	}
 
+	if (data.theme_color_cache.has(p_theme_type) && data.theme_color_cache[p_theme_type].has(p_name)) {
+		return data.theme_color_cache[p_theme_type][p_name];
+	}
+
 	List<StringName> theme_types;
 	_get_theme_type_dependencies(p_theme_type, &theme_types);
-	return get_theme_item_in_types<Color>(data.theme_owner, Theme::DATA_TYPE_COLOR, p_name, theme_types);
+	Color color = get_theme_item_in_types<Color>(data.theme_owner, Theme::DATA_TYPE_COLOR, p_name, theme_types);
+	data.theme_color_cache[p_theme_type][p_name] = color;
+	return color;
 }
 
 int Control::get_constant(const StringName &p_name, const StringName &p_theme_type) const {
@@ -996,9 +1024,15 @@ int Control::get_constant(const StringName &p_name, const StringName &p_theme_ty
 		}
 	}
 
+	if (data.theme_constant_cache.has(p_theme_type) && data.theme_constant_cache[p_theme_type].has(p_name)) {
+		return data.theme_constant_cache[p_theme_type][p_name];
+	}
+
 	List<StringName> theme_types;
 	_get_theme_type_dependencies(p_theme_type, &theme_types);
-	return get_theme_item_in_types<int>(data.theme_owner, Theme::DATA_TYPE_CONSTANT, p_name, theme_types);
+	int constant = get_theme_item_in_types<int>(data.theme_owner, Theme::DATA_TYPE_CONSTANT, p_name, theme_types);
+	data.theme_constant_cache[p_theme_type][p_name] = constant;
+	return constant;
 }
 
 bool Control::has_icon_override(const StringName &p_name) const {
@@ -2099,6 +2133,14 @@ void Control::_propagate_theme_changed(CanvasItem *p_at, Control *p_owner, bool 
 
 void Control::_theme_changed() {
 	_propagate_theme_changed(this, this, false);
+}
+
+void Control::_invalidate_theme_cache() {
+	data.theme_icon_cache.clear();
+	data.theme_style_cache.clear();
+	data.theme_font_cache.clear();
+	data.theme_color_cache.clear();
+	data.theme_constant_cache.clear();
 }
 
 void Control::set_theme(const Ref<Theme> &p_theme) {

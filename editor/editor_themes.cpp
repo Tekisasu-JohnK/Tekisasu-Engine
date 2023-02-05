@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  editor_themes.cpp                                                    */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_themes.cpp                                                     */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "editor_themes.h"
 
@@ -233,6 +233,14 @@ void editor_register_and_generate_icons(Ref<Theme> p_theme, bool p_dark_theme = 
 		exceptions.insert("StatusSuccess");
 		exceptions.insert("StatusWarning");
 		exceptions.insert("OverbrightIndicator");
+
+		// Prevents Code Editor icons from changing
+		exceptions.insert("GuiTab");
+		exceptions.insert("GuiSpace");
+		exceptions.insert("GuiEllipsis");
+		exceptions.insert("TextEditFold");
+		exceptions.insert("TextEditFolded");
+		exceptions.insert("TextEditorPlay");
 	}
 
 	// These ones should be converted even if we are using a dark theme.
@@ -297,6 +305,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 
 	String preset = EDITOR_GET("interface/theme/preset");
 
+	bool enable_touchscreen_touch_area = EDITOR_GET("interface/theme/enable_touchscreen_touch_area");
 	bool highlight_tabs = EDITOR_GET("interface/theme/highlight_tabs");
 	int border_size = EDITOR_GET("interface/theme/border_size");
 
@@ -308,11 +317,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 
 	// Please, use alphabet order if you've added new theme here(After "Default" and "Custom")
 
-	if (preset == "Default") {
-		preset_accent_color = Color(0.57, 0.41, 0.91);
-		preset_base_color = Color(0.19, 0.19, 0.2);
-		preset_contrast = default_contrast;
-	} else if (preset == "Custom") {
+	if (preset == "Custom") {
 		accent_color = EDITOR_GET("interface/theme/accent_color");
 		base_color = EDITOR_GET("interface/theme/base_color");
 		contrast = EDITOR_GET("interface/theme/contrast");
@@ -986,8 +991,8 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	theme->set_constant("side_margin", "TabContainer", 0);
 	theme->set_icon("tab", "TextEdit", theme->get_icon("GuiTab", "EditorIcons"));
 	theme->set_icon("space", "TextEdit", theme->get_icon("GuiSpace", "EditorIcons"));
-	theme->set_icon("folded", "TextEdit", theme->get_icon("GuiTreeArrowRight", "EditorIcons"));
-	theme->set_icon("fold", "TextEdit", theme->get_icon("GuiTreeArrowDown", "EditorIcons"));
+	theme->set_icon("folded", "TextEdit", theme->get_icon("TextEditFolded", "EditorIcons"));
+	theme->set_icon("fold", "TextEdit", theme->get_icon("TextEditFold", "EditorIcons"));
 	theme->set_color("font_color", "TextEdit", font_color);
 	theme->set_color("font_color_readonly", "TextEdit", font_color_readonly);
 	theme->set_color("caret_color", "TextEdit", font_color);
@@ -1045,7 +1050,11 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	// HScrollBar
 	Ref<Texture> empty_icon = memnew(ImageTexture);
 
-	theme->set_stylebox("scroll", "HScrollBar", make_stylebox(theme->get_icon("GuiScrollBg", "EditorIcons"), 5, 5, 5, 5, 0, 0, 0, 0));
+	if (enable_touchscreen_touch_area) {
+		theme->set_stylebox("scroll", "HScrollBar", make_line_stylebox(separator_color, 50));
+	} else {
+		theme->set_stylebox("scroll", "HScrollBar", make_stylebox(theme->get_icon("GuiScrollBg", "EditorIcons"), 5, 5, 5, 5, 0, 0, 0, 0));
+	}
 	theme->set_stylebox("scroll_focus", "HScrollBar", make_stylebox(theme->get_icon("GuiScrollBg", "EditorIcons"), 5, 5, 5, 5, 0, 0, 0, 0));
 	theme->set_stylebox("grabber", "HScrollBar", make_stylebox(theme->get_icon("GuiScrollGrabber", "EditorIcons"), 6, 6, 6, 6, 2, 2, 2, 2));
 	theme->set_stylebox("grabber_highlight", "HScrollBar", make_stylebox(theme->get_icon("GuiScrollGrabberHl", "EditorIcons"), 5, 5, 5, 5, 2, 2, 2, 2));
@@ -1059,7 +1068,11 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	theme->set_icon("decrement_pressed", "HScrollBar", empty_icon);
 
 	// VScrollBar
-	theme->set_stylebox("scroll", "VScrollBar", make_stylebox(theme->get_icon("GuiScrollBg", "EditorIcons"), 5, 5, 5, 5, 0, 0, 0, 0));
+	if (enable_touchscreen_touch_area) {
+		theme->set_stylebox("scroll", "VScrollBar", make_line_stylebox(separator_color, 50, 1, 1, true));
+	} else {
+		theme->set_stylebox("scroll", "VScrollBar", make_stylebox(theme->get_icon("GuiScrollBg", "EditorIcons"), 5, 5, 5, 5, 0, 0, 0, 0));
+	}
 	theme->set_stylebox("scroll_focus", "VScrollBar", make_stylebox(theme->get_icon("GuiScrollBg", "EditorIcons"), 5, 5, 5, 5, 0, 0, 0, 0));
 	theme->set_stylebox("grabber", "VScrollBar", make_stylebox(theme->get_icon("GuiScrollGrabber", "EditorIcons"), 6, 6, 6, 6, 2, 2, 2, 2));
 	theme->set_stylebox("grabber_highlight", "VScrollBar", make_stylebox(theme->get_icon("GuiScrollGrabberHl", "EditorIcons"), 5, 5, 5, 5, 2, 2, 2, 2));
@@ -1322,7 +1335,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	const float mono_value = mono_color.r;
 	const Color alpha1 = Color(mono_value, mono_value, mono_value, 0.07);
 	const Color alpha2 = Color(mono_value, mono_value, mono_value, 0.14);
-	const Color alpha3 = Color(mono_value, mono_value, mono_value, 0.7);
+	const Color alpha3 = Color(mono_value, mono_value, mono_value, 0.27);
 
 	// editor main color
 	const Color main_color = dark_theme ? Color(0.34, 0.7, 1.0) : Color(0.02, 0.5, 1.0);

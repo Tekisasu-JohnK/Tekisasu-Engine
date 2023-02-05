@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  csharp_script.cpp                                                    */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  csharp_script.cpp                                                     */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "csharp_script.h"
 
@@ -2623,7 +2623,8 @@ int CSharpScript::_try_get_member_export_hint(IMonoClassMember *p_member, Manage
 	GD_MONO_ASSERT_THREAD_ATTACHED;
 
 	if (p_variant_type == Variant::INT && p_type.type_encoding == MONO_TYPE_VALUETYPE && mono_class_is_enum(p_type.type_class->get_mono_ptr())) {
-		r_hint = PROPERTY_HINT_ENUM;
+		MonoReflectionType *reftype = mono_type_get_object(mono_domain_get(), p_type.type_class->get_mono_type());
+		r_hint = GDMonoUtils::Marshal::type_has_flags_attribute(reftype) ? PROPERTY_HINT_FLAGS : PROPERTY_HINT_ENUM;
 
 		Vector<MonoClassField *> fields = p_type.type_class->get_enum_fields();
 
@@ -2660,7 +2661,8 @@ int CSharpScript::_try_get_member_export_hint(IMonoClassMember *p_member, Manage
 			uint64_t val = GDMonoUtils::unbox_enum_value(val_obj, enum_basetype, r_error);
 			ERR_FAIL_COND_V_MSG(r_error, -1, "Failed to unbox '" + enum_field_name + "' constant enum value.");
 
-			if (val != (unsigned int)i) {
+			unsigned int expected_val = r_hint == PROPERTY_HINT_FLAGS ? 1 << i : i;
+			if (val != expected_val) {
 				uses_default_values = false;
 			}
 
@@ -3377,7 +3379,7 @@ void CSharpScript::get_members(Set<StringName> *p_members) {
 
 /*************** RESOURCE ***************/
 
-RES ResourceFormatLoaderCSharpScript::load(const String &p_path, const String &p_original_path, Error *r_error) {
+RES ResourceFormatLoaderCSharpScript::load(const String &p_path, const String &p_original_path, Error *r_error, bool p_no_subresource_cache) {
 	if (r_error)
 		*r_error = ERR_FILE_CANT_OPEN;
 

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  object.cpp                                                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  object.cpp                                                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "object.h"
 
@@ -1477,7 +1477,9 @@ Error Object::connect(const StringName &p_signal, Object *p_to_object, const Str
 			s->slot_map[target].reference_count++;
 			return OK;
 		} else {
-			ERR_FAIL_V_MSG(ERR_INVALID_PARAMETER, "Signal '" + p_signal + "' is already connected to given method '" + p_to_method + "' in that object.");
+			ERR_FAIL_V_MSG(ERR_INVALID_PARAMETER,
+					vformat("Signal \"%s\" from \"%s\" is already connected to given method \"%s\" in \"%s\".",
+							p_signal, to_string(), p_to_method, p_to_object->to_string()));
 		}
 	}
 
@@ -1668,8 +1670,8 @@ void Object::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_class", "class"), &Object::is_class);
 	ClassDB::bind_method(D_METHOD("set", "property", "value"), &Object::_set_bind);
 	ClassDB::bind_method(D_METHOD("get", "property"), &Object::_get_bind);
-	ClassDB::bind_method(D_METHOD("set_indexed", "property", "value"), &Object::_set_indexed_bind);
-	ClassDB::bind_method(D_METHOD("get_indexed", "property"), &Object::_get_indexed_bind);
+	ClassDB::bind_method(D_METHOD("set_indexed", "property_path", "value"), &Object::_set_indexed_bind);
+	ClassDB::bind_method(D_METHOD("get_indexed", "property_path"), &Object::_get_indexed_bind);
 	ClassDB::bind_method(D_METHOD("get_property_list"), &Object::_get_property_list_bind);
 	ClassDB::bind_method(D_METHOD("get_method_list"), &Object::_get_method_list_bind);
 	ClassDB::bind_method(D_METHOD("notification", "what", "reversed"), &Object::notification, DEFVAL(false));

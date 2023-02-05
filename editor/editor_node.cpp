@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  editor_node.cpp                                                      */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_node.cpp                                                       */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "editor_node.h"
 
@@ -140,6 +140,7 @@
 #include "editor/plugins/mesh_library_editor_plugin.h"
 #include "editor/plugins/multimesh_editor_plugin.h"
 #include "editor/plugins/navigation_polygon_editor_plugin.h"
+#include "editor/plugins/packed_scene_editor_plugin.h"
 #include "editor/plugins/particles_2d_editor_plugin.h"
 #include "editor/plugins/particles_editor_plugin.h"
 #include "editor/plugins/path_2d_editor_plugin.h"
@@ -512,12 +513,11 @@ void EditorNode::_notification(int p_what) {
 
 			feature_profile_manager->notify_changed();
 
-			/*if (!main_editor_buttons[EDITOR_3D]->is_visible()) { //may be hidden due to feature profile
+			if (!main_editor_buttons[EDITOR_3D]->is_visible()) { //may be hidden due to feature profile
 				_editor_select(EDITOR_2D);
 			} else {
 				_editor_select(EDITOR_3D);
-			}*/
-			_editor_select(EDITOR_2D); /* Tekisasu - Set 2D view by default. */
+			}
 
 			_update_debug_options();
 
@@ -622,7 +622,13 @@ void EditorNode::_notification(int p_what) {
 			PopupMenu *p = help_menu->get_popup();
 			p->set_item_icon(p->get_item_index(HELP_SEARCH), gui_base->get_icon("HelpSearch", "EditorIcons"));
 			p->set_item_icon(p->get_item_index(HELP_DOCS), gui_base->get_icon("ExternalLink", "EditorIcons"));
+			p->set_item_icon(p->get_item_index(HELP_QA), gui_base->get_icon("ExternalLink", "EditorIcons"));
+			p->set_item_icon(p->get_item_index(HELP_REPORT_A_BUG), gui_base->get_icon("ExternalLink", "EditorIcons"));
+			p->set_item_icon(p->get_item_index(HELP_SUGGEST_A_FEATURE), gui_base->get_icon("ExternalLink", "EditorIcons"));
+			p->set_item_icon(p->get_item_index(HELP_SEND_DOCS_FEEDBACK), gui_base->get_icon("ExternalLink", "EditorIcons"));
+			p->set_item_icon(p->get_item_index(HELP_COMMUNITY), gui_base->get_icon("ExternalLink", "EditorIcons"));
 			p->set_item_icon(p->get_item_index(HELP_ABOUT), gui_base->get_icon("Godot", "EditorIcons"));
+			p->set_item_icon(p->get_item_index(HELP_SUPPORT_GODOT_DEVELOPMENT), gui_base->get_icon("Heart", "EditorIcons"));
 			_update_update_spinner();
 		} break;
 
@@ -1434,34 +1440,6 @@ bool EditorNode::_validate_scene_recursive(const String &p_filename, Node *p_nod
 	return false;
 }
 
-static bool _find_edited_resources(const Ref<Resource> &p_resource, Set<Ref<Resource>> &edited_resources) {
-	if (p_resource->is_edited()) {
-		edited_resources.insert(p_resource);
-		return true;
-	}
-
-	List<PropertyInfo> plist;
-
-	p_resource->get_property_list(&plist);
-
-	for (List<PropertyInfo>::Element *E = plist.front(); E; E = E->next()) {
-		if (E->get().type == Variant::OBJECT && E->get().usage & PROPERTY_USAGE_STORAGE && !(E->get().usage & PROPERTY_USAGE_RESOURCE_NOT_PERSISTENT)) {
-			RES res = p_resource->get(E->get().name);
-			if (res.is_null()) {
-				continue;
-			}
-			if (res->get_path().is_resource_file()) { //not a subresource, continue
-				continue;
-			}
-			if (_find_edited_resources(res, edited_resources)) {
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
 int EditorNode::_save_external_resources() {
 	//save external resources and its subresources if any was modified
 
@@ -1471,28 +1449,41 @@ int EditorNode::_save_external_resources() {
 	}
 	flg |= ResourceSaver::FLAG_REPLACE_SUBRESOURCE_PATHS;
 
-	Set<Ref<Resource>> edited_subresources;
+	Set<String> edited_resources;
 	int saved = 0;
 	List<Ref<Resource>> cached;
 	ResourceCache::get_cached_resources(&cached);
 	for (List<Ref<Resource>>::Element *E = cached.front(); E; E = E->next()) {
 		Ref<Resource> res = E->get();
-		if (!res->get_path().is_resource_file()) {
+		if (!res->is_edited()) {
 			continue;
 		}
-		//not only check if this resourec is edited, check contained subresources too
-		if (_find_edited_resources(res, edited_subresources)) {
-			ResourceSaver::save(res->get_path(), res, flg);
-			saved++;
+
+		String path = res->get_path();
+		if (path.begins_with("res://")) {
+			int subres_pos = path.find("::");
+			if (subres_pos == -1) {
+				// Actual resource.
+				edited_resources.insert(path);
+			} else {
+				edited_resources.insert(path.substr(0, subres_pos));
+			}
 		}
+
+		res->set_edited(false);
 	}
 
-	// clear later, because user may have put the same subresource in two different resources,
-	// which will be shared until the next reload
-
-	for (Set<Ref<Resource>>::Element *E = edited_subresources.front(); E; E = E->next()) {
-		Ref<Resource> res = E->get();
-		res->set_edited(false);
+	for (Set<String>::Element *E = edited_resources.front(); E; E = E->next()) {
+		Ref<Resource> res = Ref<Resource>(ResourceCache::get(E->get()));
+		if (!res.is_valid()) {
+			continue; // Maybe it was erased in a thread, who knows.
+		}
+		Ref<PackedScene> ps = res;
+		if (ps.is_valid()) {
+			continue; // Do not save PackedScenes, this will mess up the editor.
+		}
+		ResourceSaver::save(res->get_path(), res, flg);
+		saved++;
 	}
 
 	return saved;
@@ -1621,14 +1612,15 @@ void EditorNode::restart_editor() {
 
 	List<String> args;
 
+	const Vector<String> &forwardable_args = Main::get_forwardable_cli_arguments(Main::CLI_SCOPE_TOOL);
+	for (int i = 0; i < forwardable_args.size(); i++) {
+		args.push_back(forwardable_args[i]);
+	}
+
 	args.push_back("--path");
 	args.push_back(ProjectSettings::get_singleton()->get_resource_path());
 
 	args.push_back("-e");
-
-	if (OS::get_singleton()->is_disable_crash_handler()) {
-		args.push_back("--disable-crash-handler");
-	}
 
 	if (to_reopen != String()) {
 		args.push_back(to_reopen);
@@ -3067,8 +3059,16 @@ void EditorNode::_discard_changes(const String &p_str) {
 			String exec = OS::get_singleton()->get_executable_path();
 
 			List<String> args;
-			args.push_back("--path");
-			args.push_back(exec.get_base_dir());
+			const Vector<String> &forwardable_args = Main::get_forwardable_cli_arguments(Main::CLI_SCOPE_TOOL);
+			for (int i = 0; i < forwardable_args.size(); i++) {
+				args.push_back(forwardable_args[i]);
+			}
+
+			String exec_base_dir = exec.get_base_dir();
+			if (!exec_base_dir.empty()) {
+				args.push_back("--path");
+				args.push_back(exec_base_dir);
+			}
 			args.push_back("--project-manager");
 
 			OS::ProcessID pid = 0;
@@ -3835,7 +3835,7 @@ void EditorNode::_quick_opened() {
 		List<String> scene_extensions;
 		ResourceLoader::get_recognized_extensions_for_type("PackedScene", &scene_extensions);
 
-		if (open_scene_dialog || scene_extensions.find(files[i].get_extension())) {
+		if (open_scene_dialog || scene_extensions.find(files[i].get_extension().to_lower())) {
 			open_request(res_path);
 		} else {
 			load_resource(res_path);
@@ -4536,7 +4536,7 @@ void EditorNode::_load_docks() {
 	editor_data.set_plugin_window_layout(config);
 }
 
-void EditorNode::_update_dock_slots_visibility() {
+void EditorNode::_update_dock_slots_visibility(bool p_keep_selected_tabs) {
 	if (!docks_visible) {
 		for (int i = 0; i < DOCK_SLOT_MAX; i++) {
 			dock_slot[i]->hide();
@@ -4571,9 +4571,11 @@ void EditorNode::_update_dock_slots_visibility() {
 			}
 		}
 
-		for (int i = 0; i < DOCK_SLOT_MAX; i++) {
-			if (dock_slot[i]->is_visible() && dock_slot[i]->get_tab_count()) {
-				dock_slot[i]->set_current_tab(0);
+		if (!p_keep_selected_tabs) {
+			for (int i = 0; i < DOCK_SLOT_MAX; i++) {
+				if (dock_slot[i]->is_visible() && dock_slot[i]->get_tab_count()) {
+					dock_slot[i]->set_current_tab(0);
+				}
 			}
 		}
 
@@ -5174,7 +5176,7 @@ void EditorNode::_bottom_panel_switch(bool p_enable, int p_idx) {
 
 void EditorNode::set_docks_visible(bool p_show) {
 	docks_visible = p_show;
-	_update_dock_slots_visibility();
+	_update_dock_slots_visibility(true);
 }
 
 bool EditorNode::get_docks_visible() const {
@@ -5625,6 +5627,8 @@ void EditorNode::_project_settings_changed() {
 	tree->set_debug_collision_contact_color(GLOBAL_GET("debug/shapes/collision/contact_color"));
 	tree->set_debug_navigation_color(GLOBAL_GET("debug/shapes/navigation/geometry_color"));
 	tree->set_debug_navigation_disabled_color(GLOBAL_GET("debug/shapes/navigation/disabled_geometry_color"));
+
+	_update_title();
 }
 
 void EditorNode::_feature_profile_changed() {
@@ -5920,10 +5924,17 @@ EditorNode::EditorNode() {
 	// Define a minimum window size to prevent UI elements from overlapping or being cut off
 	OS::get_singleton()->set_min_window_size(Size2(1024, 600) * EDSCALE);
 
-	ResourceLoader::set_abort_on_missing_resources(false);
 	FileDialog::set_default_show_hidden_files(EditorSettings::get_singleton()->get("filesystem/file_dialog/show_hidden_files"));
 	EditorFileDialog::set_default_show_hidden_files(EditorSettings::get_singleton()->get("filesystem/file_dialog/show_hidden_files"));
 	EditorFileDialog::set_default_display_mode((EditorFileDialog::DisplayMode)EditorSettings::get_singleton()->get("filesystem/file_dialog/display_mode").operator int());
+
+	int swap_cancel_ok = EDITOR_GET("interface/editor/accept_dialog_cancel_ok_buttons");
+	if (swap_cancel_ok != 0) { // 0 is auto, set in register_scene based on OS.
+		// Swap on means OK first.
+		AcceptDialog::set_swap_ok_cancel(swap_cancel_ok == 2);
+	}
+
+	ResourceLoader::set_abort_on_missing_resources(false);
 	ResourceLoader::set_error_notify_func(this, _load_error_notify);
 	ResourceLoader::set_dependency_error_notify_func(this, _dependency_error_report);
 
@@ -6430,8 +6441,10 @@ EditorNode::EditorNode() {
 
 	p->add_separator();
 	p->add_shortcut(ED_SHORTCUT("editor/export", TTR("Export...")), FILE_EXPORT_PROJECT);
+#ifndef ANDROID_ENABLED
 	p->add_item(TTR("Install Android Build Template..."), FILE_INSTALL_ANDROID_SOURCE);
 	p->add_item(TTR("Open User Data Folder"), RUN_USER_DATA_FOLDER);
+#endif
 
 	plugin_config_dialog = memnew(PluginConfigDialog);
 	plugin_config_dialog->connect("plugin_ready", this, "_on_plugin_ready");
@@ -6543,13 +6556,16 @@ EditorNode::EditorNode() {
 	p->add_shortcut(ED_SHORTCUT("editor/take_screenshot", TTR("Take Screenshot"), KEY_MASK_CTRL | KEY_F12), EDITOR_SCREENSHOT);
 #endif
 	p->set_item_tooltip(p->get_item_count() - 1, TTR("Screenshots are stored in the Editor Data/Settings Folder."));
+#ifndef ANDROID_ENABLED
 #ifdef OSX_ENABLED
 	p->add_shortcut(ED_SHORTCUT("editor/fullscreen_mode", TTR("Toggle Fullscreen"), KEY_MASK_CMD | KEY_MASK_CTRL | KEY_F), SETTINGS_TOGGLE_FULLSCREEN);
 #else
 	p->add_shortcut(ED_SHORTCUT("editor/fullscreen_mode", TTR("Toggle Fullscreen"), KEY_MASK_SHIFT | KEY_F11), SETTINGS_TOGGLE_FULLSCREEN);
 #endif
+#endif
 	p->add_separator();
 
+#ifndef ANDROID_ENABLED
 	if (OS::get_singleton()->get_data_path() == OS::get_singleton()->get_config_path()) {
 		// Configuration and data folders are located in the same place (Windows/macOS)
 		p->add_item(TTR("Open Editor Data/Settings Folder"), SETTINGS_EDITOR_DATA_FOLDER);
@@ -6559,9 +6575,12 @@ EditorNode::EditorNode() {
 		p->add_item(TTR("Open Editor Settings Folder"), SETTINGS_EDITOR_CONFIG_FOLDER);
 	}
 	p->add_separator();
+#endif
 
 	p->add_item(TTR("Manage Editor Features..."), SETTINGS_MANAGE_FEATURE_PROFILES);
+#ifndef ANDROID_ENABLED
 	p->add_item(TTR("Manage Export Templates..."), SETTINGS_MANAGE_EXPORT_TEMPLATES);
+#endif
 
 	// Help Menu
 	help_menu = memnew(MenuButton);
@@ -6581,8 +6600,14 @@ EditorNode::EditorNode() {
 #endif
 	p->add_separator();
 	p->add_icon_shortcut(gui_base->get_icon("ExternalLink", "EditorIcons"), ED_SHORTCUT("editor/online_docs", TTR("Online Documentation")), HELP_DOCS);
+	p->add_icon_shortcut(gui_base->get_icon("ExternalLink", "EditorIcons"), ED_SHORTCUT("editor/q&a", TTR("Questions & Answers")), HELP_QA);
+	p->add_icon_shortcut(gui_base->get_icon("ExternalLink", "EditorIcons"), ED_SHORTCUT("editor/report_a_bug", TTR("Report a Bug")), HELP_REPORT_A_BUG);
+	p->add_icon_shortcut(gui_base->get_icon("ExternalLink", "EditorIcons"), ED_SHORTCUT("editor/suggest_a_feature", TTR("Suggest a Feature")), HELP_SUGGEST_A_FEATURE);
+	p->add_icon_shortcut(gui_base->get_icon("ExternalLink", "EditorIcons"), ED_SHORTCUT("editor/send_docs_feedback", TTR("Send Docs Feedback")), HELP_SEND_DOCS_FEEDBACK);
+	p->add_icon_shortcut(gui_base->get_icon("ExternalLink", "EditorIcons"), ED_SHORTCUT("editor/community", TTR("Community")), HELP_COMMUNITY);
 	p->add_separator();
-	p->add_icon_shortcut(gui_base->get_icon("Godot", "EditorIcons"), ED_SHORTCUT("editor/about", TTR("About Tekisasu Engine")), HELP_ABOUT);
+	p->add_icon_shortcut(gui_base->get_icon("Godot", "EditorIcons"), ED_SHORTCUT("editor/about", TTR("About Godot")), HELP_ABOUT);
+	p->add_icon_shortcut(gui_base->get_icon("Heart", "EditorIcons"), ED_SHORTCUT("editor/support_development", TTR("Support Godot Development")), HELP_SUPPORT_GODOT_DEVELOPMENT);
 
 	HBoxContainer *play_hb = memnew(HBoxContainer);
 	menu_hb->add_child(play_hb);
@@ -7011,6 +7036,7 @@ EditorNode::EditorNode() {
 	add_editor_plugin(memnew(RoomEditorPlugin(this)));
 	add_editor_plugin(memnew(OccluderEditorPlugin(this)));
 	add_editor_plugin(memnew(PortalEditorPlugin(this)));
+	add_editor_plugin(memnew(PackedSceneEditorPlugin(this)));
 	add_editor_plugin(memnew(Path2DEditorPlugin(this)));
 	add_editor_plugin(memnew(PathEditorPlugin(this)));
 	add_editor_plugin(memnew(Line2DEditorPlugin(this)));
@@ -7050,6 +7076,7 @@ EditorNode::EditorNode() {
 	resource_preview->add_preview_generator(Ref<EditorMeshPreviewPlugin>(memnew(EditorMeshPreviewPlugin)));
 	resource_preview->add_preview_generator(Ref<EditorBitmapPreviewPlugin>(memnew(EditorBitmapPreviewPlugin)));
 	resource_preview->add_preview_generator(Ref<EditorFontPreviewPlugin>(memnew(EditorFontPreviewPlugin)));
+	resource_preview->add_preview_generator(Ref<EditorGradientPreviewPlugin>(memnew(EditorGradientPreviewPlugin)));
 
 	{
 		Ref<SpatialMaterialConversionPlugin> spatial_mat_convert;

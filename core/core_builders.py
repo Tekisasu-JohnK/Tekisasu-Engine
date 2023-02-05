@@ -42,8 +42,8 @@ def make_certs_header(target, source, env):
 
 
 def make_authors_header(target, source, env):
-    sections = ["Fork Maintainer", "Project Founders", "Lead Developer", "Project Manager", "Developers"]
-    sections_id = ["FORK_ID", "AUTHORS_FOUNDERS", "AUTHORS_LEAD_DEVELOPERS", "AUTHORS_PROJECT_MANAGERS", "AUTHORS_DEVELOPERS"]
+    sections = ["Project Founders", "Lead Developer", "Project Manager", "Developers"]
+    sections_id = ["AUTHORS_FOUNDERS", "AUTHORS_LEAD_DEVELOPERS", "AUTHORS_PROJECT_MANAGERS", "AUTHORS_DEVELOPERS"]
 
     src = source[0]
     dst = target[0]

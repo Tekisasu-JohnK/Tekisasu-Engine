@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  multi_node_edit.cpp                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  multi_node_edit.cpp                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "multi_node_edit.h"
 
@@ -195,6 +195,60 @@ int MultiNodeEdit::get_node_count() const {
 NodePath MultiNodeEdit::get_node(int p_index) const {
 	ERR_FAIL_INDEX_V(p_index, nodes.size(), NodePath());
 	return nodes[p_index];
+}
+
+StringName MultiNodeEdit::get_edited_class_name() const {
+	Node *es = EditorNode::get_singleton()->get_edited_scene();
+	if (!es) {
+		return StringName("Node");
+	}
+
+	// Get the class name of the first node.
+	StringName class_name;
+	for (const List<NodePath>::Element *E = nodes.front(); E; E = E->next()) {
+		Node *node = es->get_node_or_null(E->get());
+		if (!node) {
+			continue;
+		}
+
+		class_name = node->get_class_name();
+		break;
+	}
+
+	if (class_name == StringName()) {
+		return StringName("Node");
+	}
+
+	bool check_again = true;
+	while (check_again) {
+		check_again = false;
+
+		if (class_name == StringName("Node") || class_name == StringName()) {
+			// All nodes inherit from Node, so no need to continue checking.
+			return StringName("Node");
+		}
+
+		// Check that all nodes inherit from class_name.
+		for (const List<NodePath>::Element *E = nodes.front(); E; E = E->next()) {
+			Node *node = es->get_node_or_null(E->get());
+			if (!node) {
+				continue;
+			}
+
+			const StringName node_class_name = node->get_class_name();
+			if (class_name == node_class_name || ClassDB::is_parent_class(node_class_name, class_name)) {
+				// class_name is the same or a parent of the node's class.
+				continue;
+			}
+
+			// class_name is not a parent of the node's class, so check again with the parent class.
+			class_name = ClassDB::get_parent_class(class_name);
+			check_again = true;
+			break;
+		}
+	}
+
+	return class_name;
 }
 
 void MultiNodeEdit::set_property_field(const StringName &p_property, const Variant &p_value, const String &p_field) {

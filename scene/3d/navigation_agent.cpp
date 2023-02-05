@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  navigation_agent.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  navigation_agent.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "navigation_agent.h"
 
@@ -81,6 +81,7 @@ void NavigationAgent::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_target_location", "location"), &NavigationAgent::set_target_location);
 	ClassDB::bind_method(D_METHOD("get_target_location"), &NavigationAgent::get_target_location);
+
 	ClassDB::bind_method(D_METHOD("get_next_location"), &NavigationAgent::get_next_location);
 	ClassDB::bind_method(D_METHOD("distance_to_target"), &NavigationAgent::distance_to_target);
 	ClassDB::bind_method(D_METHOD("set_velocity", "velocity"), &NavigationAgent::set_velocity);
@@ -94,6 +95,7 @@ void NavigationAgent::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_avoidance_done", "new_velocity"), &NavigationAgent::_avoidance_done);
 
 	ADD_GROUP("Pathfinding", "");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "target_location", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NOEDITOR), "set_target_location", "get_target_location");
 	ADD_PROPERTY(PropertyInfo(Variant::REAL, "path_desired_distance", PROPERTY_HINT_RANGE, "0.1,100,0.01"), "set_path_desired_distance", "get_path_desired_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::REAL, "target_desired_distance", PROPERTY_HINT_RANGE, "0.1,100,0.01"), "set_target_desired_distance", "get_target_desired_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::REAL, "agent_height_offset", PROPERTY_HINT_RANGE, "-100.0,100,0.01"), "set_agent_height_offset", "get_agent_height_offset");
@@ -212,9 +214,9 @@ NavigationAgent::~NavigationAgent() {
 void NavigationAgent::set_avoidance_enabled(bool p_enabled) {
 	avoidance_enabled = p_enabled;
 	if (avoidance_enabled) {
-		NavigationServer::get_singleton()->agent_set_callback(agent, this, "_avoidance_done");
+		NavigationServer::get_singleton()->agent_set_callback(agent, get_instance_id(), "_avoidance_done");
 	} else {
-		NavigationServer::get_singleton()->agent_set_callback(agent, nullptr, "_avoidance_done");
+		NavigationServer::get_singleton()->agent_set_callback(agent, ObjectID(), "_avoidance_done");
 	}
 }
 
@@ -243,7 +245,7 @@ Node *NavigationAgent::get_navigation_node() const {
 
 void NavigationAgent::set_agent_parent(Node *p_agent_parent) {
 	// remove agent from any avoidance map before changing parent or there will be leftovers on the RVO map
-	NavigationServer::get_singleton()->agent_set_callback(agent, nullptr, "_avoidance_done");
+	NavigationServer::get_singleton()->agent_set_callback(agent, ObjectID(), "_avoidance_done");
 	if (Object::cast_to<Spatial>(p_agent_parent) != nullptr) {
 		// place agent on navigation map first or else the RVO agent callback creation fails silently later
 		agent_parent = Object::cast_to<Spatial>(p_agent_parent);
@@ -405,11 +407,16 @@ void NavigationAgent::_avoidance_done(Vector3 p_new_velocity) {
 }
 
 String NavigationAgent::get_configuration_warning() const {
+	String warning = Node::get_configuration_warning();
+
 	if (!Object::cast_to<Spatial>(get_parent())) {
-		return TTR("The NavigationAgent can be used only under a Spatial inheriting parent node.");
+		if (warning != String()) {
+			warning += "\n\n";
+		}
+		warning += TTR("The NavigationAgent can be used only under a Spatial inheriting parent node.");
 	}
 
-	return String();
+	return warning;
 }
 
 void NavigationAgent::update_navigation() {

@@ -14,6 +14,7 @@ def get_doc_classes():
         "GLTFBufferView",
         "GLTFCamera",
         "GLTFDocument",
+        "GLTFDocumentExtension",
         "GLTFLight",
         "GLTFMesh",
         "GLTFNode",
@@ -22,6 +23,7 @@ def get_doc_classes():
         "GLTFSpecGloss",
         "GLTFState",
         "GLTFTexture",
+        "GLTFTextureSampler",
         "PackedSceneGLTF",
     ]
 

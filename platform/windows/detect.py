@@ -70,7 +70,6 @@ def get_opts():
         ("msvc_version", "MSVC version to use. Ignored if VCINSTALLDIR is set in shell env.", None),
         BoolVariable("use_mingw", "Use the Mingw compiler, even if MSVC is installed.", False),
         BoolVariable("use_llvm", "Use the LLVM compiler", False),
-        BoolVariable("use_thinlto", "Use ThinLTO", False),
         BoolVariable("use_static_cpp", "Link MinGW/MSVC C++ runtime libraries statically", True),
         BoolVariable("use_asan", "Use address sanitizer (ASAN)", False),
     ]
@@ -194,7 +193,6 @@ def configure_msvc(env, manual_msvc_config):
 
     elif env["target"] == "debug":
         env.AppendUnique(CCFLAGS=["/Zi", "/FS", "/Od", "/EHsc"])
-        # Allow big objects. Only needed for debug, see MinGW branch for rationale.
         env.Append(LINKFLAGS=["/DEBUG"])
 
     if env["windows_subsystem"] == "gui":
@@ -256,6 +254,7 @@ def configure_msvc(env, manual_msvc_config):
         "kernel32",
         "ole32",
         "oleaut32",
+        "sapi",
         "user32",
         "gdi32",
         "IPHLPAPI",
@@ -281,7 +280,13 @@ def configure_msvc(env, manual_msvc_config):
 
     ## LTO
 
-    if env["use_lto"]:
+    if env["lto"] == "auto":  # No LTO by default for MSVC, doesn't help.
+        env["lto"] = "none"
+
+    if env["lto"] != "none":
+        if env["lto"] == "thin":
+            print("ThinLTO is only compatible with LLVM, use `use_llvm=yes` or `lto=full`.")
+            sys.exit(255)
         env.AppendUnique(CCFLAGS=["/GL"])
         env.AppendUnique(ARFLAGS=["/LTCG"])
         if env["progress"]:
@@ -392,17 +397,24 @@ def configure_mingw(env):
 
     env["x86_libtheora_opt_gcc"] = True
 
-    if env["use_lto"]:
-        if not env["use_llvm"] and env.GetOption("num_jobs") > 1:
+    ## LTO
+
+    if env["lto"] == "auto":  # Full LTO for production with MinGW.
+        env["lto"] = "full"
+
+    if env["lto"] != "none":
+        if env["lto"] == "thin":
+            if not env["use_llvm"]:
+                print("ThinLTO is only compatible with LLVM, use `use_llvm=yes` or `lto=full`.")
+                sys.exit(255)
+            env.Append(CCFLAGS=["-flto=thin"])
+            env.Append(LINKFLAGS=["-flto=thin"])
+        elif not env["use_llvm"] and env.GetOption("num_jobs") > 1:
             env.Append(CCFLAGS=["-flto"])
             env.Append(LINKFLAGS=["-flto=" + str(env.GetOption("num_jobs"))])
         else:
-            if env["use_thinlto"]:
-                env.Append(CCFLAGS=["-flto=thin"])
-                env.Append(LINKFLAGS=["-flto=thin"])
-            else:
-                env.Append(CCFLAGS=["-flto"])
-                env.Append(LINKFLAGS=["-flto"])
+            env.Append(CCFLAGS=["-flto"])
+            env.Append(LINKFLAGS=["-flto"])
 
     env.Append(LINKFLAGS=["-Wl,--stack," + str(STACK_SIZE)])
 
@@ -427,6 +439,7 @@ def configure_mingw(env):
             "ws2_32",
             "kernel32",
             "oleaut32",
+            "sapi",
             "dinput8",
             "dxguid",
             "ksuser",

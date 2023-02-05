@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  os_javascript.cpp                                                    */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  os_javascript.cpp                                                     */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "os_javascript.h"
 
@@ -61,6 +61,90 @@ void OS_JavaScript::request_quit_callback() {
 	OS_JavaScript *os = get_singleton();
 	if (os && os->get_main_loop()) {
 		os->get_main_loop()->notification(MainLoop::NOTIFICATION_WM_QUIT_REQUEST);
+	}
+}
+
+bool OS_JavaScript::tts_is_speaking() const {
+	return godot_js_tts_is_speaking();
+}
+
+bool OS_JavaScript::tts_is_paused() const {
+	return godot_js_tts_is_paused();
+}
+
+void OS_JavaScript::update_voices_callback(int p_size, const char **p_voice) {
+	get_singleton()->voices.clear();
+	for (int i = 0; i < p_size; i++) {
+		Vector<String> tokens = String::utf8(p_voice[i]).split(";", true, 2);
+		if (tokens.size() == 2) {
+			Dictionary voice_d;
+			voice_d["name"] = tokens[1];
+			voice_d["id"] = tokens[1];
+			voice_d["language"] = tokens[0];
+			get_singleton()->voices.push_back(voice_d);
+		}
+	}
+}
+
+Array OS_JavaScript::tts_get_voices() const {
+	godot_js_tts_get_voices(update_voices_callback);
+	return voices;
+}
+
+void OS_JavaScript::tts_speak(const String &p_text, const String &p_voice, int p_volume, float p_pitch, float p_rate, int p_utterance_id, bool p_interrupt) {
+	if (p_interrupt) {
+		tts_stop();
+	}
+
+	if (p_text.empty()) {
+		tts_post_utterance_event(OS::TTS_UTTERANCE_CANCELED, p_utterance_id);
+		return;
+	}
+
+	CharString string = p_text.utf8();
+	utterance_ids[p_utterance_id] = string;
+
+	godot_js_tts_speak(string.get_data(), p_voice.utf8().get_data(), CLAMP(p_volume, 0, 100), CLAMP(p_pitch, 0.f, 2.f), CLAMP(p_rate, 0.1f, 10.f), p_utterance_id, OS_JavaScript::_js_utterance_callback);
+}
+
+void OS_JavaScript::tts_pause() {
+	godot_js_tts_pause();
+}
+
+void OS_JavaScript::tts_resume() {
+	godot_js_tts_resume();
+}
+
+void OS_JavaScript::tts_stop() {
+	for (Map<int, CharString>::Element *E = utterance_ids.front(); E; E = E->next()) {
+		tts_post_utterance_event(OS::TTS_UTTERANCE_CANCELED, E->key());
+	}
+	utterance_ids.clear();
+	godot_js_tts_stop();
+}
+
+void OS_JavaScript::_js_utterance_callback(int p_event, int p_id, int p_pos) {
+	OS_JavaScript *ds = (OS_JavaScript *)OS::get_singleton();
+	if (ds->utterance_ids.has(p_id)) {
+		int pos = 0;
+		if ((TTSUtteranceEvent)p_event == OS::TTS_UTTERANCE_BOUNDARY) {
+			// Convert position from UTF-8 to UTF-32.
+			const CharString &string = ds->utterance_ids[p_id];
+			for (int i = 0; i < MIN(p_pos, string.length()); i++) {
+				uint8_t c = string[i];
+				if ((c & 0xe0) == 0xc0) {
+					i += 1;
+				} else if ((c & 0xf0) == 0xe0) {
+					i += 2;
+				} else if ((c & 0xf8) == 0xf0) {
+					i += 3;
+				}
+				pos++;
+			}
+		} else if ((TTSUtteranceEvent)p_event != OS::TTS_UTTERANCE_STARTED) {
+			ds->utterance_ids.erase(p_id);
+		}
+		ds->tts_post_utterance_event((TTSUtteranceEvent)p_event, p_id, pos);
 	}
 }
 
@@ -370,6 +454,10 @@ void OS_JavaScript::set_cursor_shape(CursorShape p_shape) {
 	godot_js_display_cursor_set_shape(godot2dom_cursor(cursor_shape));
 }
 
+OS::CursorShape OS_JavaScript::get_cursor_shape() const {
+	return cursor_shape;
+}
+
 void OS_JavaScript::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_shape, const Vector2 &p_hotspot) {
 	if (p_cursor.is_valid()) {
 		Ref<Texture> texture = p_cursor;
@@ -449,9 +537,10 @@ void OS_JavaScript::set_custom_mouse_cursor(const RES &p_cursor, CursorShape p_s
 }
 
 void OS_JavaScript::set_mouse_mode(OS::MouseMode p_mode) {
-	ERR_FAIL_COND_MSG(p_mode == MOUSE_MODE_CONFINED, "MOUSE_MODE_CONFINED is not supported for the HTML5 platform.");
-	if (p_mode == get_mouse_mode())
+	ERR_FAIL_COND_MSG(p_mode == MOUSE_MODE_CONFINED || p_mode == MOUSE_MODE_CONFINED_HIDDEN, "MOUSE_MODE_CONFINED is not supported for the HTML5 platform.");
+	if (p_mode == get_mouse_mode()) {
 		return;
+	}
 
 	if (p_mode == MOUSE_MODE_VISIBLE) {
 		godot_js_display_cursor_set_visible(1);
@@ -801,8 +890,8 @@ bool OS_JavaScript::has_virtual_keyboard() const {
 	return godot_js_display_vk_available() != 0;
 }
 
-void OS_JavaScript::show_virtual_keyboard(const String &p_existing_text, const Rect2 &p_screen_rect, bool p_multiline, int p_max_input_length, int p_cursor_start, int p_cursor_end) {
-	godot_js_display_vk_show(p_existing_text.utf8().get_data(), p_multiline, p_cursor_start, p_cursor_end);
+void OS_JavaScript::show_virtual_keyboard(const String &p_existing_text, const Rect2 &p_screen_rect, VirtualKeyboardType p_type, int p_max_input_length, int p_cursor_start, int p_cursor_end) {
+	godot_js_display_vk_show(p_existing_text.utf8().get_data(), p_type, p_cursor_start, p_cursor_end);
 }
 
 void OS_JavaScript::hide_virtual_keyboard() {
@@ -1054,6 +1143,12 @@ void OS_JavaScript::update_pwa_state_callback() {
 
 Error OS_JavaScript::pwa_update() {
 	return godot_js_pwa_update() ? FAILED : OK;
+}
+
+void OS_JavaScript::force_fs_sync() {
+	if (is_userfs_persistent()) {
+		idb_needs_sync = true;
+	}
 }
 
 bool OS_JavaScript::is_userfs_persistent() const {

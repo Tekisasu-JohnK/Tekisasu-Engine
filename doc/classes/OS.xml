@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="OS" inherits="Object" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="OS" inherits="Object" version="3.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Operating System functions.
 	</brief_description>
@@ -143,7 +143,7 @@
 		<method name="get_cache_dir" qualifiers="const">
 			<return type="String" />
 			<description>
-				Returns the [i]global[/i] cache data directory according to the operating system's standards. On desktop platforms, this path can be overridden by setting the [code]XDG_CACHE_HOME[/code] environment variable before starting the project. See [url=$DOCS_URL/tutorials/io/data_paths.html]File paths in Godot projects[/url] in the documentation for more information. See also [method get_config_dir] and [method get_data_dir].
+				Returns the [i]global[/i] cache data directory according to the operating system's standards. On Linux, this path can be overridden by setting the [code]XDG_CACHE_HOME[/code] environment variable before starting the project. See [url=$DOCS_URL/tutorials/io/data_paths.html]File paths in Godot projects[/url] in the documentation for more information. See also [method get_config_dir] and [method get_data_dir].
 				Not to be confused with [method get_user_data_dir], which returns the [i]project-specific[/i] user data path.
 			</description>
 		</method>
@@ -171,7 +171,7 @@
 		<method name="get_config_dir" qualifiers="const">
 			<return type="String" />
 			<description>
-				Returns the [i]global[/i] user configuration directory according to the operating system's standards. On desktop platforms, this path can be overridden by setting the [code]XDG_CONFIG_HOME[/code] environment variable before starting the project. See [url=$DOCS_URL/tutorials/io/data_paths.html]File paths in Godot projects[/url] in the documentation for more information. See also [method get_cache_dir] and [method get_data_dir].
+				Returns the [i]global[/i] user configuration directory according to the operating system's standards. On Linux, this path can be overridden by setting the [code]XDG_CONFIG_HOME[/code] environment variable before starting the project. See [url=$DOCS_URL/tutorials/io/data_paths.html]File paths in Godot projects[/url] in the documentation for more information. See also [method get_cache_dir] and [method get_data_dir].
 				Not to be confused with [method get_user_data_dir], which returns the [i]project-specific[/i] user data path.
 			</description>
 		</method>
@@ -192,7 +192,7 @@
 		<method name="get_data_dir" qualifiers="const">
 			<return type="String" />
 			<description>
-				Returns the [i]global[/i] user data directory according to the operating system's standards. On desktop platforms, this path can be overridden by setting the [code]XDG_DATA_HOME[/code] environment variable before starting the project. See [url=$DOCS_URL/tutorials/io/data_paths.html]File paths in Godot projects[/url] in the documentation for more information. See also [method get_cache_dir] and [method get_config_dir].
+				Returns the [i]global[/i] user data directory according to the operating system's standards. On Linux, this path can be overridden by setting the [code]XDG_DATA_HOME[/code] environment variable before starting the project. See [url=$DOCS_URL/tutorials/io/data_paths.html]File paths in Godot projects[/url] in the documentation for more information. See also [method get_cache_dir] and [method get_config_dir].
 				Not to be confused with [method get_user_data_dir], which returns the [i]project-specific[/i] user data path.
 			</description>
 		</method>
@@ -370,6 +370,12 @@
 			<return type="Vector2" />
 			<description>
 				Returns the window size including decorations like window borders.
+			</description>
+		</method>
+		<method name="get_restart_on_exit_arguments" qualifiers="const">
+			<return type="PoolStringArray" />
+			<description>
+				Returns the list of command line arguments that will be used when the project automatically restarts using [method set_restart_on_exit]. See also [method is_restart_on_exit_set].
 			</description>
 		</method>
 		<method name="get_scancode_string" qualifiers="const">
@@ -700,6 +706,12 @@
 				[b]Note:[/b] This method is implemented on Android, iOS, Linux, macOS and Windows.
 			</description>
 		</method>
+		<method name="is_restart_on_exit_set" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the project will automatically restart when it exits for any reason, [code]false[/code] otherwise. See also [method set_restart_on_exit] and [method get_restart_on_exit_arguments].
+			</description>
+		</method>
 		<method name="is_scancode_unicode" qualifiers="const">
 			<return type="bool" />
 			<argument index="0" name="code" type="int" />
@@ -880,6 +892,13 @@
 				Shows all resources currently used by the game.
 			</description>
 		</method>
+		<method name="read_string_from_stdin">
+			<return type="String" />
+			<description>
+				Reads a user input string from the standard input (usually the terminal). This operation is [i]blocking[/i], which causes the window to freeze if [method read_string_from_stdin] is called on the main thread. The thread calling [method read_string_from_stdin] will block until the program receives a line break in standard input (usually by the user pressing [kbd]Enter[/kbd]).
+				[b]Note:[/b] This method is implemented on Linux, macOS and Windows.
+			</description>
+		</method>
 		<method name="request_attention">
 			<return type="void" />
 			<description>
@@ -945,6 +964,17 @@
 				Sets the game's icon using a multi-size platform-specific icon file ([code]*.ico[/code] on Windows and [code]*.icns[/code] on macOS).
 				Appropriate size sub-icons are used for window caption, taskbar/dock and window selection dialog.
 				[b]Note:[/b] This method is implemented on macOS and Windows.
+			</description>
+		</method>
+		<method name="set_restart_on_exit">
+			<return type="void" />
+			<argument index="0" name="restart" type="bool" />
+			<argument index="1" name="arguments" type="PoolStringArray" default="PoolStringArray(  )" />
+			<description>
+				If [code]restart[/code] is [code]true[/code], restarts the project automatically when it is exited with [method SceneTree.quit] or [constant Node.NOTIFICATION_WM_QUIT_REQUEST]. Command line [code]arguments[/code] can be supplied. To restart the project with the same command line arguments as originally used to run the project, pass [method get_cmdline_args] as the value for [code]arguments[/code].
+				[method set_restart_on_exit] can be used to apply setting changes that require a restart. See also [method is_restart_on_exit_set] and [method get_restart_on_exit_arguments].
+				[b]Note:[/b] This method is only effective on desktop platforms, and only when the project isn't started from the editor. It will have no effect on mobile and Web platforms, or when the project is started from the editor.
+				[b]Note:[/b] If the project process crashes or is [i]killed[/i] by the user (by sending [code]SIGKILL[/code] instead of the usual [code]SIGTERM[/code]), the project won't restart automatically.
 			</description>
 		</method>
 		<method name="set_thread_name">
@@ -1018,7 +1048,107 @@
 				Shows the virtual keyboard if the platform has one.
 				The [code]existing_text[/code] parameter is useful for implementing your own [LineEdit] or [TextEdit], as it tells the virtual keyboard what text has already been typed (the virtual keyboard uses it for auto-correct and predictions).
 				The [code]multiline[/code] parameter needs to be set to [code]true[/code] to be able to enter multiple lines of text, as in [TextEdit].
-				[b]Note:[/b] This method is implemented on Android, iOS and UWP.
+				[b]Note:[/b] This method is equivalent to calling [method show_virtual_keyboard_type] with either default or multiline keyboard type. It is kept for compatibility with previous Godot releases and should be considered [i]deprecated[/i] and replaced by [method show_virtual_keyboard_type].
+				[b]Note:[/b] This method is implemented on Android, iOS, UWP, and HTML5.
+			</description>
+		</method>
+		<method name="show_virtual_keyboard_type">
+			<return type="void" />
+			<argument index="0" name="existing_text" type="String" default="&quot;&quot;" />
+			<argument index="1" name="type" type="int" enum="OS.VirtualKeyboardType" default="0" />
+			<description>
+				Shows the virtual keyboard if the platform has one.
+				The [code]existing_text[/code] parameter is useful for implementing your own [LineEdit] or [TextEdit], as it tells the virtual keyboard what text has already been typed (the virtual keyboard uses it for auto-correct and predictions).
+				The [code]type[/code] parameter allows selecting which virtual keyboard to show.
+				[b]Note:[/b] This method is implemented on Android, iOS, UWP, and HTML5.
+			</description>
+		</method>
+		<method name="tts_get_voices" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns an [Array] of voice information dictionaries.
+				Each [Dictionary] contains two [String] entries:
+				- [code]name[/code] is voice name.
+				- [code]id[/code] is voice identifier.
+				- [code]language[/code] is language code in [code]lang_Variant[/code] format. [code]lang[/code] part is a 2 or 3-letter code based on the ISO-639 standard, in lowercase. And [code]Variant[/code] part is an engine dependent string describing country, region or/and dialect.
+				[b]Note:[/b] This method is implemented on Android, iOS, HTML5, Linux, macOS, and Windows.
+			</description>
+		</method>
+		<method name="tts_get_voices_for_language" qualifiers="const">
+			<return type="PoolStringArray" />
+			<argument index="0" name="language" type="String" />
+			<description>
+				Returns an [PoolStringArray] of voice identifiers for the [code]language[/code].
+				[b]Note:[/b] This method is implemented on Android, iOS, HTML5, Linux, macOS, and Windows.
+			</description>
+		</method>
+		<method name="tts_is_paused" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the synthesizer is in a paused state.
+				[b]Note:[/b] This method is implemented on Android, iOS, HTML5, Linux, macOS, and Windows.
+			</description>
+		</method>
+		<method name="tts_is_speaking" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] if the synthesizer is generating speech, or have utterance waiting in the queue.
+				[b]Note:[/b] This method is implemented on Android, iOS, HTML5, Linux, macOS, and Windows.
+			</description>
+		</method>
+		<method name="tts_pause">
+			<return type="void" />
+			<description>
+				Puts the synthesizer into a paused state.
+				[b]Note:[/b] This method is implemented on Android, iOS, HTML5, Linux, macOS, and Windows.
+			</description>
+		</method>
+		<method name="tts_resume">
+			<return type="void" />
+			<description>
+				Resumes the synthesizer if it was paused.
+				[b]Note:[/b] This method is implemented on Android, iOS, HTML5, Linux, macOS, and Windows.
+			</description>
+		</method>
+		<method name="tts_set_utterance_callback">
+			<return type="void" />
+			<argument index="0" name="event" type="int" enum="OS.TTSUtteranceEvent" />
+			<argument index="1" name="object" type="Object" />
+			<argument index="2" name="callback" type="String" />
+			<description>
+				Adds a callback, which is called when the utterance has started, finished, canceled or reached a text boundary.
+				- [code]TTS_UTTERANCE_STARTED[/code], [code]TTS_UTTERANCE_ENDED[/code], and [code]TTS_UTTERANCE_CANCELED[/code] callable's method should take one [int] parameter, the utterance id.
+				- [code]TTS_UTTERANCE_BOUNDARY[/code] callable's method should take two [int] parameters, the index of the character and the utterance id.
+				[b]Note:[/b] The granularity of the boundary callbacks is engine dependent.
+				[b]Note:[/b] This method is implemented on Android, iOS, HTML5, Linux, macOS, and Windows.
+			</description>
+		</method>
+		<method name="tts_speak">
+			<return type="void" />
+			<argument index="0" name="text" type="String" />
+			<argument index="1" name="voice" type="String" />
+			<argument index="2" name="volume" type="int" default="50" />
+			<argument index="3" name="pitch" type="float" default="1.0" />
+			<argument index="4" name="rate" type="float" default="1.0" />
+			<argument index="5" name="utterance_id" type="int" default="0" />
+			<argument index="6" name="interrupt" type="bool" default="false" />
+			<description>
+				Adds an utterance to the queue. If [code]interrupt[/code] is [code]true[/code], the queue is cleared first.
+				- [code]voice[/code] identifier is one of the [code]"id"[/code] values returned by [method tts_get_voices] or one of the values returned by [method tts_get_voices_for_language].
+				- [code]volume[/code] ranges from [code]0[/code] (lowest) to [code]100[/code] (highest).
+				- [code]pitch[/code] ranges from [code]0.0[/code] (lowest) to [code]2.0[/code] (highest), [code]1.0[/code] is default pitch for the current voice.
+				- [code]rate[/code] ranges from [code]0.1[/code] (lowest) to [code]10.0[/code] (highest), [code]1.0[/code] is a normal speaking rate. Other values act as a percentage relative.
+				- [code]utterance_id[/code] is passed as a parameter to the callback functions.
+				[b]Note:[/b] On Windows and Linux, utterance [code]text[/code] can use SSML markup. SSML support is engine and voice dependent. If the engine does not support SSML, you should strip out all XML markup before calling [method tts_speak].
+				[b]Note:[/b] The granularity of pitch, rate, and volume is engine and voice dependent. Values may be truncated.
+				[b]Note:[/b] This method is implemented on Android, iOS, HTML5, Linux, macOS, and Windows.
+			</description>
+		</method>
+		<method name="tts_stop">
+			<return type="void" />
+			<description>
+				Stops synthesis in progress and removes all utterances from the queue.
+				[b]Note:[/b] This method is implemented on Android, iOS, HTML5, Linux, macOS, and Windows.
 			</description>
 		</method>
 	</methods>
@@ -1081,7 +1211,7 @@
 		</member>
 		<member name="window_per_pixel_transparency_enabled" type="bool" setter="set_window_per_pixel_transparency_enabled" getter="get_window_per_pixel_transparency_enabled" default="false">
 			If [code]true[/code], the window background is transparent and the window frame is removed.
-			Use [code]get_tree().get_root().set_transparent_background(true)[/code] to disable main viewport background rendering.
+			Enable [member ProjectSettings.rendering/viewport/transparent_background] or call [code]get_tree().get_root().set_transparent_background(true)[/code] to disable background rendering on the root [Viewport].
 			[b]Note:[/b] This property has no effect if [member ProjectSettings.display/window/per_pixel_transparency/allowed] setting is disabled.
 			[b]Note:[/b] This property is implemented on HTML5, Linux, macOS, Windows, and Android. It can't be changed at runtime for Android. Use [member ProjectSettings.display/window/per_pixel_transparency/enabled] to set it at startup instead.
 		</member>
@@ -1208,6 +1338,31 @@
 		<constant name="SCREEN_ORIENTATION_SENSOR" value="6" enum="ScreenOrientation">
 			Uses most suitable orientation based on the hardware sensor.
 		</constant>
+		<constant name="KEYBOARD_TYPE_DEFAULT" value="0" enum="VirtualKeyboardType">
+			Default text virtual keyboard.
+		</constant>
+		<constant name="KEYBOARD_TYPE_MULTILINE" value="1" enum="VirtualKeyboardType">
+			Multiline virtual keyboard.
+		</constant>
+		<constant name="KEYBOARD_TYPE_NUMBER" value="2" enum="VirtualKeyboardType">
+			Virtual number keypad, useful for PIN entry.
+		</constant>
+		<constant name="KEYBOARD_TYPE_NUMBER_DECIMAL" value="3" enum="VirtualKeyboardType">
+			Virtual number keypad, useful for entering fractional numbers.
+		</constant>
+		<constant name="KEYBOARD_TYPE_PHONE" value="4" enum="VirtualKeyboardType">
+			Virtual phone number keypad.
+		</constant>
+		<constant name="KEYBOARD_TYPE_EMAIL_ADDRESS" value="5" enum="VirtualKeyboardType">
+			Virtual keyboard with additional keys to assist with typing email addresses.
+		</constant>
+		<constant name="KEYBOARD_TYPE_PASSWORD" value="6" enum="VirtualKeyboardType">
+			Virtual keyboard for entering a password. On most platforms, this should disable autocomplete and autocapitalization.
+			[b]Note:[/b] This is not supported on HTML5 or below iOS version 11.0. Instead, this will behave identically to [constant KEYBOARD_TYPE_DEFAULT].
+		</constant>
+		<constant name="KEYBOARD_TYPE_URL" value="7" enum="VirtualKeyboardType">
+			Virtual keyboard with additional keys to assist with typing URLs.
+		</constant>
 		<constant name="SYSTEM_DIR_DESKTOP" value="0" enum="SystemDir">
 			Desktop directory path.
 		</constant>
@@ -1246,6 +1401,18 @@
 		</constant>
 		<constant name="POWERSTATE_CHARGED" value="4" enum="PowerState">
 			Plugged in, battery fully charged.
+		</constant>
+		<constant name="TTS_UTTERANCE_STARTED" value="0" enum="TTSUtteranceEvent">
+			Utterance has begun to be spoken.
+		</constant>
+		<constant name="TTS_UTTERANCE_ENDED" value="1" enum="TTSUtteranceEvent">
+			Utterance was successfully finished.
+		</constant>
+		<constant name="TTS_UTTERANCE_CANCELED" value="2" enum="TTSUtteranceEvent">
+			Utterance was canceled, or TTS service was unable to process it.
+		</constant>
+		<constant name="TTS_UTTERANCE_BOUNDARY" value="3" enum="TTSUtteranceEvent">
+			Utterance reached a word or sentence boundary.
 		</constant>
 	</constants>
 </class>

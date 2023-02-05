@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="NavigationServer" inherits="Object" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="NavigationServer" inherits="Object" version="3.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Server interface for low-level 3D navigation access.
 	</brief_description>
@@ -10,6 +10,7 @@
 		For two regions to be connected to each other, they must share a similar edge. An edge is considered connected to another if both of its two vertices are at a distance less than [member Navigation.edge_connection_margin] to the respective other edge's vertex.
 		To use the collision avoidance system, you may use agents. You can set an agent's target velocity, then the servers will emit a callback with a modified velocity.
 		[b]Note:[/b] The collision avoidance system ignores regions. Using the modified velocity as-is might lead to pushing and agent outside of a navigable area. This is a limitation of the collision avoidance system, any more complex situation may require the use of the physics engine.
+		[b]Note:[/b] By default, the expensive calculations for avoidance are done in a thread. In HTML5 exports without thread support, they will be done on the main thread, which can lead to performance issues.
 		This server keeps tracks of any call and executes them during the sync phase. This means that you can request any change to the map, using any thread, without worrying.
 	</description>
 	<tutorials>
@@ -39,12 +40,12 @@
 		<method name="agent_set_callback" qualifiers="const">
 			<return type="void" />
 			<argument index="0" name="agent" type="RID" />
-			<argument index="1" name="receiver" type="Object" />
+			<argument index="1" name="object_id" type="int" />
 			<argument index="2" name="method" type="String" />
 			<argument index="3" name="userdata" type="Variant" default="null" />
 			<description>
-				Callback called at the end of the RVO process. If a callback is created manually and the agent is placed on a navigation map it will calculate avoidance for the agent and dispatch the calculated [code]safe_velocity[/code] to the [code]receiver[/code] object with a signal to the chosen [code]method[/code] name.
-				[b]Note:[/b] Created callbacks are always processed independently of the SceneTree state as long as the agent is on a navigation map and not freed. To disable the dispatch of a callback from an agent use [method agent_set_callback] again with a [code]null[/code] object as the [code]receiver[/code].
+				Sets the callback [code]object_id[/code] and [code]method[/code] that gets called after each avoidance processing step for the [code]agent[/code]. The calculated [code]safe_velocity[/code] will be dispatched with a signal to the object just before the physics calculations.
+				[b]Note:[/b] Created callbacks are always processed independently of the SceneTree state as long as the agent is on a navigation map and not freed. To disable the dispatch of a callback from an agent use [method agent_set_callback] again with a [code]0[/code] ObjectID as the [code]object_id[/code].
 			</description>
 		</method>
 		<method name="agent_set_map" qualifiers="const">
@@ -123,7 +124,8 @@
 			<return type="void" />
 			<argument index="0" name="rid" type="RID" />
 			<description>
-				Destroys the given RID.
+				Destroys an object created by the NavigationServer.
+				[b]Note:[/b] See [method VisualServer.free_rid] for details on how to handle RIDs for freed objects.
 			</description>
 		</method>
 		<method name="get_maps" qualifiers="const">

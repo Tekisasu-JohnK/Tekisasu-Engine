@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  godot_plugin_config.h                                                */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  godot_plugin_config.h                                                 */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef GODOT_PLUGIN_CONFIG_H
 #define GODOT_PLUGIN_CONFIG_H
@@ -39,6 +39,7 @@
  The `config` section and fields are required and defined as follow:
 - **name**: name of the plugin
 - **binary**: path to static `.a` library
+- **use_swift_runtime**: optional boolean field used to determine if Swift runtime is used
 
 The `dependencies` and fields are optional.
 - **linked**: dependencies that should only be linked.
@@ -57,6 +58,7 @@ struct PluginConfigIOS {
 	static const char *CONFIG_SECTION;
 	static const char *CONFIG_NAME_KEY;
 	static const char *CONFIG_BINARY_KEY;
+	static const char *CONFIG_USE_SWIFT_KEY;
 	static const char *CONFIG_INITIALIZE_KEY;
 	static const char *CONFIG_DEINITIALIZE_KEY;
 
@@ -93,6 +95,7 @@ struct PluginConfigIOS {
 	// Required config section
 	String name;
 	String binary;
+	bool use_swift_runtime;
 	String initialization_method;
 	String deinitialization_method;
 
@@ -118,6 +121,7 @@ const char *PluginConfigIOS::PLUGIN_CONFIG_EXT = ".gdip";
 const char *PluginConfigIOS::CONFIG_SECTION = "config";
 const char *PluginConfigIOS::CONFIG_NAME_KEY = "name";
 const char *PluginConfigIOS::CONFIG_BINARY_KEY = "binary";
+const char *PluginConfigIOS::CONFIG_USE_SWIFT_KEY = "use_swift_runtime";
 const char *PluginConfigIOS::CONFIG_INITIALIZE_KEY = "initialization";
 const char *PluginConfigIOS::CONFIG_DEINITIALIZE_KEY = "deinitialization";
 
@@ -281,6 +285,7 @@ static inline PluginConfigIOS load_plugin_config(Ref<ConfigFile> config_file, co
 	String config_base_dir = path.get_base_dir();
 
 	plugin_config.name = config_file->get_value(PluginConfigIOS::CONFIG_SECTION, PluginConfigIOS::CONFIG_NAME_KEY, String());
+	plugin_config.use_swift_runtime = config_file->get_value(PluginConfigIOS::CONFIG_SECTION, PluginConfigIOS::CONFIG_USE_SWIFT_KEY, false);
 	plugin_config.initialization_method = config_file->get_value(PluginConfigIOS::CONFIG_SECTION, PluginConfigIOS::CONFIG_INITIALIZE_KEY, String());
 	plugin_config.deinitialization_method = config_file->get_value(PluginConfigIOS::CONFIG_SECTION, PluginConfigIOS::CONFIG_DEINITIALIZE_KEY, String());
 

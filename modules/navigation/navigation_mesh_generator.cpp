@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  navigation_mesh_generator.cpp                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  navigation_mesh_generator.cpp                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "core/math/convex_hull.h"
 #ifndef _3D_DISABLED
@@ -43,6 +43,7 @@
 #include "scene/resources/concave_polygon_shape.h"
 #include "scene/resources/convex_polygon_shape.h"
 #include "scene/resources/cylinder_shape.h"
+#include "scene/resources/height_map_shape.h"
 #include "scene/resources/plane_shape.h"
 #include "scene/resources/primitive_meshes.h"
 #include "scene/resources/shape.h"
@@ -281,6 +282,50 @@ void NavigationMeshGenerator::_parse_geometry(const Transform &p_navmesh_xform, 
 							_add_faces(faces, transform, p_vertices, p_indices);
 						}
 					}
+
+					HeightMapShape *heightmap_shape = Object::cast_to<HeightMapShape>(*s);
+					if (heightmap_shape) {
+						int heightmap_depth = heightmap_shape->get_map_depth();
+						int heightmap_width = heightmap_shape->get_map_width();
+
+						if (heightmap_depth >= 2 && heightmap_width >= 2) {
+							const PoolRealArray &map_data = heightmap_shape->get_map_data();
+
+							Vector2 heightmap_gridsize(heightmap_width - 1, heightmap_depth - 1);
+							Vector2 start = heightmap_gridsize * -0.5;
+
+							PoolVector3Array vertex_array;
+							vertex_array.resize((heightmap_depth - 1) * (heightmap_width - 1) * 6);
+							int map_data_current_index = 0;
+
+							for (int d = 0; d < heightmap_depth - 1; d++) {
+								for (int w = 0; w < heightmap_width - 1; w++) {
+									if (map_data_current_index + 1 + heightmap_depth < map_data.size()) {
+										float top_left_height = map_data[map_data_current_index];
+										float top_right_height = map_data[map_data_current_index + 1];
+										float bottom_left_height = map_data[map_data_current_index + heightmap_depth];
+										float bottom_right_height = map_data[map_data_current_index + 1 + heightmap_depth];
+
+										Vector3 top_left = Vector3(start.x + w, top_left_height, start.y + d);
+										Vector3 top_right = Vector3(start.x + w + 1.0, top_right_height, start.y + d);
+										Vector3 bottom_left = Vector3(start.x + w, bottom_left_height, start.y + d + 1.0);
+										Vector3 bottom_right = Vector3(start.x + w + 1.0, bottom_right_height, start.y + d + 1.0);
+
+										vertex_array.push_back(top_right);
+										vertex_array.push_back(bottom_left);
+										vertex_array.push_back(top_left);
+										vertex_array.push_back(top_right);
+										vertex_array.push_back(bottom_right);
+										vertex_array.push_back(bottom_left);
+									}
+									map_data_current_index += 1;
+								}
+							}
+							if (vertex_array.size() > 0) {
+								_add_faces(vertex_array, transform, p_vertices, p_indices);
+							}
+						}
+					}
 				}
 			}
 		}
@@ -367,6 +412,50 @@ void NavigationMeshGenerator::_parse_geometry(const Transform &p_navmesh_xform, 
 					case PhysicsServer::SHAPE_CONCAVE_POLYGON: {
 						PoolVector3Array faces = data;
 						_add_faces(faces, shapes[i], p_vertices, p_indices);
+					} break;
+					case PhysicsServer::SHAPE_HEIGHTMAP: {
+						Dictionary dict = data;
+						///< dict( int:"width", int:"depth",float:"cell_size", float_array:"heights"
+						int heightmap_depth = dict["depth"];
+						int heightmap_width = dict["width"];
+
+						if (heightmap_depth >= 2 && heightmap_width >= 2) {
+							const PoolRealArray &map_data = dict["heights"];
+
+							Vector2 heightmap_gridsize(heightmap_width - 1, heightmap_depth - 1);
+							Vector2 start = heightmap_gridsize * -0.5;
+
+							PoolVector3Array vertex_array;
+							vertex_array.resize((heightmap_depth - 1) * (heightmap_width - 1) * 6);
+							int map_data_current_index = 0;
+
+							for (int d = 0; d < heightmap_depth - 1; d++) {
+								for (int w = 0; w < heightmap_width - 1; w++) {
+									if (map_data_current_index + 1 + heightmap_depth < map_data.size()) {
+										float top_left_height = map_data[map_data_current_index];
+										float top_right_height = map_data[map_data_current_index + 1];
+										float bottom_left_height = map_data[map_data_current_index + heightmap_depth];
+										float bottom_right_height = map_data[map_data_current_index + 1 + heightmap_depth];
+
+										Vector3 top_left = Vector3(start.x + w, top_left_height, start.y + d);
+										Vector3 top_right = Vector3(start.x + w + 1.0, top_right_height, start.y + d);
+										Vector3 bottom_left = Vector3(start.x + w, bottom_left_height, start.y + d + 1.0);
+										Vector3 bottom_right = Vector3(start.x + w + 1.0, bottom_right_height, start.y + d + 1.0);
+
+										vertex_array.push_back(top_right);
+										vertex_array.push_back(bottom_left);
+										vertex_array.push_back(top_left);
+										vertex_array.push_back(top_right);
+										vertex_array.push_back(bottom_right);
+										vertex_array.push_back(bottom_left);
+									}
+									map_data_current_index += 1;
+								}
+							}
+							if (vertex_array.size() > 0) {
+								_add_faces(vertex_array, shapes[i], p_vertices, p_indices);
+							}
+						}
 					} break;
 					default: {
 						WARN_PRINT("Unsupported collision shape type.");

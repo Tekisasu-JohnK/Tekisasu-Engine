@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  project_settings_editor.h                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  project_settings_editor.h                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef PROJECT_SETTINGS_EDITOR_H
 #define PROJECT_SETTINGS_EDITOR_H
@@ -34,6 +34,7 @@
 #include "core/undo_redo.h"
 #include "editor/editor_autoload_settings.h"
 #include "editor/editor_data.h"
+#include "editor/editor_locale_dialog.h"
 #include "editor/editor_plugin_settings.h"
 #include "editor/editor_sectioned_inspector.h"
 #include "editor/import_defaults_editor.h"
@@ -51,12 +52,8 @@ class ProjectSettingsEditor : public AcceptDialog {
 		INPUT_MOUSE_BUTTON
 	};
 
-	enum LocaleFilter {
-		SHOW_ALL_LOCALES,
-		SHOW_ONLY_SELECTED_LOCALES,
-	};
-
 	TabContainer *tab_container;
+	VBoxContainer *general_editor;
 
 	Timer *timer;
 	InputType add_type;
@@ -87,13 +84,15 @@ class ProjectSettingsEditor : public AcceptDialog {
 
 	LineEdit *action_name;
 	Button *action_add;
-	Label *action_add_error;
+	CheckButton *show_builtin_actions_checkbutton;
 	Tree *input_editor;
 	bool setting;
 	bool updating_translations;
+	bool show_builtin_actions;
 
 	Ref<InputEventKey> last_wait_for_key;
 
+	EditorLocaleDialog *locale_select;
 	EditorFileDialog *translation_file_open;
 	Tree *translation_list;
 
@@ -102,11 +101,6 @@ class ProjectSettingsEditor : public AcceptDialog {
 	EditorFileDialog *translation_res_option_file_open;
 	Tree *translation_remap;
 	Tree *translation_remap_options;
-	Tree *translation_filter;
-	bool translation_locales_list_created;
-	OptionButton *translation_locale_filter_mode;
-	Vector<TreeItem *> translation_filter_treeitems;
-	Vector<int> translation_locales_idxs_remap;
 
 	EditorAutoloadSettings *autoload_settings;
 
@@ -125,6 +119,7 @@ class ProjectSettingsEditor : public AcceptDialog {
 	void _action_adds(String);
 	void _action_add();
 	void _device_input_add();
+	void _set_show_builtin_actions(bool p_show);
 
 	void _item_checked(const String &p_item, bool p_check);
 	void _action_selected();
@@ -153,9 +148,8 @@ class ProjectSettingsEditor : public AcceptDialog {
 	void _translation_res_option_add(const PoolStringArray &p_paths);
 	void _translation_res_option_changed();
 	void _translation_res_option_delete(Object *p_item, int p_column, int p_button);
-
-	void _translation_filter_option_changed();
-	void _translation_filter_mode_changed(int p_mode);
+	void _translation_res_option_popup(bool p_arrow_clicked);
+	void _translation_res_option_selected(const String &p_locale);
 
 	void _toggle_search_bar(bool p_pressed);
 
@@ -194,6 +188,7 @@ public:
 	static ProjectSettingsEditor *get_singleton() { return singleton; }
 	void popup_project_settings();
 	void set_plugins_page();
+	void set_general_page(const String &p_category);
 	void update_plugins();
 
 	EditorAutoloadSettings *get_autoload_settings() { return autoload_settings; }

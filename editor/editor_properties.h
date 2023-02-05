@@ -1,38 +1,39 @@
-/*************************************************************************/
-/*  editor_properties.h                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_properties.h                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef EDITOR_PROPERTIES_H
 #define EDITOR_PROPERTIES_H
 
 #include "editor/create_dialog.h"
 #include "editor/editor_inspector.h"
+#include "editor/editor_locale_dialog.h"
 #include "editor/editor_resource_picker.h"
 #include "editor/editor_spin_slider.h"
 #include "editor/property_selector.h"
@@ -234,9 +235,9 @@ class EditorPropertyFlags : public EditorProperty {
 	GDCLASS(EditorPropertyFlags, EditorProperty);
 	VBoxContainer *vbox;
 	Vector<CheckBox *> flags;
-	Vector<int> flag_indices;
+	Vector<uint32_t> flag_values;
 
-	void _flag_toggled();
+	void _flag_toggled(int p_index);
 
 protected:
 	static void _bind_methods();
@@ -268,10 +269,13 @@ private:
 	LayerType layer_type;
 	PopupMenu *layers;
 	Button *button;
+	String basename;
 
 	void _button_pressed();
 	void _menu_pressed(int p_menu);
 	void _refresh_names();
+
+	String _get_layer_name(int p_index) const;
 
 protected:
 	static void _bind_methods();
@@ -372,6 +376,10 @@ class EditorPropertyVector2 : public EditorProperty {
 	GDCLASS(EditorPropertyVector2, EditorProperty);
 	EditorSpinSlider *spin[2];
 	bool setting;
+	double ratio_xy = 1.0;
+	double ratio_yx = 1.0;
+	TextureButton *linked = nullptr;
+	void _update_ratio();
 	void _value_changed(double p_val, const String &p_name);
 
 protected:
@@ -380,7 +388,7 @@ protected:
 
 public:
 	virtual void update_property();
-	void setup(double p_min, double p_max, double p_step, bool p_no_slider);
+	void setup(double p_min, double p_max, double p_step, bool p_no_slider, bool p_link = false);
 	EditorPropertyVector2();
 };
 
@@ -404,6 +412,14 @@ class EditorPropertyVector3 : public EditorProperty {
 	GDCLASS(EditorPropertyVector3, EditorProperty);
 	EditorSpinSlider *spin[3];
 	bool setting;
+	double ratio_yx = 1.0;
+	double ratio_zx = 1.0;
+	double ratio_xy = 1.0;
+	double ratio_zy = 1.0;
+	double ratio_xz = 1.0;
+	double ratio_yz = 1.0;
+	TextureButton *linked = nullptr;
+	void _update_ratio();
 	void _value_changed(double p_val, const String &p_name);
 
 protected:
@@ -412,7 +428,7 @@ protected:
 
 public:
 	virtual void update_property();
-	void setup(double p_min, double p_max, double p_step, bool p_no_slider);
+	void setup(double p_min, double p_max, double p_step, bool p_no_slider, bool p_link = false);
 	EditorPropertyVector3();
 };
 
@@ -556,6 +572,26 @@ public:
 	virtual void update_property();
 	void setup(const NodePath &p_base_hint, Vector<StringName> p_valid_types, bool p_use_path_from_scene_root = true);
 	EditorPropertyNodePath();
+};
+
+class EditorPropertyLocale : public EditorProperty {
+	GDCLASS(EditorPropertyLocale, EditorProperty);
+	EditorLocaleDialog *dialog;
+	LineEdit *locale;
+	Button *locale_edit;
+
+	void _locale_selected(const String &p_locale);
+	void _locale_pressed();
+	void _locale_focus_exited();
+
+protected:
+	static void _bind_methods();
+	void _notification(int p_what);
+
+public:
+	void setup(const String &p_hit_string);
+	virtual void update_property();
+	EditorPropertyLocale();
 };
 
 class EditorPropertyRID : public EditorProperty {

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  animation_track_editor.h                                             */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  animation_track_editor.h                                              */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef ANIMATION_TRACK_EDITOR_H
 #define ANIMATION_TRACK_EDITOR_H
@@ -373,8 +373,8 @@ class AnimationTrackEditor : public VBoxContainer {
 			reset = p_reset_anim ? p_reset_anim->get_track_count() : 0;
 		}
 	};
-	TrackIndices _confirm_insert(InsertData p_id, TrackIndices p_next_tracks, bool p_create_reset, Ref<Animation> p_reset_anim, bool p_create_beziers);
-	void _insert_delay(bool p_create_reset, bool p_create_beziers);
+	TrackIndices _confirm_insert(InsertData p_id, TrackIndices p_next_tracks, bool p_reset_wanted, Ref<Animation> p_reset_anim, bool p_create_beziers);
+	void _insert_delay(bool p_reset_wanted, bool p_create_beziers);
 
 	void _root_removed();
 
@@ -509,6 +509,7 @@ public:
 		EDIT_ADD_RESET_KEY,
 		EDIT_DELETE_SELECTION,
 		EDIT_GOTO_NEXT_STEP,
+		EDIT_GOTO_NEXT_STEP_TIMELINE_ONLY, // Next step without updating animation.
 		EDIT_GOTO_PREV_STEP,
 		EDIT_APPLY_RESET,
 		EDIT_OPTIMIZE_ANIMATION,
@@ -551,7 +552,7 @@ public:
 	void goto_prev_step(bool p_from_mouse_event);
 
 	/** If `p_from_mouse_event` is `true`, handle Shift key presses for precise snapping. */
-	void goto_next_step(bool p_from_mouse_event);
+	void goto_next_step(bool p_from_mouse_event, bool p_timeline_only = false);
 
 	MenuButton *get_edit_menu();
 	AnimationTrackEditor();

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  os_iphone.mm                                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  os_iphone.mm                                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifdef IPHONE_ENABLED
 
@@ -51,6 +51,8 @@
 #import "keyboard_input_view.h"
 #import "native_video_view.h"
 #import "view_controller.h"
+
+#include "tts_ios.h"
 
 #import <UIKit/UIKit.h>
 #include <dlfcn.h>
@@ -86,6 +88,41 @@ const char *OSIPhone::get_video_driver_name(int p_driver) const {
 OSIPhone *OSIPhone::get_singleton() {
 	return (OSIPhone *)OS::get_singleton();
 };
+
+bool OSIPhone::tts_is_speaking() const {
+	ERR_FAIL_COND_V(!tts, false);
+	return [tts isSpeaking];
+}
+
+bool OSIPhone::tts_is_paused() const {
+	ERR_FAIL_COND_V(!tts, false);
+	return [tts isPaused];
+}
+
+Array OSIPhone::tts_get_voices() const {
+	ERR_FAIL_COND_V(!tts, Array());
+	return [tts getVoices];
+}
+
+void OSIPhone::tts_speak(const String &p_text, const String &p_voice, int p_volume, float p_pitch, float p_rate, int p_utterance_id, bool p_interrupt) {
+	ERR_FAIL_COND(!tts);
+	[tts speak:p_text voice:p_voice volume:p_volume pitch:p_pitch rate:p_rate utterance_id:p_utterance_id interrupt:p_interrupt];
+}
+
+void OSIPhone::tts_pause() {
+	ERR_FAIL_COND(!tts);
+	[tts pauseSpeaking];
+}
+
+void OSIPhone::tts_resume() {
+	ERR_FAIL_COND(!tts);
+	[tts resumeSpeaking];
+}
+
+void OSIPhone::tts_stop() {
+	ERR_FAIL_COND(!tts);
+	[tts stopSpeaking];
+}
 
 void OSIPhone::set_data_dir(String p_dir) {
 	DirAccess *da = DirAccess::open(p_dir);
@@ -162,6 +199,9 @@ Error OSIPhone::initialize(const VideoMode &p_desired, int p_video_driver, int p
 	if (get_render_thread_mode() != RENDER_THREAD_UNSAFE) {
 		visual_server = memnew(VisualServerWrapMT(visual_server, false));
 	}
+
+	// Init TTS
+	tts = [[TTS_IOS alloc] init];
 
 	visual_server->init();
 	//visual_server->cursor_set_visible(false, 0);
@@ -255,6 +295,7 @@ void OSIPhone::touch_press(int p_idx, int p_x, int p_y, bool p_pressed, bool p_d
 	ev->set_index(p_idx);
 	ev->set_pressed(p_pressed);
 	ev->set_position(Vector2(p_x, p_y));
+	ev->set_double_tap(p_doubleclick);
 	perform_event(ev);
 };
 
@@ -453,12 +494,46 @@ bool OSIPhone::has_virtual_keyboard() const {
 	return true;
 };
 
-void OSIPhone::show_virtual_keyboard(const String &p_existing_text, const Rect2 &p_screen_rect, bool p_multiline, int p_max_input_length, int p_cursor_start, int p_cursor_end) {
+void OSIPhone::show_virtual_keyboard(const String &p_existing_text, const Rect2 &p_screen_rect, VirtualKeyboardType p_type, int p_max_input_length, int p_cursor_start, int p_cursor_end) {
 	NSString *existingString = [[NSString alloc] initWithUTF8String:p_existing_text.utf8().get_data()];
+
+	AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeDefault;
+	AppDelegate.viewController.keyboardView.textContentType = nil;
+	switch (p_type) {
+		case KEYBOARD_TYPE_DEFAULT: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeDefault;
+		} break;
+		case KEYBOARD_TYPE_MULTILINE: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeDefault;
+		} break;
+		case KEYBOARD_TYPE_NUMBER: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeNumberPad;
+		} break;
+		case KEYBOARD_TYPE_NUMBER_DECIMAL: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeDecimalPad;
+		} break;
+		case KEYBOARD_TYPE_PHONE: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypePhonePad;
+			AppDelegate.viewController.keyboardView.textContentType = UITextContentTypeTelephoneNumber;
+		} break;
+		case KEYBOARD_TYPE_EMAIL_ADDRESS: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeEmailAddress;
+			AppDelegate.viewController.keyboardView.textContentType = UITextContentTypeEmailAddress;
+		} break;
+		case KEYBOARD_TYPE_PASSWORD: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeDefault;
+			if (@available(iOS 11.0, *)) {
+				AppDelegate.viewController.keyboardView.textContentType = UITextContentTypePassword;
+			}
+		} break;
+		case KEYBOARD_TYPE_URL: {
+			AppDelegate.viewController.keyboardView.keyboardType = UIKeyboardTypeWebSearch;
+			AppDelegate.viewController.keyboardView.textContentType = UITextContentTypeURL;
+		} break;
+	}
 
 	[AppDelegate.viewController.keyboardView
 			becomeFirstResponderWithString:existingString
-								 multiline:p_multiline
 							   cursorStart:p_cursor_start
 								 cursorEnd:p_cursor_end];
 };

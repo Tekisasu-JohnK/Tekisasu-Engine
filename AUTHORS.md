@@ -1,7 +1,5 @@
 # Godot Engine authors
 
-Tekisasu Engine is a fork of Godot Engine.
-
 Godot Engine is developed by a community of voluntary contributors who
 contribute code, bug reports, documentation, artwork, support, etc.
 
@@ -11,9 +9,6 @@ source code. "Significant" is arbitrarily decided, but should be fair :)
 
 GitHub usernames are indicated in parentheses, or as sole entry when no other
 name is available.
-
-## Fork Maintainer
-    John Knight (Tekisasu) (Dallas, Texas)
 
 ## Project Founders
 
@@ -34,11 +29,14 @@ name is available.
 
     Aaron Franke (aaronfranke)
     Aaron Record (LightningAA)
+    Adam Scott (adamscott)
     Alexander Holland (AlexHolly)
     Alexey Khoroshavin (allkhor)
+    Alfred Reinold Baudisch (alfredbaudisch)
     Alket Rexhepi (alketii)
     Andrea Catania (AndreaCatania)
     Andrii Doroshenko (Xrayez)
+    Andy Maloney (asmaloney)
     Andy Moss (MillionOstrich)
     Angad Kambli (angad-k)
     Anilforextra (AnilBK)
@@ -57,7 +55,6 @@ name is available.
     Bojidar Marinov (bojidar-bg)
     Brian Semrau (briansemrau)
     Bruno Lourenço (MadEqua)
-    bruvzg
     Cameron Reikes (creikey)
     Camille Mohr-Daurat (pouleyKetchoupp)
     Caner Demirer (cdemirer)
@@ -65,17 +62,20 @@ name is available.
     Carter Anderson (cart)
     Chris Bradfield (cbscribe)
     Clay John (clayjohn)
+    ConteZero
     Dana Olson (adolson)
     Daniel J. Ramirez (djrm)
     Daniel Rakos (aqnuep)
-    dankan1890
+    Daniel Zilberleyb (dzil123)
     Danil Alexeev (dalexeev)
+    dankan1890
     David Cambré (Gallilus)
     David Sichma (DavidSichma)
     David Snopek (dsnopek)
     Dharkael (lupoDharkael)
     Dmitry Koteroff (Krakean)
     Dominik Jasiński (dreamsComeTrue)
+    Douglas Leão (DeeJayLSP)
     DualMatrix
     Ellen Poe (ellenhp)
     Emmanuel Barroga (codecustard)
@@ -89,8 +89,9 @@ name is available.
     Eveline Jarosz (Marqin)
     Fabian Mathews (supagu)
     Fabio Alessandrelli (Faless)
-    fabriceci
+    Fabrice Cipolla (fabriceci)
     Ferenc Arn (tagcup)
+    FireForge (fire-forge)
     follower
     foxydevloper
     François Belair (Razoric480)
@@ -114,19 +115,23 @@ name is available.
     Ian Bishop (ianb96)
     Ibrahn Sahir (ibrahn)
     Ignacio Etcheverry (neikeq)
+    Igor Kordiukiewicz (IgorKordiukiewicz)
     Ilaria Cislaghi (QbieShay)
     Indah Sylvia (ISylvox)
     J08nY
     Jake Young (Duroxxigar)
     Jakub Grzesik (kubecz3k)
     James Buck (jbuck3)
+    Jason Knight (jasonwinterpixel)
     Jean-Michel Bernard (jmb462)
     Jérôme Gully (Nutriz)
     Jia Jun Chai (SkyLucilfer)
     Joan Fons Sanchez (JFonS)
-    Johannes Witt (HaSa1002)
     Johan Manuel (29jm)
+    Johannes Witt (HaSa1002)
+    Jonathan Nicholl (jtnicholl)
     Jordan Schidlowsky (winterpixelgames)
+    Josh Jones (DarkKilauea)
     Joshua Grams (JoshuaGrams)
     Juan Linietsky (reduz)
     Julian Murgia (StraToN)
@@ -155,6 +160,7 @@ name is available.
     Mariano Javier Suligoy (MarianoGnu)
     Mario Schlack (hurikhan)
     Marios Staikopoulos (marstaik)
+    Mark Riedesel (klowner)
     Markus Sauermann (Sauermann)
     Martin Capitanio (capnm)
     Martin Liška (marxin)
@@ -167,8 +173,12 @@ name is available.
     Max Hilbrunner (mhilbrunner)
     merumelu
     Meru Patel (Janglee123)
+    MewPurPur
     Michael Alexsander (YeldhamDev)
+    Michał Iwańczuk (iwek7)
     MichiRecRoom (LikeLakers2)
+    Micky (Mickeon)
+    MinusKube
     Morris "Tabor" Arroad (mortarroad)
     mrezai
     Muhammad Huri (CakHuri)
@@ -177,6 +187,7 @@ name is available.
     Nathan Lovato (NathanLovato)
     Nathan Warden (NathanWarden)
     Nicholas Huelin (SirQuartz)
+    Nikita Lita (nikitalita)
     Nils André-Chang (NilsIrl)
     Noah Beard (TwistedTwigleg)
     Nuno Donato (nunodonato)
@@ -187,6 +198,8 @@ name is available.
     Paul Batty (Paulb23)
     Paul Joannon (paulloz)
     Paul Trojahn (ptrojahn)
+    Pāvels Nadtočajevs (bruvzg)
+    Paweł Fertyk (pfertyk)
     Pawel Kowal (pkowal1982)
     Pawel Lampe (Scony)
     Pedro J. Estébanez (RandomShaper)
@@ -200,13 +213,16 @@ name is available.
     Raphael2048
     Raul Santos (raulsntos)
     Ray Koopa (RayKoopa)
+    RedMser
     Rémi Verschelde (akien-mga)
     Rhody Lugo (rraallvv)
     Ricardo Buring (rburing)
     Ricardo Subtil (Ev1lbl0w)
+    Riteo Siuga (Riteo)
     Roberto F. Arroyo (robfram)
     Robin Hübner (profan)
     romulox-x
+    Rune Smith (rune-scape)
     Ruslan Mustakov (endragor)
     Ryan Roden-Corrent (rrcore)
     Saniko (sanikoyes)
@@ -217,9 +233,11 @@ name is available.
     Shiqing (kawa-yoiko)
     Silc 'Tokage' Renew (TokageItLab)
     Simon Wenner (swenner)
+    smix8
     Stijn Hinlopen (hinlopen)
     Swarnim Arun (minraws)
     TC (floppyhammer)
+    TechnoPorg
     Thakee Nathees (ThakeeNathees)
     thebestnom
     Theo Hallenius (TheoXD)
@@ -230,6 +248,7 @@ name is available.
     Twarit Waikar (IronicallySerious)
     Umang Kalra (theoway)
     Vinzenz Feenstra (vinzenz)
+    Vitika Soni (Vitika9)
     박한얼 (volzhs)
     V. Vamsi Krishna (vkbsb)
     Wilhem Barbier (nounoursheureux)
@@ -239,8 +258,9 @@ name is available.
     Xavier Cho (mysticfall)
     yg2f (SuperUserNameMan)
     Yuri Rubinsky (Chaosus)
-    Yuri Sizov (pycbouh)
+    Yuri Sizov (YuriSizov)
     Zae Chao (zaevi)
     Zak Stam (zaksnet)
     Zher Huei Lee (leezh)
     ZuBsPaCe
+    风青山 (Rindbee)

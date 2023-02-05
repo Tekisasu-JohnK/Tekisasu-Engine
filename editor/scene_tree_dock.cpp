@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  scene_tree_dock.cpp                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  scene_tree_dock.cpp                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "scene_tree_dock.h"
 
@@ -131,6 +131,8 @@ void SceneTreeDock::_unhandled_key_input(Ref<InputEvent> p_event) {
 		_tool_selected(TOOL_ERASE, true);
 	} else if (ED_IS_SHORTCUT("scene_tree/copy_node_path", p_event)) {
 		_tool_selected(TOOL_COPY_NODE_PATH);
+	} else if (ED_IS_SHORTCUT("scene_tree/toggle_unique_name", p_event)) {
+		_tool_selected(TOOL_TOGGLE_SCENE_UNIQUE_NAME);
 	} else if (ED_IS_SHORTCUT("scene_tree/delete", p_event)) {
 		_tool_selected(TOOL_ERASE);
 	}
@@ -1134,6 +1136,14 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 			if (first_selected == nullptr) {
 				return;
 			}
+			if (first_selected->get() == EditorNode::get_singleton()->get_edited_scene()) {
+				// Exclude Root Node. It should never be unique name in its own scene!
+				editor_selection->remove_node(first_selected->get());
+				first_selected = editor_selection->get_selected_node_list().front();
+				if (first_selected == nullptr) {
+					return;
+				}
+			}
 			bool enabling = !first_selected->get()->is_unique_name_in_owner();
 
 			List<Node *> full_selection = editor_selection->get_full_selected_node_list();
@@ -1229,12 +1239,7 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 				}
 			}
 
-			editor_data->get_undo_redo().create_action(TTR("New Scene Root"));
-			editor_data->get_undo_redo().add_do_method(editor, "set_edited_scene", new_node);
-			editor_data->get_undo_redo().add_do_method(scene_tree, "update_tree");
-			editor_data->get_undo_redo().add_do_reference(new_node);
-			editor_data->get_undo_redo().add_undo_method(editor, "set_edited_scene", (Object *)nullptr);
-			editor_data->get_undo_redo().commit_action();
+			add_root_node(new_node);
 
 			editor->edit_node(new_node);
 			editor_selection->clear();
@@ -1272,6 +1277,16 @@ void SceneTreeDock::_perform_property_drop(Node *p_node, String p_property, RES 
 	editor_data->get_undo_redo().add_undo_method(p_node, "property_list_changed_notify");
 	editor_data->get_undo_redo().commit_action();
 }
+
+void SceneTreeDock::add_root_node(Node *p_node) {
+	editor_data->get_undo_redo().create_action(TTR("New Scene Root"));
+	editor_data->get_undo_redo().add_do_method(editor, "set_edited_scene", p_node);
+	editor_data->get_undo_redo().add_do_method(scene_tree, "update_tree");
+	editor_data->get_undo_redo().add_do_reference(p_node);
+	editor_data->get_undo_redo().add_undo_method(editor, "set_edited_scene", (Object *)nullptr);
+	editor_data->get_undo_redo().commit_action();
+}
+
 void SceneTreeDock::_node_collapsed(Object *p_obj) {
 	TreeItem *ti = Object::cast_to<TreeItem>(p_obj);
 	if (!ti) {
@@ -2035,16 +2050,24 @@ void SceneTreeDock::_script_created(Ref<Script> p_script) {
 		return;
 	}
 
-	editor_data->get_undo_redo().create_action(TTR("Attach Script"));
+	InspectorDock *inspector_dock = EditorNode::get_singleton()->get_inspector_dock();
+	UndoRedo &undo_redo = editor_data->get_undo_redo();
+
+	undo_redo.create_action(TTR("Attach Script"));
 	for (List<Node *>::Element *E = selected.front(); E; E = E->next()) {
-		Ref<Script> existing = E->get()->get_script();
-		editor_data->get_undo_redo().add_do_method(E->get(), "set_script", p_script.get_ref_ptr());
-		editor_data->get_undo_redo().add_undo_method(E->get(), "set_script", existing);
-		editor_data->get_undo_redo().add_do_method(this, "_update_script_button");
-		editor_data->get_undo_redo().add_undo_method(this, "_update_script_button");
+		Node *node = E->get();
+		Ref<Script> existing = node->get_script();
+		undo_redo.add_do_method(inspector_dock, "store_script_properties", node);
+		undo_redo.add_undo_method(inspector_dock, "store_script_properties", node);
+		undo_redo.add_do_method(node, "set_script", p_script.get_ref_ptr());
+		undo_redo.add_undo_method(node, "set_script", existing);
+		undo_redo.add_do_method(inspector_dock, "apply_script_properties", node);
+		undo_redo.add_undo_method(inspector_dock, "apply_script_properties", node);
+		undo_redo.add_do_method(this, "_update_script_button");
+		undo_redo.add_undo_method(this, "_update_script_button");
 	}
 
-	editor_data->get_undo_redo().commit_action();
+	undo_redo.commit_action();
 
 	_push_item(p_script.operator->());
 	_update_script_button();
@@ -2691,12 +2714,19 @@ void SceneTreeDock::_script_dropped(String p_file, NodePath p_to) {
 	ERR_FAIL_COND(!scr.is_valid());
 	Node *n = get_node(p_to);
 	if (n) {
-		editor_data->get_undo_redo().create_action(TTR("Attach Script"));
-		editor_data->get_undo_redo().add_do_method(n, "set_script", scr);
-		editor_data->get_undo_redo().add_undo_method(n, "set_script", n->get_script());
-		editor_data->get_undo_redo().add_do_method(this, "_update_script_button");
-		editor_data->get_undo_redo().add_undo_method(this, "_update_script_button");
-		editor_data->get_undo_redo().commit_action();
+		InspectorDock *inspector_dock = EditorNode::get_singleton()->get_inspector_dock();
+		UndoRedo &undo_redo = editor_data->get_undo_redo();
+
+		undo_redo.create_action(TTR("Attach Script"));
+		undo_redo.add_do_method(inspector_dock, "store_script_properties", n);
+		undo_redo.add_undo_method(inspector_dock, "store_script_properties", n);
+		undo_redo.add_do_method(n, "set_script", scr);
+		undo_redo.add_undo_method(n, "set_script", n->get_script());
+		undo_redo.add_do_method(inspector_dock, "apply_script_properties", n);
+		undo_redo.add_undo_method(inspector_dock, "apply_script_properties", n);
+		undo_redo.add_do_method(this, "_update_script_button");
+		undo_redo.add_undo_method(this, "_update_script_button");
+		undo_redo.commit_action();
 	}
 }
 
@@ -2864,10 +2894,13 @@ void SceneTreeDock::_tree_rmb(const Vector2 &p_menu_pos) {
 			}
 		}
 		if (all_owned) {
-			menu->add_icon_check_item(get_icon("SceneUniqueName", "EditorIcons"), TTR("Access as Scene Unique Name"), TOOL_TOGGLE_SCENE_UNIQUE_NAME);
-			// Checked based on `selection[0]` because `full_selection` has undesired ordering.
-			menu->set_item_checked(menu->get_item_index(TOOL_TOGGLE_SCENE_UNIQUE_NAME), selection[0]->is_unique_name_in_owner());
-			menu->add_separator();
+			// Group "toggle_unique_name" with "copy_node_path", if it is available.
+			if (menu->get_item_index(TOOL_COPY_NODE_PATH) == -1) {
+				menu->add_separator();
+			}
+			Node *node = full_selection[0];
+			menu->add_icon_shortcut(get_icon("SceneUniqueName", "EditorIcons"), ED_GET_SHORTCUT("scene_tree/toggle_unique_name"), TOOL_TOGGLE_SCENE_UNIQUE_NAME);
+			menu->set_item_text(menu->get_item_index(TOOL_TOGGLE_SCENE_UNIQUE_NAME), node->is_unique_name_in_owner() ? TTR("Revoke Unique Name") : TTR("Access as Unique Name"));
 		}
 	}
 
@@ -3361,6 +3394,7 @@ SceneTreeDock::SceneTreeDock(EditorNode *p_editor, Node *p_scene_root, EditorSel
 	ED_SHORTCUT("scene_tree/merge_from_scene", TTR("Merge From Scene"));
 	ED_SHORTCUT("scene_tree/save_branch_as_scene", TTR("Save Branch as Scene"));
 	ED_SHORTCUT("scene_tree/copy_node_path", TTR("Copy Node Path"), KEY_MASK_CMD | KEY_MASK_SHIFT | KEY_C);
+	ED_SHORTCUT("scene_tree/toggle_unique_name", TTR("Toggle Access as Unique Name"));
 	ED_SHORTCUT("scene_tree/delete_no_confirm", TTR("Delete (No Confirm)"), KEY_MASK_SHIFT | KEY_DELETE);
 	ED_SHORTCUT("scene_tree/delete", TTR("Delete"), KEY_DELETE);
 

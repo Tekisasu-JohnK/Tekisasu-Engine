@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  GodotEditText.java                                                   */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  GodotEditText.java                                                    */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 package org.godotengine.godot.input;
 
@@ -52,6 +52,18 @@ public class GodotEditText extends EditText {
 	private final static int HANDLER_OPEN_IME_KEYBOARD = 2;
 	private final static int HANDLER_CLOSE_IME_KEYBOARD = 3;
 
+	// Enum must be kept up-to-date with OS::VirtualKeyboardType
+	public enum VirtualKeyboardType {
+		KEYBOARD_TYPE_DEFAULT,
+		KEYBOARD_TYPE_MULTILINE,
+		KEYBOARD_TYPE_NUMBER,
+		KEYBOARD_TYPE_NUMBER_DECIMAL,
+		KEYBOARD_TYPE_PHONE,
+		KEYBOARD_TYPE_EMAIL_ADDRESS,
+		KEYBOARD_TYPE_PASSWORD,
+		KEYBOARD_TYPE_URL
+	}
+
 	// ===========================================================
 	// Fields
 	// ===========================================================
@@ -60,7 +72,7 @@ public class GodotEditText extends EditText {
 	private EditHandler sHandler = new EditHandler(this);
 	private String mOriginText;
 	private int mMaxInputLength = Integer.MAX_VALUE;
-	private boolean mMultiline = false;
+	private VirtualKeyboardType mKeyboardType = VirtualKeyboardType.KEYBOARD_TYPE_DEFAULT;
 
 	private static class EditHandler extends Handler {
 		private final WeakReference<GodotEditText> mEdit;
@@ -101,7 +113,11 @@ public class GodotEditText extends EditText {
 	}
 
 	public boolean isMultiline() {
-		return mMultiline;
+		return mKeyboardType == VirtualKeyboardType.KEYBOARD_TYPE_MULTILINE;
+	}
+
+	public VirtualKeyboardType getKeyboardType() {
+		return mKeyboardType;
 	}
 
 	private void handleMessage(final Message msg) {
@@ -115,15 +131,40 @@ public class GodotEditText extends EditText {
 					edit.setText("");
 					edit.append(text);
 					if (msg.arg2 != -1) {
-						edit.setSelection(msg.arg1, msg.arg2);
+						int selectionStart = Math.min(msg.arg1, edit.length());
+						int selectionEnd = Math.min(msg.arg2, edit.length());
+						edit.setSelection(selectionStart, selectionEnd);
 						edit.mInputWrapper.setSelection(true);
 					} else {
 						edit.mInputWrapper.setSelection(false);
 					}
 
 					int inputType = InputType.TYPE_CLASS_TEXT;
-					if (edit.isMultiline()) {
-						inputType |= InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+					switch (edit.getKeyboardType()) {
+						case KEYBOARD_TYPE_DEFAULT:
+							inputType = InputType.TYPE_CLASS_TEXT;
+							break;
+						case KEYBOARD_TYPE_MULTILINE:
+							inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+							break;
+						case KEYBOARD_TYPE_NUMBER:
+							inputType = InputType.TYPE_CLASS_NUMBER;
+							break;
+						case KEYBOARD_TYPE_NUMBER_DECIMAL:
+							inputType = InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED;
+							break;
+						case KEYBOARD_TYPE_PHONE:
+							inputType = InputType.TYPE_CLASS_PHONE;
+							break;
+						case KEYBOARD_TYPE_EMAIL_ADDRESS:
+							inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;
+							break;
+						case KEYBOARD_TYPE_PASSWORD:
+							inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD;
+							break;
+						case KEYBOARD_TYPE_URL:
+							inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI;
+							break;
 					}
 					edit.setInputType(inputType);
 
@@ -197,7 +238,7 @@ public class GodotEditText extends EditText {
 	// ===========================================================
 	// Methods
 	// ===========================================================
-	public void showKeyboard(String p_existing_text, boolean p_multiline, int p_max_input_length, int p_cursor_start, int p_cursor_end) {
+	public void showKeyboard(String p_existing_text, VirtualKeyboardType p_type, int p_max_input_length, int p_cursor_start, int p_cursor_end) {
 		int maxInputLength = (p_max_input_length <= 0) ? Integer.MAX_VALUE : p_max_input_length;
 		if (p_cursor_start == -1) { // cursor position not given
 			this.mOriginText = p_existing_text;
@@ -210,7 +251,7 @@ public class GodotEditText extends EditText {
 			this.mMaxInputLength = maxInputLength - (p_existing_text.length() - p_cursor_end);
 		}
 
-		this.mMultiline = p_multiline;
+		this.mKeyboardType = p_type;
 
 		final Message msg = new Message();
 		msg.what = HANDLER_OPEN_IME_KEYBOARD;

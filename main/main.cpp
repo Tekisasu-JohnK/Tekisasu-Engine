@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  main.cpp                                                             */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  main.cpp                                                              */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "main.h"
 
@@ -135,6 +135,8 @@ static bool delta_sync_after_draw = false;
 #ifdef TOOLS_ENABLED
 static bool auto_build_solutions = false;
 static String debug_server_uri;
+
+HashMap<Main::CLIScope, Vector<String>> forwardable_cli_arguments;
 #endif
 
 // Display
@@ -170,6 +172,12 @@ static bool print_fps = false;
 bool Main::is_project_manager() {
 	return project_manager;
 }
+
+#ifdef TOOLS_ENABLED
+const Vector<String> &Main::get_forwardable_cli_arguments(Main::CLIScope p_scope) {
+	return forwardable_cli_arguments[p_scope];
+}
+#endif
 
 static String unescape_cmdline(const String &p_str) {
 	return p_str.replace("%20", " ");
@@ -242,8 +250,8 @@ void finalize_navigation_server() {
 void Main::print_help(const char *p_binary) {
 	print_line(String(VERSION_NAME) + " v" + get_full_version_string() + " - " + String(VERSION_WEBSITE));
 	OS::get_singleton()->print("Free and open source software under the terms of the MIT license.\n");
-	OS::get_singleton()->print("(c) 2007-2022 Juan Linietsky, Ariel Manzur.\n");
-	OS::get_singleton()->print("(c) 2014-2022 Godot Engine contributors.\n");
+	OS::get_singleton()->print("(c) 2014-present Godot Engine contributors.\n");
+	OS::get_singleton()->print("(c) 2007-2014 Juan Linietsky, Ariel Manzur.\n");
 	OS::get_singleton()->print("\n");
 	OS::get_singleton()->print("Usage: %s [options] [path to scene or 'project.godot' file]\n", p_binary);
 	OS::get_singleton()->print("\n");
@@ -493,6 +501,22 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 #endif
 
 		List<String>::Element *N = I->next();
+
+#ifdef TOOLS_ENABLED
+		if (I->get() == "--debug" ||
+				I->get() == "--verbose" ||
+				I->get() == "--disable-crash-handler") {
+			forwardable_cli_arguments[CLI_SCOPE_TOOL].push_back(I->get());
+			forwardable_cli_arguments[CLI_SCOPE_PROJECT].push_back(I->get());
+		}
+		if (I->get() == "--audio-driver" ||
+				I->get() == "--video-driver") {
+			if (I->next()) {
+				forwardable_cli_arguments[CLI_SCOPE_TOOL].push_back(I->get());
+				forwardable_cli_arguments[CLI_SCOPE_TOOL].push_back(I->next()->get());
+			}
+		}
+#endif
 
 		if (I->get() == "-h" || I->get() == "--help" || I->get() == "/?") { // display help
 
@@ -1079,7 +1103,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 
 	OS::get_singleton()->set_cmdline(execpath, main_args);
 
-	GLOBAL_DEF("rendering/quality/driver/driver_name", "GLES3");
+	GLOBAL_DEF_RST("rendering/quality/driver/driver_name", "GLES3");
 	ProjectSettings::get_singleton()->set_custom_property_info("rendering/quality/driver/driver_name", PropertyInfo(Variant::STRING, "rendering/quality/driver/driver_name", PROPERTY_HINT_ENUM, "GLES2,GLES3"));
 	if (video_driver == "") {
 		video_driver = GLOBAL_GET("rendering/quality/driver/driver_name");
@@ -1256,7 +1280,10 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		OS::get_singleton()->set_delta_smoothing(GLOBAL_GET("application/run/delta_smoothing"));
 	}
 
+	GLOBAL_DEF("display/window/ios/allow_high_refresh_rate", true);
 	GLOBAL_DEF("display/window/ios/hide_home_indicator", true);
+	GLOBAL_DEF("display/window/ios/hide_status_bar", true);
+	GLOBAL_DEF("display/window/ios/suppress_ui_gesture", true);
 	GLOBAL_DEF("input_devices/pointing/ios/touch_delay", 0.15);
 	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/pointing/ios/touch_delay",
 			PropertyInfo(Variant::REAL,
@@ -1395,7 +1422,7 @@ Error Main::setup2(Thread::ID p_main_tid_override) {
 
 	MAIN_PRINT("Main: Setup Logo");
 
-#if defined(JAVASCRIPT_ENABLED) || defined(ANDROID_ENABLED)
+#if !defined(TOOLS_ENABLED) && (defined(JAVASCRIPT_ENABLED) || defined(ANDROID_ENABLED))
 	bool show_logo = false;
 #else
 	bool show_logo = true;
@@ -1677,6 +1704,13 @@ bool Main::start() {
 			doc_tool_path = ".";
 		}
 	}
+
+	uint64_t minimum_time_msec = GLOBAL_DEF("application/boot_splash/minimum_display_time", 0);
+	ProjectSettings::get_singleton()->set_custom_property_info("application/boot_splash/minimum_display_time",
+			PropertyInfo(Variant::INT,
+					"application/boot_splash/minimum_display_time",
+					PROPERTY_HINT_RANGE,
+					"0,100,1,or_greater")); // No negative numbers.
 
 #ifdef TOOLS_ENABLED
 	if (doc_tool_path != "") {
@@ -1963,8 +1997,8 @@ bool Main::start() {
 		if (!editor && !project_manager) {
 			//standard helpers that can be changed from main config
 
-			String stretch_mode = GLOBAL_DEF("display/window/stretch/mode", "viewport");
-			String stretch_aspect = GLOBAL_DEF("display/window/stretch/aspect", "expand");
+			String stretch_mode = GLOBAL_DEF("display/window/stretch/mode", "disabled");
+			String stretch_aspect = GLOBAL_DEF("display/window/stretch/aspect", "ignore");
 			Size2i stretch_size = Size2(GLOBAL_DEF("display/window/size/width", 0), GLOBAL_DEF("display/window/size/height", 0));
 			// out of compatibility reasons stretch_scale is called shrink when exposed to the user.
 			real_t stretch_scale = GLOBAL_DEF("display/window/stretch/shrink", 1.0);
@@ -2159,6 +2193,14 @@ bool Main::start() {
 	}
 
 	OS::get_singleton()->set_main_loop(main_loop);
+
+	if (minimum_time_msec) {
+		uint64_t minimum_time = 1000 * minimum_time_msec;
+		uint64_t elapsed_time = OS::get_singleton()->get_ticks_usec();
+		if (elapsed_time < minimum_time) {
+			OS::get_singleton()->delay_usec(minimum_time - elapsed_time);
+		}
+	}
 
 	return true;
 }
@@ -2395,9 +2437,11 @@ bool Main::iteration() {
 		auto_build_solutions = false;
 		// Only relevant when running the editor.
 		if (!editor) {
+			OS::get_singleton()->set_exit_code(EXIT_FAILURE);
 			ERR_FAIL_V_MSG(true, "Command line option --build-solutions was passed, but no project is being edited. Aborting.");
 		}
 		if (!EditorNode::get_singleton()->call_build()) {
+			OS::get_singleton()->set_exit_code(EXIT_FAILURE);
 			ERR_FAIL_V_MSG(true, "Command line option --build-solutions was passed, but the build callback failed. Aborting.");
 		}
 	}
@@ -2446,6 +2490,9 @@ void Main::cleanup(bool p_force) {
 
 	OS::get_singleton()->delete_main_loop();
 
+	// Storing it for use when restarting as it's being cleared right below.
+	const String execpath = OS::get_singleton()->get_executable_path();
+
 	OS::get_singleton()->_cmdline.clear();
 	OS::get_singleton()->_execpath = "";
 	OS::get_singleton()->_local_clipboard = "";
@@ -2485,9 +2532,9 @@ void Main::cleanup(bool p_force) {
 		memdelete(camera_server);
 	}
 
+	finalize_navigation_server();
 	OS::get_singleton()->finalize();
 	finalize_physics();
-	finalize_navigation_server();
 
 	if (packed_data) {
 		memdelete(packed_data);
@@ -2516,10 +2563,9 @@ void Main::cleanup(bool p_force) {
 
 	if (OS::get_singleton()->is_restart_on_exit_set()) {
 		//attempt to restart with arguments
-		String exec = OS::get_singleton()->get_executable_path();
 		List<String> args = OS::get_singleton()->get_restart_on_exit_arguments();
 		OS::ProcessID pid = 0;
-		OS::get_singleton()->execute(exec, args, false, &pid);
+		OS::get_singleton()->execute(execpath, args, false, &pid);
 		OS::get_singleton()->set_restart_on_exit(false, List<String>()); //clear list (uses memory)
 	}
 

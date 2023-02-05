@@ -345,6 +345,11 @@ def main():  # type: () -> None
     parser.add_argument("path", nargs="+", help="A path to an XML file or a directory containing XML files to parse.")
     parser.add_argument("--filter", default="", help="The filepath pattern for XML files to filter.")
     parser.add_argument("--lang", "-l", default="en", help="Language to use for section headings.")
+    parser.add_argument(
+        "--color",
+        action="store_true",
+        help="Ignored. Supported for forward compatibility.",
+    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--output", "-o", default=".", help="The directory to save output .rst files in.")
     group.add_argument(
@@ -1008,6 +1013,12 @@ def rstize_text(text, state):  # type: (str, State) -> str
                 tag_depth += 1
                 inside_code = True
                 escape_pre = True
+            elif cmd == "kbd":
+                tag_text = ":kbd:`"
+                tag_depth += 1
+            elif cmd == "/kbd":
+                tag_text = "`"
+                tag_depth -= 1
             elif cmd.startswith("enum "):
                 tag_text = make_enum(cmd[5:], state)
                 escape_pre = True

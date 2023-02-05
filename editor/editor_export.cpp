@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  editor_export.cpp                                                    */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_export.cpp                                                     */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "editor_export.h"
 
@@ -64,6 +64,9 @@ bool EditorExportPreset::_set(const StringName &p_name, const Variant &p_value) 
 	if (values.has(p_name)) {
 		values[p_name] = p_value;
 		EditorExport::singleton->save_presets();
+		if (update_visibility[p_name]) {
+			property_list_changed_notify();
+		}
 		return true;
 	}
 
@@ -81,7 +84,7 @@ bool EditorExportPreset::_get(const StringName &p_name, Variant &r_ret) const {
 
 void EditorExportPreset::_get_property_list(List<PropertyInfo> *p_list) const {
 	for (const List<PropertyInfo>::Element *E = properties.front(); E; E = E->next()) {
-		if (platform->get_option_visibility(E->get().name, values)) {
+		if (platform->get_option_visibility(this, E->get().name, values)) {
 			p_list->push_back(E->get());
 		}
 	}
@@ -451,6 +454,7 @@ Ref<EditorExportPreset> EditorExportPlatform::create_preset() {
 	for (List<ExportOption>::Element *E = options.front(); E; E = E->next()) {
 		preset->properties.push_back(E->get().option);
 		preset->values[E->get().option.name] = E->get().default_value;
+		preset->update_visibility[E->get().option.name] = E->get().update_visibility;
 	}
 
 	return preset;
@@ -1567,12 +1571,14 @@ void EditorExport::update_export_presets() {
 			// Clear the preset properties and values prior to reloading
 			preset->properties.clear();
 			preset->values.clear();
+			preset->update_visibility.clear();
 
 			for (List<EditorExportPlatform::ExportOption>::Element *E = options.front(); E; E = E->next()) {
 				preset->properties.push_back(E->get().option);
 
 				StringName option_name = E->get().option.name;
 				preset->values[option_name] = previous_values.has(option_name) ? previous_values[option_name] : E->get().default_value;
+				preset->update_visibility[option_name] = E->get().update_visibility;
 			}
 		}
 	}
@@ -1656,7 +1662,7 @@ Ref<Texture> EditorExportPlatformPC::get_logo() const {
 	return logo;
 }
 
-bool EditorExportPlatformPC::can_export(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const {
+bool EditorExportPlatformPC::has_valid_export_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const {
 	String err;
 	bool valid = false;
 
@@ -1685,6 +1691,31 @@ bool EditorExportPlatformPC::can_export(const Ref<EditorExportPreset> &p_preset,
 	if (!err.empty()) {
 		r_error = err;
 	}
+	return valid;
+}
+
+bool EditorExportPlatformPC::has_valid_project_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error) const {
+	return true;
+}
+
+bool EditorExportPlatform::can_export(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const {
+	bool valid = true;
+#ifndef ANDROID_ENABLED
+	String templates_error;
+	valid = valid && has_valid_export_configuration(p_preset, templates_error, r_missing_templates);
+
+	if (!templates_error.empty()) {
+		r_error += templates_error;
+	}
+#endif
+
+	String project_configuration_error;
+	valid = valid && has_valid_project_configuration(p_preset, project_configuration_error);
+
+	if (!project_configuration_error.empty()) {
+		r_error += project_configuration_error;
+	}
+
 	return valid;
 }
 

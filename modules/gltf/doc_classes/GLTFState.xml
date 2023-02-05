@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="GLTFState" inherits="Resource" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+<class name="GLTFState" inherits="Resource" version="3.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
 	<brief_description>
 	</brief_description>
 	<description>
@@ -8,9 +8,25 @@
 	<tutorials>
 	</tutorials>
 	<methods>
+		<method name="add_used_extension">
+			<return type="void" />
+			<argument index="0" name="extension_name" type="String" />
+			<argument index="1" name="required" type="bool" />
+			<description>
+				Appends an extension to the list of extensions used by this GLTF file during serialization. If [code]required[/code] is true, the extension will also be added to the list of required extensions. Do not run this in [method GLTFDocumentExtension._export_post], as that stage is too late to add extensions. The final list is sorted alphabetically.
+			</description>
+		</method>
 		<method name="get_accessors">
 			<return type="Array" />
 			<description>
+			</description>
+		</method>
+		<method name="get_additional_data">
+			<return type="Variant" />
+			<argument index="0" name="extension_name" type="String" />
+			<description>
+				Gets additional arbitrary data in this [GLTFState] instance. This can be used to keep per-file state data in [GLTFDocumentExtension] classes, which is important because they are stateless.
+				The argument should be the [GLTFDocumentExtension] name (does not have to match the extension name in the GLTF file), and the return value can be anything you set. If nothing was set, the return value is null.
 			</description>
 		</method>
 		<method name="get_animation_player">
@@ -86,6 +102,12 @@
 			<description>
 			</description>
 		</method>
+		<method name="get_texture_samplers">
+			<return type="Array" />
+			<description>
+				Retrieves the array of texture samplers that are used by the textures contained in the GLTF.
+			</description>
+		</method>
 		<method name="get_textures">
 			<return type="Array" />
 			<description>
@@ -105,6 +127,15 @@
 			<return type="void" />
 			<argument index="0" name="accessors" type="Array" />
 			<description>
+			</description>
+		</method>
+		<method name="set_additional_data">
+			<return type="void" />
+			<argument index="0" name="extension_name" type="String" />
+			<argument index="1" name="additional_data" type="Variant" />
+			<description>
+				Sets additional arbitrary data in this [GLTFState] instance. This can be used to keep per-file state data in [GLTFDocumentExtension] classes, which is important because they are stateless.
+				The first argument should be the [GLTFDocumentExtension] name (does not have to match the extension name in the GLTF file), and the second argument can be anything you want.
 			</description>
 		</method>
 		<method name="set_animations">
@@ -173,6 +204,13 @@
 			<description>
 			</description>
 		</method>
+		<method name="set_texture_samplers">
+			<return type="void" />
+			<argument index="0" name="texture_samplers" type="Array" />
+			<description>
+				Sets the array of texture samplers that are used by the textures contained in the GLTF.
+			</description>
+		</method>
 		<method name="set_textures">
 			<return type="void" />
 			<argument index="0" name="textures" type="Array" />
@@ -194,6 +232,8 @@
 	</methods>
 	<members>
 		<member name="buffers" type="Array" setter="set_buffers" getter="get_buffers" default="[  ]">
+		</member>
+		<member name="create_animations" type="bool" setter="set_create_animations" getter="get_create_animations" default="true">
 		</member>
 		<member name="glb_data" type="PoolByteArray" setter="set_glb_data" getter="get_glb_data" default="PoolByteArray(  )">
 		</member>

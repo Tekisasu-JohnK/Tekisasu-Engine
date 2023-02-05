@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  rasterizer_storage_gles3.cpp                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  rasterizer_storage_gles3.cpp                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "rasterizer_storage_gles3.h"
 
@@ -2460,6 +2460,8 @@ void RasterizerStorageGLES3::shader_get_param_list(RID p_shader, List<PropertyIn
 				pi.hint = PROPERTY_HINT_RESOURCE_TYPE;
 				pi.hint_string = "CubeMap";
 			} break;
+			default: {
+			}
 		};
 
 		p_param_list->push_back(pi);
@@ -6596,6 +6598,9 @@ void RasterizerStorageGLES3::update_particles() {
 						case ShaderLanguage::ShaderNode::Uniform::HINT_BLACK: {
 							tex = resources.black_tex;
 						} break;
+						case ShaderLanguage::ShaderNode::Uniform::HINT_TRANSPARENT: {
+							tex = resources.transparent_tex;
+						} break;
 						case ShaderLanguage::ShaderNode::Uniform::HINT_ANISO: {
 							tex = resources.aniso_tex;
 						} break;
@@ -8202,32 +8207,45 @@ void RasterizerStorageGLES3::initialize() {
 	shaders.copy.init();
 
 	{
-		//default textures
+		// Generate default textures.
 
+		// Opaque white color.
 		glGenTextures(1, &resources.white_tex);
 		unsigned char whitetexdata[8 * 8 * 3];
 		for (int i = 0; i < 8 * 8 * 3; i++) {
 			whitetexdata[i] = 255;
 		}
-
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, resources.white_tex);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 8, 8, 0, GL_RGB, GL_UNSIGNED_BYTE, whitetexdata);
 		glGenerateMipmap(GL_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
+		// Opaque black color.
 		glGenTextures(1, &resources.black_tex);
 		unsigned char blacktexdata[8 * 8 * 3];
 		for (int i = 0; i < 8 * 8 * 3; i++) {
 			blacktexdata[i] = 0;
 		}
-
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, resources.black_tex);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 8, 8, 0, GL_RGB, GL_UNSIGNED_BYTE, blacktexdata);
 		glGenerateMipmap(GL_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
+		// Transparent black color.
+		glGenTextures(1, &resources.transparent_tex);
+		unsigned char transparenttexdata[8 * 8 * 4];
+		for (int i = 0; i < 8 * 8 * 4; i++) {
+			transparenttexdata[i] = 0;
+		}
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, resources.transparent_tex);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, transparenttexdata);
+		glGenerateMipmap(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		// Opaque "flat" normal map color.
 		glGenTextures(1, &resources.normal_tex);
 		unsigned char normaltexdata[8 * 8 * 3];
 		for (int i = 0; i < 8 * 8 * 3; i += 3) {
@@ -8235,13 +8253,13 @@ void RasterizerStorageGLES3::initialize() {
 			normaltexdata[i + 1] = 128;
 			normaltexdata[i + 2] = 255;
 		}
-
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, resources.normal_tex);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 8, 8, 0, GL_RGB, GL_UNSIGNED_BYTE, normaltexdata);
 		glGenerateMipmap(GL_TEXTURE_2D);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
+		// Opaque "flat" flowmap color.
 		glGenTextures(1, &resources.aniso_tex);
 		unsigned char anisotexdata[8 * 8 * 3];
 		for (int i = 0; i < 8 * 8 * 3; i += 3) {
@@ -8249,7 +8267,6 @@ void RasterizerStorageGLES3::initialize() {
 			anisotexdata[i + 1] = 128;
 			anisotexdata[i + 2] = 0;
 		}
-
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, resources.aniso_tex);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 8, 8, 0, GL_RGB, GL_UNSIGNED_BYTE, anisotexdata);
@@ -8264,15 +8281,15 @@ void RasterizerStorageGLES3::initialize() {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, 8, 8, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, depthtexdata);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
+		// Opaque white color for 3D texture.
 		glGenTextures(1, &resources.white_tex_3d);
-
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_3D, resources.white_tex_3d);
 		glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB, 2, 2, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, whitetexdata);
-
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
 		glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
 
+		// Opaque white color for texture array.
 		glGenTextures(1, &resources.white_tex_array);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D_ARRAY, resources.white_tex_array);
@@ -8411,6 +8428,7 @@ void RasterizerStorageGLES3::initialize() {
 void RasterizerStorageGLES3::finalize() {
 	glDeleteTextures(1, &resources.white_tex);
 	glDeleteTextures(1, &resources.black_tex);
+	glDeleteTextures(1, &resources.transparent_tex);
 	glDeleteTextures(1, &resources.normal_tex);
 	glDeleteTextures(1, &resources.depth_tex);
 }

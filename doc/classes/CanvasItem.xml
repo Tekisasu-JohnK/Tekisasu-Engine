@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="CanvasItem" inherits="Node" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="CanvasItem" inherits="Node" version="3.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Base class of anything 2D.
 	</brief_description>
@@ -289,7 +289,7 @@
 		<method name="get_canvas_transform" qualifiers="const">
 			<return type="Transform2D" />
 			<description>
-				Returns the transform matrix of this item's canvas.
+				Returns the transform from the coordinate system of the canvas, this item is in, to the [Viewport]s coordinate system.
 			</description>
 		</method>
 		<method name="get_global_mouse_position" qualifiers="const">
@@ -301,13 +301,13 @@
 		<method name="get_global_transform" qualifiers="const">
 			<return type="Transform2D" />
 			<description>
-				Returns the global transform matrix of this item.
+				Returns the global transform matrix of this item, i.e. the combined transform up to the topmost [CanvasItem] node. The topmost item is a [CanvasItem] that either has no parent, has non-[CanvasItem] parent or it is top-level. See also [method set_as_toplevel].
 			</description>
 		</method>
 		<method name="get_global_transform_with_canvas" qualifiers="const">
 			<return type="Transform2D" />
 			<description>
-				Returns the global transform matrix of this item in relation to the canvas.
+				Returns the transform from the local coordinate system of this [CanvasItem] to the [Viewport]s coordinate system.
 			</description>
 		</method>
 		<method name="get_local_mouse_position" qualifiers="const">
@@ -331,7 +331,7 @@
 		<method name="get_viewport_transform" qualifiers="const">
 			<return type="Transform2D" />
 			<description>
-				Returns this item's transform in relation to the viewport.
+				Returns the transform from the coordinate system of the canvas, this item is in, to the [Viewport]s embedders coordinate system.
 			</description>
 		</method>
 		<method name="get_world_2d" qualifiers="const">

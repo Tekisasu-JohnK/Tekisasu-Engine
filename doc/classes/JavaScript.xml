@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="JavaScript" inherits="Object" version="3.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="JavaScript" inherits="Object" version="3.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Singleton that connects the engine with the browser's JavaScript context in HTML5 export.
 	</brief_description>
@@ -45,6 +45,13 @@
 			<description>
 				Execute the string [code]code[/code] as JavaScript code within the browser window. This is a call to the actual global JavaScript function [code]eval()[/code].
 				If [code]use_global_execution_context[/code] is [code]true[/code], the code will be evaluated in the global execution context. Otherwise, it is evaluated in the execution context of a function within the engine's runtime environment.
+			</description>
+		</method>
+		<method name="force_fs_sync">
+			<return type="void" />
+			<description>
+				Force synchronization of the persistent file system (when enabled).
+				[b]Note:[/b] This is only useful for modules or extensions that can't use [File] to write files.
 			</description>
 		</method>
 		<method name="get_interface">
