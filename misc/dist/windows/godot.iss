@@ -18,7 +18,7 @@ AppUpdatesURL={#MyAppURL}
 AppComments=Tekisasu Engine editor
 ChangesEnvironment=yes
 DefaultDirName={localappdata}\Tekisasu-Engine
-DefaultGroupName=Godot Engine
+DefaultGroupName=Tekisasu Engine
 AllowNoIcons=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 #ifdef App32Bit
