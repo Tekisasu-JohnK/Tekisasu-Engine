@@ -601,9 +601,11 @@ Error ResourceLoaderText::load() {
 			*progress = resource_current / float(resources_total);
 		}
 
-		int_resources[id] = res; //always assign int resources
-		if (do_assign && cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE) {
-			res->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE);
+		int_resources[id] = res; // Always assign int resources.
+		if (do_assign) {
+			if (cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE) {
+				res->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE);
+			}
 			res->set_scene_unique_id(id);
 		}
 
@@ -2379,15 +2381,15 @@ Error ResourceFormatSaverText::set_uid(const String &p_path, ResourceUID::ID p_u
 	String local_path = ProjectSettings::get_singleton()->localize_path(p_path);
 	Error err = OK;
 	{
-		Ref<FileAccess> fo = FileAccess::open(p_path, FileAccess::READ);
-		if (fo.is_null()) {
+		Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::READ);
+		if (file.is_null()) {
 			ERR_FAIL_V(ERR_CANT_OPEN);
 		}
 
 		ResourceLoaderText loader;
 		loader.local_path = local_path;
 		loader.res_path = loader.local_path;
-		err = loader.set_uid(fo, p_uid);
+		err = loader.set_uid(file, p_uid);
 	}
 
 	if (err == OK) {
