@@ -35,6 +35,7 @@
 #include "scene/3d/node_3d.h"
 #include "scene/3d/skeleton_3d.h"
 #include "scene/resources/animation.h"
+#include "scene/resources/audio_stream_polyphonic.h"
 
 class AnimationNodeBlendTree;
 class AnimationNodeStartState;
@@ -140,12 +141,12 @@ public:
 	virtual double process(double p_time, bool p_seek, bool p_is_external_seeking);
 	virtual String get_caption() const;
 
+	virtual bool add_input(const String &p_name);
+	virtual void remove_input(int p_index);
+	virtual bool set_input_name(int p_input, const String &p_name);
+	virtual String get_input_name(int p_input) const;
 	int get_input_count() const;
-	String get_input_name(int p_input);
-
-	void add_input(const String &p_name);
-	void set_input_name(int p_input, const String &p_name);
-	void remove_input(int p_index);
+	int find_input(const String &p_name) const;
 
 	void set_filter_path(const NodePath &p_path, bool p_enable);
 	bool is_path_filtered(const NodePath &p_path) const;
@@ -165,6 +166,11 @@ VARIANT_ENUM_CAST(AnimationNode::FilterAction)
 //root node does not allow inputs
 class AnimationRootNode : public AnimationNode {
 	GDCLASS(AnimationRootNode, AnimationNode);
+
+protected:
+	virtual void _tree_changed();
+	virtual void _animation_node_renamed(const ObjectID &p_oid, const String &p_old_name, const String &p_new_name);
+	virtual void _animation_node_removed(const ObjectID &p_oid, const StringName &p_node);
 
 public:
 	AnimationRootNode() {}
@@ -222,6 +228,12 @@ private:
 		}
 	};
 
+	struct RootMotionCache {
+		Vector3 loc = Vector3(0, 0, 0);
+		Quaternion rot = Quaternion(0, 0, 0, 1);
+		Vector3 scale = Vector3(1, 1, 1);
+	};
+
 	struct TrackCacheBlendShape : public TrackCache {
 		MeshInstance3D *mesh_3d = nullptr;
 		float init_value = 0;
@@ -252,10 +264,28 @@ private:
 		}
 	};
 
-	struct TrackCacheAudio : public TrackCache {
-		bool playing = false;
+	// Audio stream information for each audio stream placed on the track.
+	struct PlayingAudioStreamInfo {
+		AudioStreamPlaybackPolyphonic::ID index = -1; // ID retrieved from AudioStreamPlaybackPolyphonic.
 		double start = 0.0;
 		double len = 0.0;
+	};
+
+	// Audio track information for mixng and ending.
+	struct PlayingAudioTrackInfo {
+		HashMap<int, PlayingAudioStreamInfo> stream_info;
+		double length = 0.0;
+		double time = 0.0;
+		real_t volume = 0.0;
+		bool loop = false;
+		bool backward = false;
+		bool use_blend = false;
+	};
+
+	struct TrackCacheAudio : public TrackCache {
+		Ref<AudioStreamPolyphonic> audio_stream;
+		Ref<AudioStreamPlaybackPolyphonic> audio_stream_playback;
+		HashMap<ObjectID, PlayingAudioTrackInfo> playing_streams; // Key is Animation resource ObjectID.
 
 		TrackCacheAudio() {
 			type = Animation::TYPE_AUDIO;
@@ -270,8 +300,10 @@ private:
 		}
 	};
 
+	RootMotionCache root_motion_cache;
 	HashMap<NodePath, TrackCache *> track_cache;
 	HashSet<TrackCache *> playing_caches;
+	Vector<Node *> playing_audio_stream_players;
 
 	Ref<AnimationNode> root;
 	NodePath advance_expression_base_node = NodePath(String("."));
@@ -279,6 +311,7 @@ private:
 	AnimationProcessCallback process_callback = ANIMATION_PROCESS_IDLE;
 	bool active = false;
 	NodePath animation_player;
+	int audio_max_polyphony = 32;
 
 	AnimationNode::State state;
 	bool cache_valid = false;
@@ -287,6 +320,8 @@ private:
 	void _setup_animation_player();
 	void _animation_player_changed();
 	void _clear_caches();
+	void _clear_playing_caches();
+	void _clear_audio_streams();
 	bool _update_caches(AnimationPlayer *player);
 	void _process_graph(double p_delta);
 
@@ -299,13 +334,19 @@ private:
 	Vector3 root_motion_position = Vector3(0, 0, 0);
 	Quaternion root_motion_rotation = Quaternion(0, 0, 0, 1);
 	Vector3 root_motion_scale = Vector3(0, 0, 0);
+	Vector3 root_motion_position_accumulator = Vector3(0, 0, 0);
+	Quaternion root_motion_rotation_accumulator = Quaternion(0, 0, 0, 1);
+	Vector3 root_motion_scale_accumulator = Vector3(1, 1, 1);
 
 	friend class AnimationNode;
 	bool properties_dirty = true;
 	void _tree_changed();
+	void _animation_node_renamed(const ObjectID &p_oid, const String &p_old_name, const String &p_new_name);
+	void _animation_node_removed(const ObjectID &p_oid, const StringName &p_node);
 	void _update_properties();
 	List<PropertyInfo> properties;
 	HashMap<StringName, HashMap<StringName, StringName>> property_parent_map;
+	HashMap<ObjectID, StringName> property_reference_map;
 	HashMap<StringName, Pair<Variant, bool>> property_map; // Property value and read-only flag.
 
 	struct Activity {
@@ -328,6 +369,8 @@ protected:
 	void _notification(int p_what);
 	static void _bind_methods();
 
+	GDVIRTUAL5RC(Variant, _post_process_key_value, Ref<Animation>, int, Variant, Object *, int);
+	Variant post_process_key_value(const Ref<Animation> &p_anim, int p_track, Variant p_value, const Object *p_object, int p_object_idx = -1);
 	virtual Variant _post_process_key_value(const Ref<Animation> &p_anim, int p_track, Variant p_value, const Object *p_object, int p_object_idx = -1);
 
 public:
@@ -346,6 +389,9 @@ public:
 	void set_advance_expression_base_node(const NodePath &p_advance_expression_base_node);
 	NodePath get_advance_expression_base_node() const;
 
+	void set_audio_max_polyphony(int p_audio_max_polyphony);
+	int get_audio_max_polyphony() const;
+
 	PackedStringArray get_configuration_warnings() const override;
 
 	bool is_state_invalid() const;
@@ -358,10 +404,12 @@ public:
 	Quaternion get_root_motion_rotation() const;
 	Vector3 get_root_motion_scale() const;
 
+	Vector3 get_root_motion_position_accumulator() const;
+	Quaternion get_root_motion_rotation_accumulator() const;
+	Vector3 get_root_motion_scale_accumulator() const;
+
 	real_t get_connection_activity(const StringName &p_path, int p_connection) const;
 	void advance(double p_time);
-
-	void rename_parameter(const String &p_base, const String &p_new_base);
 
 	uint64_t get_last_process_pass() const;
 	AnimationTree();

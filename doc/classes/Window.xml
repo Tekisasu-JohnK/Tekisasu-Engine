@@ -358,6 +358,7 @@
 			<description>
 				Popups the [Window] at the center of the current screen, with optionally given minimum size.
 				If the [Window] is embedded, it will be centered in the parent [Viewport] instead.
+				[b]Note:[/b] Calling it with the default value of [param minsize] is equivalent to calling it with [member size].
 			</description>
 		</method>
 		<method name="popup_centered_clamped">
@@ -367,6 +368,7 @@
 			<description>
 				Popups the [Window] centered inside its parent [Window].
 				[code]fallback_ratio[/code] determines the maximum size of the [Window], in relation to its parent.
+				[b]Note:[/b] Calling it with the default value of [param minsize] is equivalent to calling it with [member size].
 			</description>
 		</method>
 		<method name="popup_centered_ratio">
@@ -612,6 +614,12 @@
 			<description>
 				Emitted when the [Window]'s close button is pressed or when [member popup_window] is enabled and user clicks outside the window.
 				This signal can be used to handle window closing, e.g. by connecting it to [method hide].
+			</description>
+		</signal>
+		<signal name="dpi_changed">
+			<description>
+				Emitted when the [Window]'s DPI changes as a result of OS-level changes (e.g. moving the window from a Retina display to a lower resolution one).
+				[b]Note:[/b] Only implemented on macOS.
 			</description>
 		</signal>
 		<signal name="files_dropped">

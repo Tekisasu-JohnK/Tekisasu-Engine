@@ -116,6 +116,7 @@ private:
 	bool exclusive = false;
 	bool wrap_controls = false;
 	bool updating_child_controls = false;
+	bool updating_embedded_window = false;
 	bool clamp_to_embedder = false;
 
 	LayoutDirection layout_dir = LAYOUT_DIRECTION_INHERITED;
@@ -123,6 +124,7 @@ private:
 	bool auto_translate = true;
 
 	void _update_child_controls();
+	void _update_embedded_window();
 
 	Size2i content_scale_size;
 	ContentScaleMode content_scale_mode = CONTENT_SCALE_MODE_DISABLED;
@@ -133,6 +135,11 @@ private:
 	void _clear_window();
 	void _update_from_window();
 
+	Size2i max_size_used;
+
+	Size2i _clamp_limit_size(const Size2i &p_limit_size);
+	Size2i _clamp_window_size(const Size2i &p_size);
+	void _validate_limit_size();
 	void _update_viewport_size();
 	void _update_window_size();
 
@@ -171,6 +178,8 @@ private:
 
 	Viewport *embedder = nullptr;
 
+	Transform2D window_transform;
+
 	friend class Viewport; //friend back, can call the methods below
 
 	void _window_input(const Ref<InputEvent> &p_ev);
@@ -183,7 +192,6 @@ private:
 	Ref<Shortcut> debugger_stop_shortcut;
 
 protected:
-	Viewport *_get_embedder() const;
 	virtual Rect2i _popup_adjust_rect() const { return Rect2i(); }
 
 	virtual void _update_theme_item_cache();
@@ -269,6 +277,7 @@ public:
 	void set_ime_position(const Point2i &p_pos);
 
 	bool is_embedded() const;
+	Viewport *get_embedder() const;
 
 	void set_content_scale_size(const Size2i &p_size);
 	Size2i get_content_scale_size() const;
@@ -302,6 +311,7 @@ public:
 	void popup_centered_clamped(const Size2i &p_size = Size2i(), float p_fallback_ratio = 0.75);
 
 	Size2 get_contents_minimum_size() const;
+	Size2 get_clamped_minimum_size() const;
 
 	void grab_focus();
 	bool has_focus() const;
@@ -372,7 +382,9 @@ public:
 
 	//
 
-	virtual Transform2D get_screen_transform() const override;
+	virtual Transform2D get_final_transform() const override;
+	virtual Transform2D get_screen_transform_internal(bool p_absolute_position = false) const override;
+	virtual Transform2D get_popup_base_transform() const override;
 
 	Rect2i get_parent_rect() const;
 	virtual DisplayServer::WindowID get_window_id() const override;

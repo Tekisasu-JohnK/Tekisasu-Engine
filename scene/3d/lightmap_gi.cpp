@@ -163,7 +163,8 @@ Array LightmapGIData::_get_light_textures_data() const {
 		config->set_value("remap", "importer", "2d_array_texture");
 		config->set_value("remap", "type", "CompressedTexture2DArray");
 		if (!config->has_section_key("params", "compress/mode")) {
-			config->set_value("params", "compress/mode", 2); //user may want another compression, so leave it be
+			// User may want another compression, so leave it be, but default to VRAM uncompressed.
+			config->set_value("params", "compress/mode", 3);
 		}
 		config->set_value("params", "compress/channel_pack", 1);
 		config->set_value("params", "mipmaps/generate", false);
@@ -1455,6 +1456,17 @@ void LightmapGI::set_camera_attributes(const Ref<CameraAttributes> &p_camera_att
 
 Ref<CameraAttributes> LightmapGI::get_camera_attributes() const {
 	return camera_attributes;
+}
+
+PackedStringArray LightmapGI::get_configuration_warnings() const {
+	PackedStringArray warnings = Node::get_configuration_warnings();
+
+	if (OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
+		warnings.push_back(RTR("LightmapGI nodes are not supported when using the GL Compatibility backend yet. Support will be added in a future release."));
+		return warnings;
+	}
+
+	return warnings;
 }
 
 void LightmapGI::_validate_property(PropertyInfo &p_property) const {

@@ -31,6 +31,7 @@
 #include "rendering_server.h"
 
 #include "core/config/project_settings.h"
+#include "core/object/worker_thread_pool.h"
 #include "core/variant/typed_array.h"
 #include "servers/rendering/rendering_server_globals.h"
 #include "servers/rendering/shader_language.h"
@@ -1968,7 +1969,7 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_ambient_color", "probe", "color"), &RenderingServer::reflection_probe_set_ambient_color);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_ambient_energy", "probe", "energy"), &RenderingServer::reflection_probe_set_ambient_energy);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_max_distance", "probe", "distance"), &RenderingServer::reflection_probe_set_max_distance);
-	ClassDB::bind_method(D_METHOD("reflection_probe_set_extents", "probe", "extents"), &RenderingServer::reflection_probe_set_extents);
+	ClassDB::bind_method(D_METHOD("reflection_probe_set_size", "probe", "size"), &RenderingServer::reflection_probe_set_size);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_origin_offset", "probe", "offset"), &RenderingServer::reflection_probe_set_origin_offset);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_as_interior", "probe", "enable"), &RenderingServer::reflection_probe_set_as_interior);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_enable_box_projection", "probe", "enable"), &RenderingServer::reflection_probe_set_enable_box_projection);
@@ -1987,7 +1988,7 @@ void RenderingServer::_bind_methods() {
 	/* DECAL */
 
 	ClassDB::bind_method(D_METHOD("decal_create"), &RenderingServer::decal_create);
-	ClassDB::bind_method(D_METHOD("decal_set_extents", "decal", "extents"), &RenderingServer::decal_set_extents);
+	ClassDB::bind_method(D_METHOD("decal_set_size", "decal", "size"), &RenderingServer::decal_set_size);
 	ClassDB::bind_method(D_METHOD("decal_set_texture", "decal", "type", "texture"), &RenderingServer::decal_set_texture);
 	ClassDB::bind_method(D_METHOD("decal_set_emission_energy", "decal", "energy"), &RenderingServer::decal_set_emission_energy);
 	ClassDB::bind_method(D_METHOD("decal_set_albedo_mix", "decal", "albedo_mix"), &RenderingServer::decal_set_albedo_mix);
@@ -2147,7 +2148,7 @@ void RenderingServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("fog_volume_create"), &RenderingServer::fog_volume_create);
 	ClassDB::bind_method(D_METHOD("fog_volume_set_shape", "fog_volume", "shape"), &RenderingServer::fog_volume_set_shape);
-	ClassDB::bind_method(D_METHOD("fog_volume_set_extents", "fog_volume", "extents"), &RenderingServer::fog_volume_set_extents);
+	ClassDB::bind_method(D_METHOD("fog_volume_set_size", "fog_volume", "size"), &RenderingServer::fog_volume_set_size);
 	ClassDB::bind_method(D_METHOD("fog_volume_set_material", "fog_volume", "material"), &RenderingServer::fog_volume_set_material);
 
 	BIND_ENUM_CONSTANT(FOG_VOLUME_SHAPE_ELLIPSOID);
@@ -2200,7 +2201,7 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("viewport_get_texture", "viewport"), &RenderingServer::viewport_get_texture);
 	ClassDB::bind_method(D_METHOD("viewport_set_disable_3d", "viewport", "disable"), &RenderingServer::viewport_set_disable_3d);
 	ClassDB::bind_method(D_METHOD("viewport_set_disable_2d", "viewport", "disable"), &RenderingServer::viewport_set_disable_2d);
-	ClassDB::bind_method(D_METHOD("viewport_set_disable_environment", "viewport", "disabled"), &RenderingServer::viewport_set_disable_environment);
+	ClassDB::bind_method(D_METHOD("viewport_set_environment_mode", "viewport", "mode"), &RenderingServer::viewport_set_environment_mode);
 	ClassDB::bind_method(D_METHOD("viewport_attach_camera", "viewport", "camera"), &RenderingServer::viewport_attach_camera);
 	ClassDB::bind_method(D_METHOD("viewport_set_scenario", "viewport", "scenario"), &RenderingServer::viewport_set_scenario);
 	ClassDB::bind_method(D_METHOD("viewport_attach_canvas", "viewport", "canvas"), &RenderingServer::viewport_attach_canvas);
@@ -2254,6 +2255,11 @@ void RenderingServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(VIEWPORT_CLEAR_ALWAYS);
 	BIND_ENUM_CONSTANT(VIEWPORT_CLEAR_NEVER);
 	BIND_ENUM_CONSTANT(VIEWPORT_CLEAR_ONLY_NEXT_FRAME);
+
+	BIND_ENUM_CONSTANT(VIEWPORT_ENVIRONMENT_DISABLED);
+	BIND_ENUM_CONSTANT(VIEWPORT_ENVIRONMENT_ENABLED);
+	BIND_ENUM_CONSTANT(VIEWPORT_ENVIRONMENT_INHERIT);
+	BIND_ENUM_CONSTANT(VIEWPORT_ENVIRONMENT_MAX);
 
 	BIND_ENUM_CONSTANT(VIEWPORT_SDF_OVERSIZE_100_PERCENT);
 	BIND_ENUM_CONSTANT(VIEWPORT_SDF_OVERSIZE_120_PERCENT);
@@ -2670,6 +2676,7 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("canvas_light_set_shadow_filter", "light", "filter"), &RenderingServer::canvas_light_set_shadow_filter);
 	ClassDB::bind_method(D_METHOD("canvas_light_set_shadow_color", "light", "color"), &RenderingServer::canvas_light_set_shadow_color);
 	ClassDB::bind_method(D_METHOD("canvas_light_set_shadow_smooth", "light", "smooth"), &RenderingServer::canvas_light_set_shadow_smooth);
+	ClassDB::bind_method(D_METHOD("canvas_light_set_blend_mode", "light", "mode"), &RenderingServer::canvas_light_set_blend_mode);
 
 	BIND_ENUM_CONSTANT(CANVAS_LIGHT_MODE_POINT);
 	BIND_ENUM_CONSTANT(CANVAS_LIGHT_MODE_DIRECTIONAL);
@@ -2849,10 +2856,8 @@ RenderingServer::RenderingServer() {
 }
 
 void RenderingServer::init() {
-	GLOBAL_DEF_RST("rendering/textures/vram_compression/import_bptc", false);
-	GLOBAL_DEF_RST("rendering/textures/vram_compression/import_s3tc", true);
-	GLOBAL_DEF_RST("rendering/textures/vram_compression/import_etc", false);
-	GLOBAL_DEF_RST("rendering/textures/vram_compression/import_etc2", true);
+	GLOBAL_DEF_RST_NOVAL_BASIC("rendering/textures/vram_compression/import_s3tc_bptc", OS::get_singleton()->get_preferred_texture_format() == OS::PREFERRED_TEXTURE_FORMAT_S3TC_BPTC);
+	GLOBAL_DEF_RST_NOVAL_BASIC("rendering/textures/vram_compression/import_etc2_astc", OS::get_singleton()->get_preferred_texture_format() == OS::PREFERRED_TEXTURE_FORMAT_ETC2_ASTC);
 
 	GLOBAL_DEF("rendering/textures/lossless_compression/force_png", false);
 
@@ -2875,7 +2880,7 @@ void RenderingServer::init() {
 	GLOBAL_DEF("rendering/2d/shadow_atlas/size", 2048);
 
 	// Number of commands that can be drawn per frame.
-	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "rendering/gl_compatibility/item_buffer_size", PROPERTY_HINT_RANGE, "1024,1048576,1"), 16384);
+	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "rendering/gl_compatibility/item_buffer_size", PROPERTY_HINT_RANGE, "128,1048576,1"), 16384);
 
 	GLOBAL_DEF("rendering/shader_compiler/shader_cache/enabled", true);
 	GLOBAL_DEF("rendering/shader_compiler/shader_cache/compress", true);

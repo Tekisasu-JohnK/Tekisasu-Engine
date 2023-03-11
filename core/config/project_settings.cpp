@@ -40,6 +40,7 @@
 #include "core/io/file_access_pack.h"
 #include "core/io/marshalls.h"
 #include "core/os/keyboard.h"
+#include "core/variant/typed_array.h"
 #include "core/variant/variant_parser.h"
 #include "core/version.h"
 
@@ -221,7 +222,9 @@ String ProjectSettings::localize_path(const String &p_path) const {
 
 void ProjectSettings::set_initial_value(const String &p_name, const Variant &p_value) {
 	ERR_FAIL_COND_MSG(!props.has(p_name), "Request for nonexistent project setting: " + p_name + ".");
-	props[p_name].initial = p_value;
+
+	// Duplicate so that if value is array or dictionary, changing the setting will not change the stored initial value.
+	props[p_name].initial = p_value.duplicate();
 }
 
 void ProjectSettings::set_restart_if_changed(const String &p_name, bool p_restart) {
@@ -299,13 +302,13 @@ bool ProjectSettings::_set(const StringName &p_name, const Variant &p_value) {
 
 				for (int i = 1; i < s.size(); i++) {
 					String feature = s[i].strip_edges();
-					Pair<StringName, StringName> fo(feature, p_name);
+					Pair<StringName, StringName> feature_override(feature, p_name);
 
 					if (!feature_overrides.has(s[0])) {
 						feature_overrides[s[0]] = LocalVector<Pair<StringName, StringName>>();
 					}
 
-					feature_overrides[s[0]].push_back(fo);
+					feature_overrides[s[0]].push_back(feature_override);
 				}
 			}
 		}
@@ -653,6 +656,7 @@ Error ProjectSettings::setup(const String &p_path, const String &p_main_pack, bo
 
 	Compression::gzip_level = GLOBAL_GET("compression/formats/gzip/compression_level");
 
+	project_loaded = err == OK;
 	return err;
 }
 
@@ -1103,6 +1107,10 @@ bool ProjectSettings::is_using_datapack() const {
 	return using_datapack;
 }
 
+bool ProjectSettings::is_project_loaded() const {
+	return project_loaded;
+}
+
 bool ProjectSettings::_property_can_revert(const StringName &p_name) const {
 	if (!props.has(p_name)) {
 		return false;
@@ -1116,7 +1124,9 @@ bool ProjectSettings::_property_get_revert(const StringName &p_name, Variant &r_
 		return false;
 	}
 
-	r_property = props[p_name].initial;
+	// Duplicate so that if value is array or dictionary, changing the setting will not change the stored initial value.
+	r_property = props[p_name].initial.duplicate();
+
 	return true;
 }
 
@@ -1132,27 +1142,40 @@ Variant ProjectSettings::get_setting(const String &p_setting, const Variant &p_d
 	}
 }
 
-Array ProjectSettings::get_global_class_list() {
-	Array script_classes;
+TypedArray<Dictionary> ProjectSettings::get_global_class_list() {
+	if (is_global_class_list_loaded) {
+		return global_class_list;
+	}
 
 	Ref<ConfigFile> cf;
 	cf.instantiate();
-	if (cf->load(get_project_data_path().path_join("global_script_class_cache.cfg")) == OK) {
-		script_classes = cf->get_value("", "list");
+	if (cf->load(get_global_class_list_path()) == OK) {
+		global_class_list = cf->get_value("", "list", Array());
 	} else {
 #ifndef TOOLS_ENABLED
 		// Script classes can't be recreated in exported project, so print an error.
 		ERR_PRINT("Could not load global script cache.");
 #endif
 	}
-	return script_classes;
+
+	// File read succeeded or failed. If it failed, assume everything is still okay.
+	// We will later receive updated class data in store_global_class_list().
+	is_global_class_list_loaded = true;
+
+	return global_class_list;
+}
+
+String ProjectSettings::get_global_class_list_path() const {
+	return get_project_data_path().path_join("global_script_class_cache.cfg");
 }
 
 void ProjectSettings::store_global_class_list(const Array &p_classes) {
 	Ref<ConfigFile> cf;
 	cf.instantiate();
 	cf->set_value("", "list", p_classes);
-	cf->save(get_project_data_path().path_join("global_script_class_cache.cfg"));
+	cf->save(get_global_class_list_path());
+
+	global_class_list = p_classes;
 }
 
 bool ProjectSettings::has_custom_feature(const String &p_feature) const {
@@ -1187,6 +1210,7 @@ void ProjectSettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_setting", "name", "value"), &ProjectSettings::set_setting);
 	ClassDB::bind_method(D_METHOD("get_setting", "name", "default_value"), &ProjectSettings::get_setting, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("get_setting_with_override", "name"), &ProjectSettings::get_setting_with_override);
+	ClassDB::bind_method(D_METHOD("get_global_class_list"), &ProjectSettings::get_global_class_list);
 	ClassDB::bind_method(D_METHOD("set_order", "name", "position"), &ProjectSettings::set_order);
 	ClassDB::bind_method(D_METHOD("get_order", "name"), &ProjectSettings::get_order);
 	ClassDB::bind_method(D_METHOD("set_initial_value", "name", "value"), &ProjectSettings::set_initial_value);
@@ -1285,6 +1309,10 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF(PropertyInfo(Variant::PACKED_STRING_ARRAY, "editor/script/search_in_file_extensions"), extensions);
 
 	GLOBAL_DEF(PropertyInfo(Variant::STRING, "editor/script/templates_search_path", PROPERTY_HINT_DIR), "res://script_templates");
+
+	// For correct doc generation.
+	GLOBAL_DEF("editor/naming/default_signal_callback_name", "_on_{node_name}_{signal_name}");
+	GLOBAL_DEF("editor/naming/default_signal_callback_to_self_name", "_on_{signal_name}");
 
 	_add_builtin_input_map();
 

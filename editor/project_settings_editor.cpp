@@ -370,17 +370,7 @@ void ProjectSettingsEditor::_action_edited(const String &p_name, const Dictionar
 
 	} else {
 		// Events changed
-		int act_event_count = ((Array)p_action["events"]).size();
-		int old_event_count = ((Array)old_val["events"]).size();
-
-		if (act_event_count == old_event_count) {
-			undo_redo->create_action(TTR("Edit Input Action Event"));
-		} else if (act_event_count > old_event_count) {
-			undo_redo->create_action(TTR("Add Input Action Event"));
-		} else {
-			undo_redo->create_action(TTR("Remove Input Action Event"));
-		}
-
+		undo_redo->create_action(TTR("Change Input Action Event(s)"));
 		undo_redo->add_do_method(ProjectSettings::get_singleton(), "set", property_name, p_action);
 		undo_redo->add_undo_method(ProjectSettings::get_singleton(), "set", property_name, old_val);
 	}
@@ -422,7 +412,7 @@ void ProjectSettingsEditor::_action_renamed(const String &p_old_name, const Stri
 	Dictionary action = GLOBAL_GET(old_property_name);
 
 	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-	undo_redo->create_action(TTR("Rename Input Action Event"));
+	undo_redo->create_action(TTR("Rename Input Action"));
 	// Do: clear old, set new
 	undo_redo->add_do_method(ProjectSettings::get_singleton(), "clear", old_property_name);
 	undo_redo->add_do_method(ProjectSettings::get_singleton(), "set", new_property_name, action);
@@ -527,6 +517,8 @@ void ProjectSettingsEditor::_update_action_map_editor() {
 		if (is_builtin_input) {
 			action_info.editable = false;
 			action_info.icon = builtin_icon;
+			action_info.has_initial = true;
+			action_info.action_initial = ProjectSettings::get_singleton()->property_get_revert(property_name);
 		}
 
 		actions.push_back(action_info);

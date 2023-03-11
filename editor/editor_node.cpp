@@ -581,6 +581,7 @@ void EditorNode::_notification(int p_what) {
 
 			ResourceImporterTexture::get_singleton()->update_imports();
 
+			bottom_panel_updating = false;
 		} break;
 
 		case NOTIFICATION_ENTER_TREE: {
@@ -643,7 +644,7 @@ void EditorNode::_notification(int p_what) {
 			}
 
 			RenderingServer::get_singleton()->viewport_set_disable_2d(get_scene_root()->get_viewport_rid(), true);
-			RenderingServer::get_singleton()->viewport_set_disable_environment(get_viewport()->get_viewport_rid(), true);
+			RenderingServer::get_singleton()->viewport_set_environment_mode(get_viewport()->get_viewport_rid(), RenderingServer::VIEWPORT_ENVIRONMENT_DISABLED);
 
 			feature_profile_manager->notify_changed();
 
@@ -690,11 +691,13 @@ void EditorNode::_notification(int p_what) {
 
 			bool theme_changed =
 					EditorSettings::get_singleton()->check_changed_settings_in_group("interface/theme") ||
-					EditorSettings::get_singleton()->check_changed_settings_in_group("text_editor/theme") ||
 					EditorSettings::get_singleton()->check_changed_settings_in_group("interface/editor/font") ||
 					EditorSettings::get_singleton()->check_changed_settings_in_group("interface/editor/main_font") ||
 					EditorSettings::get_singleton()->check_changed_settings_in_group("interface/editor/code_font") ||
-					EditorSettings::get_singleton()->check_changed_settings_in_group("filesystem/file_dialog/thumbnail_size");
+					EditorSettings::get_singleton()->check_changed_settings_in_group("text_editor/theme") ||
+					EditorSettings::get_singleton()->check_changed_settings_in_group("text_editor/help/help") ||
+					EditorSettings::get_singleton()->check_changed_settings_in_group("filesystem/file_dialog/thumbnail_size") ||
+					EditorSettings::get_singleton()->check_changed_settings_in_group("run/output/font_size");
 
 			if (theme_changed) {
 				theme = create_custom_theme(theme_base->get_theme());
@@ -767,8 +770,13 @@ void EditorNode::_notification(int p_what) {
 
 			help_menu->set_item_icon(help_menu->get_item_index(HELP_SEARCH), gui_base->get_theme_icon(SNAME("HelpSearch"), SNAME("EditorIcons")));
 			help_menu->set_item_icon(help_menu->get_item_index(HELP_DOCS), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_QA), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_REPORT_A_BUG), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_SUGGEST_A_FEATURE), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_SEND_DOCS_FEEDBACK), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_COMMUNITY), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
 			help_menu->set_item_icon(help_menu->get_item_index(HELP_ABOUT), gui_base->get_theme_icon(SNAME("Godot"), SNAME("EditorIcons")));
-
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_SUPPORT_GODOT_DEVELOPMENT), gui_base->get_theme_icon(SNAME("Heart"), SNAME("EditorIcons")));
 
 			for (int i = 0; i < main_editor_buttons.size(); i++) {
 				main_editor_buttons.write[i]->add_theme_font_override("font", gui_base->get_theme_font(SNAME("main_button_font"), SNAME("EditorFonts")));
@@ -844,6 +852,18 @@ void EditorNode::_remove_plugin_from_enabled(const String &p_name) {
 		}
 	}
 	ps->set("editor_plugins/enabled", enabled_plugins);
+}
+
+void EditorNode::_plugin_over_edit(EditorPlugin *p_plugin, Object *p_object) {
+	if (p_object) {
+		editor_plugins_over->add_plugin(p_plugin);
+		p_plugin->make_visible(true);
+		p_plugin->edit(p_object);
+	} else {
+		editor_plugins_over->remove_plugin(p_plugin);
+		p_plugin->make_visible(false);
+		p_plugin->edit(nullptr);
+	}
 }
 
 void EditorNode::_resources_changed(const Vector<String> &p_resources) {
@@ -2091,14 +2111,25 @@ void EditorNode::edit_item(Object *p_object, Object *p_editing_owner) {
 	if (!item_plugins.is_empty()) {
 		ObjectID owner_id = p_editing_owner->get_instance_id();
 
+		List<EditorPlugin *> to_remove;
 		for (EditorPlugin *plugin : active_plugins[owner_id]) {
 			if (!item_plugins.has(plugin)) {
-				plugin->make_visible(false);
-				plugin->edit(nullptr);
+				// Remove plugins no longer used by this editing owner.
+				to_remove.push_back(plugin);
+				_plugin_over_edit(plugin, nullptr);
 			}
 		}
 
+		for (EditorPlugin *plugin : to_remove) {
+			active_plugins[owner_id].erase(plugin);
+		}
+
 		for (EditorPlugin *plugin : item_plugins) {
+			if (active_plugins[owner_id].has(plugin)) {
+				plugin->edit(p_object);
+				continue;
+			}
+
 			for (KeyValue<ObjectID, HashSet<EditorPlugin *>> &kv : active_plugins) {
 				if (kv.key != owner_id) {
 					EditorPropertyResource *epres = Object::cast_to<EditorPropertyResource>(ObjectDB::get_instance(kv.key));
@@ -2110,12 +2141,17 @@ void EditorNode::edit_item(Object *p_object, Object *p_editing_owner) {
 				}
 			}
 			active_plugins[owner_id].insert(plugin);
-			editor_plugins_over->add_plugin(plugin);
-			plugin->edit(p_object);
-			plugin->make_visible(true);
+			_plugin_over_edit(plugin, p_object);
 		}
 	} else {
 		hide_unused_editors(p_editing_owner);
+	}
+}
+
+void EditorNode::push_node_item(Node *p_node) {
+	if (p_node || Object::cast_to<Node>(InspectorDock::get_inspector_singleton()->get_edited_object())) {
+		// Don't push null if the currently edited object is not a Node.
+		push_item(p_node);
 	}
 }
 
@@ -2157,9 +2193,7 @@ void EditorNode::hide_unused_editors(const Object *p_editing_owner) {
 	if (p_editing_owner) {
 		const ObjectID id = p_editing_owner->get_instance_id();
 		for (EditorPlugin *plugin : active_plugins[id]) {
-			plugin->make_visible(false);
-			plugin->edit(nullptr);
-			editor_plugins_over->remove_plugin(plugin);
+			_plugin_over_edit(plugin, nullptr);
 		}
 		active_plugins.erase(id);
 	} else {
@@ -2170,9 +2204,7 @@ void EditorNode::hide_unused_editors(const Object *p_editing_owner) {
 			if (!ObjectDB::get_instance(kv.key)) {
 				to_remove.push_back(kv.key);
 				for (EditorPlugin *plugin : kv.value) {
-					plugin->make_visible(false);
-					plugin->edit(nullptr);
-					editor_plugins_over->remove_plugin(plugin);
+					_plugin_over_edit(plugin, nullptr);
 				}
 			}
 		}
@@ -2923,7 +2955,7 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 				} else if (export_template_manager->can_install_android_template()) {
 					install_android_build_template->popup_centered();
 				} else {
-					custom_build_manage_templates->popup_centered();
+					gradle_build_manage_templates->popup_centered();
 				}
 			}
 		} break;
@@ -3013,7 +3045,7 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 #endif
 		} break;
 		case SETTINGS_INSTALL_ANDROID_BUILD_TEMPLATE: {
-			custom_build_manage_templates->hide();
+			gradle_build_manage_templates->hide();
 			file_android_build_source->popup_centered_ratio();
 		} break;
 		case SETTINGS_MANAGE_FEATURE_PROFILES: {
@@ -3084,7 +3116,7 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 }
 
 String EditorNode::adjust_scene_name_casing(const String &root_name) {
-	switch (GLOBAL_GET("editor/scene/scene_naming").operator int()) {
+	switch (GLOBAL_GET("editor/naming/scene_name_casing").operator int()) {
 		case SCENE_NAME_CASING_AUTO:
 			// Use casing of the root node.
 			break;
@@ -3494,7 +3526,7 @@ void EditorNode::set_addon_plugin_enabled(const String &p_addon, bool p_enabled,
 	// Only try to load the script if it has a name. Else, the plugin has no init script.
 	if (script_path.length() > 0) {
 		script_path = addon_path.get_base_dir().path_join(script_path);
-		scr = ResourceLoader::load(script_path);
+		scr = ResourceLoader::load(script_path, "Script", ResourceFormatLoader::CACHE_MODE_IGNORE);
 
 		if (scr.is_null()) {
 			show_warning(vformat(TTR("Unable to load addon script from path: '%s'."), script_path));
@@ -3655,7 +3687,7 @@ void EditorNode::_set_main_scene_state(Dictionary p_state, Node *p_for_scene) {
 			Node *editor_node = SceneTreeDock::get_singleton()->get_tree_editor()->get_selected();
 			editor_node = editor_node == nullptr ? get_edited_scene() : editor_node;
 
-			if (Object::cast_to<Node2D>(editor_node) || Object::cast_to<Control>(editor_node)) {
+			if (Object::cast_to<CanvasItem>(editor_node)) {
 				editor_select(EDITOR_2D);
 			} else if (Object::cast_to<Node3D>(editor_node)) {
 				editor_select(EDITOR_3D);
@@ -3897,7 +3929,7 @@ Error EditorNode::load_scene(const String &p_scene, bool p_ignore_broken_deps, b
 		Ref<SceneState> state = sdata->get_state();
 		state->set_path(lpath);
 		new_scene->set_scene_inherited_state(state);
-		new_scene->set_scene_file_path(lpath);
+		new_scene->set_scene_file_path(String());
 	}
 
 	new_scene->set_scene_instance_state(Ref<SceneState>());
@@ -3950,6 +3982,15 @@ HashMap<StringName, Variant> EditorNode::get_modified_properties_for_node(Node *
 	}
 
 	return modified_property_map;
+}
+
+void EditorNode::update_ownership_table_for_addition_node_ancestors(Node *p_current_node, HashMap<Node *, Node *> &p_ownership_table) {
+	p_ownership_table.insert(p_current_node, p_current_node->get_owner());
+
+	for (int i = 0; i < p_current_node->get_child_count(); i++) {
+		Node *child = p_current_node->get_child(i);
+		update_ownership_table_for_addition_node_ancestors(child, p_ownership_table);
+	}
 }
 
 void EditorNode::update_diff_data_for_node(
@@ -4047,6 +4088,16 @@ void EditorNode::update_diff_data_for_node(
 		if (node_3d) {
 			new_additive_node_entry.transform_3d = node_3d->get_relative_transform(node_3d->get_parent());
 		}
+
+		// Gathers the ownership of all ancestor nodes for later use.
+		HashMap<Node *, Node *> ownership_table;
+		for (int i = 0; i < p_node->get_child_count(); i++) {
+			Node *child = p_node->get_child(i);
+			update_ownership_table_for_addition_node_ancestors(child, ownership_table);
+		}
+
+		new_additive_node_entry.ownership_table = ownership_table;
+
 		p_addition_list.push_back(new_additive_node_entry);
 
 		return;
@@ -5585,6 +5636,9 @@ void EditorNode::remove_bottom_panel_item(Control *p_item) {
 }
 
 void EditorNode::_bottom_panel_switch(bool p_enable, int p_idx) {
+	if (bottom_panel_updating) {
+		return;
+	}
 	ERR_FAIL_INDEX(p_idx, bottom_panel_items.size());
 
 	if (bottom_panel_items[p_idx].control->is_visible() == p_enable) {
@@ -5592,6 +5646,8 @@ void EditorNode::_bottom_panel_switch(bool p_enable, int p_idx) {
 	}
 
 	if (p_enable) {
+		bottom_panel_updating = true;
+
 		for (int i = 0; i < bottom_panel_items.size(); i++) {
 			bottom_panel_items[i].button->set_pressed(i == p_idx);
 			bottom_panel_items[i].control->set_visible(i == p_idx);
@@ -5608,7 +5664,6 @@ void EditorNode::_bottom_panel_switch(bool p_enable, int p_idx) {
 			top_split->hide();
 		}
 		bottom_panel_raise->show();
-
 	} else {
 		bottom_panel->add_theme_style_override("panel", gui_base->get_theme_stylebox(SNAME("BottomPanel"), SNAME("EditorStyles")));
 		bottom_panel_items[p_idx].button->set_pressed(false);
@@ -6108,6 +6163,7 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 						Ref<SceneState> state = current_packed_scene->get_state();
 						state->set_path(current_packed_scene->get_path());
 						instantiated_node->set_scene_inherited_state(state);
+						instantiated_node->set_scene_file_path(String());
 					}
 					editor_data.set_edited_scene_root(instantiated_node);
 					current_edited_scene = instantiated_node;
@@ -6166,6 +6222,18 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 							node_3d->set_transform(additive_node_entry.transform_3d);
 						}
 					}
+
+					// Restore the ownership of its ancestors
+					for (KeyValue<Node *, Node *> &E : additive_node_entry.ownership_table) {
+						Node *current_ancestor = E.key;
+						Node *ancestor_owner = E.value;
+
+						if (ancestor_owner == original_node) {
+							ancestor_owner = instantiated_node;
+						}
+
+						current_ancestor->set_owner(ancestor_owner);
+					}
 				}
 
 				// Restore the selection.
@@ -6189,7 +6257,7 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 						List<PropertyInfo> pinfo;
 						modifiable_node->get_property_list(&pinfo);
 
-						// Get names of all valid property names (TODO: make this more efficent).
+						// Get names of all valid property names (TODO: make this more efficient).
 						List<String> property_names;
 						for (const PropertyInfo &E2 : pinfo) {
 							if (E2.usage & PROPERTY_USAGE_STORAGE) {
@@ -6207,7 +6275,7 @@ void EditorNode::reload_instances_with_path_in_edited_scenes(const String &p_ins
 						for (const ConnectionWithNodePath &E2 : E.value.connections_to) {
 							Connection conn = E2.connection;
 
-							// Get the node the callable is targetting.
+							// Get the node the callable is targeting.
 							Node *target_node = cast_to<Node>(conn.callable.get_object());
 
 							// If the callable object no longer exists or is marked for deletion,
@@ -6424,7 +6492,7 @@ void EditorNode::_feature_profile_changed() {
 }
 
 void EditorNode::_bind_methods() {
-	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/scene/scene_naming", PROPERTY_HINT_ENUM, "Auto,PascalCase,snake_case"), SCENE_NAME_CASING_SNAKE_CASE);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/naming/scene_name_casing", PROPERTY_HINT_ENUM, "Auto,PascalCase,snake_case"), SCENE_NAME_CASING_SNAKE_CASE);
 	ClassDB::bind_method("edit_current", &EditorNode::edit_current);
 	ClassDB::bind_method("edit_node", &EditorNode::edit_node);
 
@@ -6445,7 +6513,6 @@ void EditorNode::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_gui_base"), &EditorNode::get_gui_base);
 
 	ADD_SIGNAL(MethodInfo("play_pressed"));
-	ADD_SIGNAL(MethodInfo("pause_pressed"));
 	ADD_SIGNAL(MethodInfo("stop_pressed"));
 	ADD_SIGNAL(MethodInfo("request_help_search"));
 	ADD_SIGNAL(MethodInfo("script_add_function_request", PropertyInfo(Variant::OBJECT, "obj"), PropertyInfo(Variant::STRING, "function"), PropertyInfo(Variant::PACKED_STRING_ARRAY, "args")));
@@ -7168,6 +7235,7 @@ EditorNode::EditorNode() {
 	file_menu->add_separator();
 
 	file_menu->add_shortcut(ED_SHORTCUT_AND_COMMAND("editor/quick_open", TTR("Quick Open..."), KeyModifierMask::SHIFT + KeyModifierMask::ALT + Key::O), FILE_QUICK_OPEN);
+	ED_SHORTCUT_OVERRIDE("editor/quick_open", "macos", KeyModifierMask::META + KeyModifierMask::CTRL + Key::O);
 	file_menu->add_shortcut(ED_SHORTCUT_AND_COMMAND("editor/quick_open_scene", TTR("Quick Open Scene..."), KeyModifierMask::CMD_OR_CTRL + KeyModifierMask::SHIFT + Key::O), FILE_QUICK_OPEN_SCENE);
 	file_menu->add_shortcut(ED_SHORTCUT_AND_COMMAND("editor/quick_open_script", TTR("Quick Open Script..."), KeyModifierMask::CMD_OR_CTRL + KeyModifierMask::ALT + Key::O), FILE_QUICK_OPEN_SCRIPT);
 
@@ -7239,7 +7307,7 @@ EditorNode::EditorNode() {
 	project_menu->add_separator();
 	project_menu->add_shortcut(ED_SHORTCUT("editor/reload_current_project", TTR("Reload Current Project")), RELOAD_CURRENT_PROJECT);
 	ED_SHORTCUT_AND_COMMAND("editor/quit_to_project_list", TTR("Quit to Project List"), KeyModifierMask::CTRL + KeyModifierMask::SHIFT + Key::Q);
-	ED_SHORTCUT_OVERRIDE("editor/quit_to_project_list", "macos", KeyModifierMask::SHIFT + KeyModifierMask::ALT + Key::Q);
+	ED_SHORTCUT_OVERRIDE("editor/quit_to_project_list", "macos", KeyModifierMask::META + KeyModifierMask::CTRL + KeyModifierMask::ALT + Key::Q);
 	project_menu->add_shortcut(ED_GET_SHORTCUT("editor/quit_to_project_list"), RUN_PROJECT_MANAGER, true);
 
 	// Spacer to center 2D / 3D / Script buttons.
@@ -7256,6 +7324,7 @@ EditorNode::EditorNode() {
 		project_title->set_text_overrun_behavior(TextServer::OVERRUN_TRIM_ELLIPSIS);
 		project_title->set_vertical_alignment(VERTICAL_ALIGNMENT_CENTER);
 		project_title->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+		project_title->set_mouse_filter(Control::MOUSE_FILTER_PASS);
 		left_spacer->add_child(project_title);
 	}
 
@@ -7328,11 +7397,17 @@ EditorNode::EditorNode() {
 	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("HelpSearch"), SNAME("EditorIcons")), ED_GET_SHORTCUT("editor/editor_help"), HELP_SEARCH);
 	help_menu->add_separator();
 	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/online_docs", TTR("Online Documentation")), HELP_DOCS);
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/q&a", TTR("Questions & Answers")), HELP_QA);
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/report_a_bug", TTR("Report a Bug")), HELP_REPORT_A_BUG);
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/suggest_a_feature", TTR("Suggest a Feature")), HELP_SUGGEST_A_FEATURE);
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/send_docs_feedback", TTR("Send Docs Feedback")), HELP_SEND_DOCS_FEEDBACK);
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/community", TTR("Community")), HELP_COMMUNITY);
 	help_menu->add_separator();
 	if (!global_menu || !OS::get_singleton()->has_feature("macos")) {
 		// On macOS  "Quit" and "About" options are in the "app" menu.
-		help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("Godot"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/about", TTR("About Tekisasu-Engine")), HELP_ABOUT);
+		help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("Godot"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/about", TTR("About Godot")), HELP_ABOUT);
 	}
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("Heart"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/support_development", TTR("Support Godot Development")), HELP_SUPPORT_GODOT_DEVELOPMENT);
 
 	// Spacer to center 2D / 3D / Script buttons.
 	Control *right_spacer = memnew(Control);
@@ -7665,12 +7740,12 @@ EditorNode::EditorNode() {
 	save_confirmation->connect("confirmed", callable_mp(this, &EditorNode::_menu_confirm_current));
 	save_confirmation->connect("custom_action", callable_mp(this, &EditorNode::_discard_changes));
 
-	custom_build_manage_templates = memnew(ConfirmationDialog);
-	custom_build_manage_templates->set_text(TTR("Android build template is missing, please install relevant templates."));
-	custom_build_manage_templates->set_ok_button_text(TTR("Manage Templates"));
-	custom_build_manage_templates->add_button(TTR("Install from file"))->connect("pressed", callable_mp(this, &EditorNode::_menu_option).bind(SETTINGS_INSTALL_ANDROID_BUILD_TEMPLATE));
-	custom_build_manage_templates->connect("confirmed", callable_mp(this, &EditorNode::_menu_option).bind(SETTINGS_MANAGE_EXPORT_TEMPLATES));
-	gui_base->add_child(custom_build_manage_templates);
+	gradle_build_manage_templates = memnew(ConfirmationDialog);
+	gradle_build_manage_templates->set_text(TTR("Android build template is missing, please install relevant templates."));
+	gradle_build_manage_templates->set_ok_button_text(TTR("Manage Templates"));
+	gradle_build_manage_templates->add_button(TTR("Install from file"))->connect("pressed", callable_mp(this, &EditorNode::_menu_option).bind(SETTINGS_INSTALL_ANDROID_BUILD_TEMPLATE));
+	gradle_build_manage_templates->connect("confirmed", callable_mp(this, &EditorNode::_menu_option).bind(SETTINGS_MANAGE_EXPORT_TEMPLATES));
+	gui_base->add_child(gradle_build_manage_templates);
 
 	file_android_build_source = memnew(EditorFileDialog);
 	file_android_build_source->set_title(TTR("Select Android sources file"));
@@ -7681,7 +7756,7 @@ EditorNode::EditorNode() {
 	gui_base->add_child(file_android_build_source);
 
 	install_android_build_template = memnew(ConfirmationDialog);
-	install_android_build_template->set_text(TTR("This will set up your project for custom Android builds by installing the source template to \"res://android/build\".\nYou can then apply modifications and build your own custom APK on export (adding modules, changing the AndroidManifest.xml, etc.).\nNote that in order to make custom builds instead of using pre-built APKs, the \"Use Custom Build\" option should be enabled in the Android export preset."));
+	install_android_build_template->set_text(TTR("This will set up your project for gradle Android builds by installing the source template to \"res://android/build\".\nYou can then apply modifications and build your own custom APK on export (adding modules, changing the AndroidManifest.xml, etc.).\nNote that in order to make gradle builds instead of using pre-built APKs, the \"Use Gradle Build\" option should be enabled in the Android export preset."));
 	install_android_build_template->set_ok_button_text(TTR("Install"));
 	install_android_build_template->connect("confirmed", callable_mp(this, &EditorNode::_menu_confirm_current));
 	gui_base->add_child(install_android_build_template);
@@ -7954,10 +8029,10 @@ EditorNode::EditorNode() {
 	ED_SHORTCUT_AND_COMMAND("editor/editor_script", TTR("Open Script Editor"), KeyModifierMask::CTRL | Key::F3);
 	ED_SHORTCUT_AND_COMMAND("editor/editor_assetlib", TTR("Open Asset Library"), KeyModifierMask::CTRL | Key::F4);
 
-	ED_SHORTCUT_OVERRIDE("editor/editor_2d", "macos", KeyModifierMask::ALT | Key::KEY_1);
-	ED_SHORTCUT_OVERRIDE("editor/editor_3d", "macos", KeyModifierMask::ALT | Key::KEY_2);
-	ED_SHORTCUT_OVERRIDE("editor/editor_script", "macos", KeyModifierMask::ALT | Key::KEY_3);
-	ED_SHORTCUT_OVERRIDE("editor/editor_assetlib", "macos", KeyModifierMask::ALT | Key::KEY_4);
+	ED_SHORTCUT_OVERRIDE("editor/editor_2d", "macos", KeyModifierMask::META | KeyModifierMask::CTRL | Key::KEY_1);
+	ED_SHORTCUT_OVERRIDE("editor/editor_3d", "macos", KeyModifierMask::META | KeyModifierMask::CTRL | Key::KEY_2);
+	ED_SHORTCUT_OVERRIDE("editor/editor_script", "macos", KeyModifierMask::META | KeyModifierMask::CTRL | Key::KEY_3);
+	ED_SHORTCUT_OVERRIDE("editor/editor_assetlib", "macos", KeyModifierMask::META | KeyModifierMask::CTRL | Key::KEY_4);
 
 	ED_SHORTCUT_AND_COMMAND("editor/editor_next", TTR("Open the next Editor"));
 	ED_SHORTCUT_AND_COMMAND("editor/editor_prev", TTR("Open the previous Editor"));
@@ -8074,6 +8149,7 @@ void EditorPluginList::forward_3d_force_draw_over_viewport(Control *p_overlay) {
 }
 
 void EditorPluginList::add_plugin(EditorPlugin *p_plugin) {
+	ERR_FAIL_COND(plugins_list.has(p_plugin));
 	plugins_list.push_back(p_plugin);
 }
 

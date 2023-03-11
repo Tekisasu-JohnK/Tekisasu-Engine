@@ -30,6 +30,7 @@
 
 #include "render_forward_clustered.h"
 #include "core/config/project_settings.h"
+#include "core/object/worker_thread_pool.h"
 #include "servers/rendering/renderer_rd/framebuffer_cache_rd.h"
 #include "servers/rendering/renderer_rd/renderer_compositor_rd.h"
 #include "servers/rendering/renderer_rd/storage_rd/light_storage.h"
@@ -108,6 +109,10 @@ void RenderForwardClustered::RenderBufferDataForwardClustered::free_data() {
 	// JIC, should already have been cleared
 	if (render_buffers) {
 		render_buffers->clear_context(RB_SCOPE_FORWARD_CLUSTERED);
+		render_buffers->clear_context(RB_SCOPE_SSDS);
+		render_buffers->clear_context(RB_SCOPE_SSIL);
+		render_buffers->clear_context(RB_SCOPE_SSAO);
+		render_buffers->clear_context(RB_SCOPE_SSR);
 	}
 
 	if (cluster_builder) {
@@ -118,21 +123,6 @@ void RenderForwardClustered::RenderBufferDataForwardClustered::free_data() {
 	if (!render_sdfgi_uniform_set.is_null() && RD::get_singleton()->uniform_set_is_valid(render_sdfgi_uniform_set)) {
 		RD::get_singleton()->free(render_sdfgi_uniform_set);
 	}
-
-	if (ss_effects_data.linear_depth.is_valid()) {
-		RD::get_singleton()->free(ss_effects_data.linear_depth);
-		ss_effects_data.linear_depth = RID();
-		ss_effects_data.linear_depth_slices.clear();
-	}
-
-	if (ss_effects_data.downsample_uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(ss_effects_data.downsample_uniform_set)) {
-		RD::get_singleton()->free(ss_effects_data.downsample_uniform_set);
-		ss_effects_data.downsample_uniform_set = RID();
-	}
-
-	RenderForwardClustered::get_singleton()->get_ss_effects()->ssao_free(ss_effects_data.ssao);
-	RenderForwardClustered::get_singleton()->get_ss_effects()->ssil_free(ss_effects_data.ssil);
-	RenderForwardClustered::get_singleton()->get_ss_effects()->ssr_free(ss_effects_data.ssr);
 }
 
 void RenderForwardClustered::RenderBufferDataForwardClustered::configure(RenderSceneBuffersRD *p_render_buffers) {
@@ -667,7 +657,7 @@ void RenderForwardClustered::_setup_environment(const RenderDataRD *p_render_dat
 
 	if (get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_UNSHADED) {
 		scene_state.ubo.ss_effects_flags = 0;
-	} else if (is_environment(p_render_data->environment)) {
+	} else if (p_render_data->reflection_probe.is_null() && is_environment(p_render_data->environment)) {
 		scene_state.ubo.ssao_ao_affect = environment_get_ssao_ao_channel_affect(p_render_data->environment);
 		scene_state.ubo.ssao_light_affect = environment_get_ssao_direct_light_affect(p_render_data->environment);
 		uint32_t ss_flags = 0;
@@ -1232,9 +1222,9 @@ void RenderForwardClustered::_update_volumetric_fog(Ref<RenderSceneBuffersRD> p_
 
 /* Lighting */
 
-void RenderForwardClustered::setup_added_reflection_probe(const Transform3D &p_transform, const Vector3 &p_half_extents) {
+void RenderForwardClustered::setup_added_reflection_probe(const Transform3D &p_transform, const Vector3 &p_half_size) {
 	if (current_cluster_builder != nullptr) {
-		current_cluster_builder->add_box(ClusterBuilderRD::BOX_TYPE_REFLECTION_PROBE, p_transform, p_half_extents);
+		current_cluster_builder->add_box(ClusterBuilderRD::BOX_TYPE_REFLECTION_PROBE, p_transform, p_half_size);
 	}
 }
 
@@ -1244,15 +1234,15 @@ void RenderForwardClustered::setup_added_light(const RS::LightType p_type, const
 	}
 }
 
-void RenderForwardClustered::setup_added_decal(const Transform3D &p_transform, const Vector3 &p_half_extents) {
+void RenderForwardClustered::setup_added_decal(const Transform3D &p_transform, const Vector3 &p_half_size) {
 	if (current_cluster_builder != nullptr) {
-		current_cluster_builder->add_box(ClusterBuilderRD::BOX_TYPE_DECAL, p_transform, p_half_extents);
+		current_cluster_builder->add_box(ClusterBuilderRD::BOX_TYPE_DECAL, p_transform, p_half_size);
 	}
 }
 
 /* Render scene */
 
-void RenderForwardClustered::_process_ssao(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, RID p_normal_buffer, const Projection &p_projection) {
+void RenderForwardClustered::_process_ssao(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const RID *p_normal_buffers, const Projection *p_projections) {
 	ERR_FAIL_NULL(ss_effects);
 	ERR_FAIL_COND(p_render_buffers.is_null());
 	ERR_FAIL_COND(p_environment.is_null());
@@ -1271,11 +1261,14 @@ void RenderForwardClustered::_process_ssao(Ref<RenderSceneBuffersRD> p_render_bu
 	settings.sharpness = environment_get_ssao_sharpness(p_environment);
 	settings.full_screen_size = p_render_buffers->get_internal_size();
 
-	ss_effects->ssao_allocate_buffers(rb_data->ss_effects_data.ssao, settings, rb_data->ss_effects_data.linear_depth);
-	ss_effects->generate_ssao(rb_data->ss_effects_data.ssao, p_normal_buffer, p_projection, settings);
+	ss_effects->ssao_allocate_buffers(p_render_buffers, rb_data->ss_effects_data.ssao, settings);
+
+	for (uint32_t v = 0; v < p_render_buffers->get_view_count(); v++) {
+		ss_effects->generate_ssao(p_render_buffers, rb_data->ss_effects_data.ssao, v, p_normal_buffers[v], p_projections[v], settings);
+	}
 }
 
-void RenderForwardClustered::_process_ssil(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, RID p_normal_buffer, const Projection &p_projection, const Transform3D &p_transform) {
+void RenderForwardClustered::_process_ssil(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const RID *p_normal_buffers, const Projection *p_projections, const Transform3D &p_transform) {
 	ERR_FAIL_NULL(ss_effects);
 	ERR_FAIL_COND(p_render_buffers.is_null());
 	ERR_FAIL_COND(p_environment.is_null());
@@ -1292,36 +1285,46 @@ void RenderForwardClustered::_process_ssil(Ref<RenderSceneBuffersRD> p_render_bu
 	settings.normal_rejection = environment_get_ssil_normal_rejection(p_environment);
 	settings.full_screen_size = p_render_buffers->get_internal_size();
 
-	Projection correction;
-	correction.set_depth_correction(true);
-	Projection projection = correction * p_projection;
+	ss_effects->ssil_allocate_buffers(p_render_buffers, rb_data->ss_effects_data.ssil, settings);
+
 	Transform3D transform = p_transform;
 	transform.set_origin(Vector3(0.0, 0.0, 0.0));
-	Projection last_frame_projection = rb_data->ss_effects_data.last_frame_projection * Projection(rb_data->ss_effects_data.last_frame_transform.affine_inverse()) * Projection(transform) * projection.inverse();
 
-	ss_effects->ssil_allocate_buffers(rb_data->ss_effects_data.ssil, settings, rb_data->ss_effects_data.linear_depth);
-	ss_effects->screen_space_indirect_lighting(rb_data->ss_effects_data.ssil, p_normal_buffer, p_projection, last_frame_projection, settings);
-	rb_data->ss_effects_data.last_frame_projection = projection;
+	for (uint32_t v = 0; v < p_render_buffers->get_view_count(); v++) {
+		Projection correction;
+		correction.set_depth_correction(true);
+		Projection projection = correction * p_projections[v];
+		Projection last_frame_projection = rb_data->ss_effects_data.last_frame_projections[v] * Projection(rb_data->ss_effects_data.last_frame_transform.affine_inverse()) * Projection(transform) * projection.inverse();
+
+		ss_effects->screen_space_indirect_lighting(p_render_buffers, rb_data->ss_effects_data.ssil, v, p_normal_buffers[v], p_projections[v], last_frame_projection, settings);
+
+		rb_data->ss_effects_data.last_frame_projections[v] = projection;
+	}
 	rb_data->ss_effects_data.last_frame_transform = transform;
 }
 
 void RenderForwardClustered::_copy_framebuffer_to_ssil(Ref<RenderSceneBuffersRD> p_render_buffers) {
 	ERR_FAIL_COND(p_render_buffers.is_null());
 
-	Ref<RenderBufferDataForwardClustered> rb_data = p_render_buffers->get_custom_data(RB_SCOPE_FORWARD_CLUSTERED);
-	ERR_FAIL_COND(rb_data.is_null());
-
-	if (rb_data->ss_effects_data.ssil.last_frame.is_valid()) {
+	if (p_render_buffers->has_texture(RB_SCOPE_SSIL, RB_LAST_FRAME)) {
 		Size2i size = p_render_buffers->get_internal_size();
-		RID texture = p_render_buffers->get_internal_texture();
-		copy_effects->copy_to_rect(texture, rb_data->ss_effects_data.ssil.last_frame, Rect2i(0, 0, size.x, size.y));
+		uint32_t mipmaps = p_render_buffers->get_texture_format(RB_SCOPE_SSIL, RB_LAST_FRAME).mipmaps;
+		for (uint32_t v = 0; v < p_render_buffers->get_view_count(); v++) {
+			RID source = p_render_buffers->get_internal_texture(v);
+			RID dest = p_render_buffers->get_texture_slice(RB_SCOPE_SSIL, RB_LAST_FRAME, v, 0);
+			copy_effects->copy_to_rect(source, dest, Rect2i(0, 0, size.x, size.y));
 
-		int width = size.x;
-		int height = size.y;
-		for (int i = 0; i < rb_data->ss_effects_data.ssil.last_frame_slices.size() - 1; i++) {
-			width = MAX(1, width >> 1);
-			height = MAX(1, height >> 1);
-			copy_effects->make_mipmap(rb_data->ss_effects_data.ssil.last_frame_slices[i], rb_data->ss_effects_data.ssil.last_frame_slices[i + 1], Size2i(width, height));
+			int width = size.x;
+			int height = size.y;
+			for (uint32_t m = 1; m < mipmaps; m++) {
+				width = MAX(1, width >> 1);
+				height = MAX(1, height >> 1);
+
+				source = dest;
+				dest = p_render_buffers->get_texture_slice(RB_SCOPE_SSIL, RB_LAST_FRAME, v, m);
+
+				copy_effects->make_mipmap(source, dest, Size2i(width, height));
+			}
 		}
 	}
 }
@@ -1421,41 +1424,23 @@ void RenderForwardClustered::_pre_opaque_render(RenderDataRD *p_render_data, boo
 	}
 
 	if (rb_data.is_valid() && ss_effects) {
-		if (p_use_ssao || p_use_ssil) {
-			Size2i size = rb->get_internal_size();
+		// Note, in multiview we're allocating buffers for each eye/view we're rendering.
+		// This should allow most of the processing to happen in parallel even if we're doing
+		// drawcalls per eye/view. It will all sync up at the barrier.
 
-			bool invalidate_uniform_set = false;
-			if (rb_data->ss_effects_data.linear_depth.is_null()) {
-				RD::TextureFormat tf;
-				tf.format = RD::DATA_FORMAT_R16_SFLOAT;
-				tf.texture_type = RD::TEXTURE_TYPE_2D_ARRAY;
-				tf.width = (size.x + 1) / 2;
-				tf.height = (size.y + 1) / 2;
-				tf.mipmaps = 5;
-				tf.array_layers = 4;
-				tf.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT;
-				rb_data->ss_effects_data.linear_depth = RD::get_singleton()->texture_create(tf, RD::TextureView());
-				RD::get_singleton()->set_resource_name(rb_data->ss_effects_data.linear_depth, "SS Effects Depth");
-				for (uint32_t i = 0; i < tf.mipmaps; i++) {
-					RID slice = RD::get_singleton()->texture_create_shared_from_slice(RD::TextureView(), rb_data->ss_effects_data.linear_depth, 0, i, 1, RD::TEXTURE_SLICE_2D_ARRAY);
-					rb_data->ss_effects_data.linear_depth_slices.push_back(slice);
-					RD::get_singleton()->set_resource_name(slice, "SS Effects Depth Mip " + itos(i) + " ");
-				}
-				invalidate_uniform_set = true;
+		if (p_use_ssao || p_use_ssil) {
+			// Convert our depth buffer data to linear data in
+			for (uint32_t v = 0; v < rb->get_view_count(); v++) {
+				ss_effects->downsample_depth(rb, v, p_render_data->scene_data->view_projection[v]);
 			}
 
-			RID depth_texture = rb->get_depth_texture();
-			ss_effects->downsample_depth(depth_texture, rb_data->ss_effects_data.linear_depth_slices, invalidate_uniform_set, size, p_render_data->scene_data->cam_projection);
-		}
+			if (p_use_ssao) {
+				_process_ssao(rb, p_render_data->environment, p_normal_roughness_slices, p_render_data->scene_data->view_projection);
+			}
 
-		if (p_use_ssao) {
-			// TODO make these proper stereo
-			_process_ssao(rb, p_render_data->environment, p_normal_roughness_slices[0], p_render_data->scene_data->cam_projection);
-		}
-
-		if (p_use_ssil) {
-			// TODO make these proper stereo
-			_process_ssil(rb, p_render_data->environment, p_normal_roughness_slices[0], p_render_data->scene_data->cam_projection, p_render_data->scene_data->cam_transform);
+			if (p_use_ssil) {
+				_process_ssil(rb, p_render_data->environment, p_normal_roughness_slices, p_render_data->scene_data->view_projection, p_render_data->scene_data->cam_transform);
+			}
 		}
 	}
 
@@ -1514,17 +1499,11 @@ void RenderForwardClustered::_process_ssr(Ref<RenderSceneBuffersRD> p_render_buf
 	ERR_FAIL_COND(p_environment.is_null());
 	ERR_FAIL_COND(!environment_get_ssr_enabled(p_environment));
 
-	Size2i half_size = Size2i(internal_size.x / 2, internal_size.y / 2);
-	ss_effects->ssr_allocate_buffers(rb_data->ss_effects_data.ssr, _render_buffers_get_color_format(), half_size, view_count);
+	ss_effects->ssr_allocate_buffers(p_render_buffers, rb_data->ss_effects_data.ssr, _render_buffers_get_color_format());
+	ss_effects->screen_space_reflection(p_render_buffers, rb_data->ss_effects_data.ssr, p_normal_slices, p_metallic_slices, environment_get_ssr_max_steps(p_environment), environment_get_ssr_fade_in(p_environment), environment_get_ssr_fade_out(p_environment), environment_get_ssr_depth_tolerance(p_environment), p_projections, p_eye_offsets);
 
-	RID texture_slices[RendererSceneRender::MAX_RENDER_VIEWS];
-	RID depth_slices[RendererSceneRender::MAX_RENDER_VIEWS];
-	for (uint32_t v = 0; v < view_count; v++) {
-		texture_slices[v] = p_render_buffers->get_internal_texture(v);
-		depth_slices[v] = p_render_buffers->get_depth_texture(v);
-	}
-	ss_effects->screen_space_reflection(rb_data->ss_effects_data.ssr, texture_slices, p_normal_slices, p_metallic_slices, depth_slices, half_size, environment_get_ssr_max_steps(p_environment), environment_get_ssr_fade_in(p_environment), environment_get_ssr_fade_out(p_environment), environment_get_ssr_depth_tolerance(p_environment), view_count, p_projections, p_eye_offsets);
-	copy_effects->merge_specular(p_dest_framebuffer, p_specular_buffer, p_use_additive ? RID() : p_render_buffers->get_internal_texture(), rb_data->ss_effects_data.ssr.output, view_count);
+	RID output = p_render_buffers->get_texture(RB_SCOPE_SSR, RB_OUTPUT);
+	copy_effects->merge_specular(p_dest_framebuffer, p_specular_buffer, p_use_additive ? RID() : p_render_buffers->get_internal_texture(), output, view_count);
 }
 
 void RenderForwardClustered::_process_sss(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_camera) {
@@ -1550,16 +1529,18 @@ void RenderForwardClustered::_process_sss(Ref<RenderSceneBuffersRD> p_render_buf
 void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Color &p_default_bg_color) {
 	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
 
-	Ref<RenderSceneBuffersRD> rb;
+	ERR_FAIL_NULL(p_render_data);
+
+	Ref<RenderSceneBuffersRD> rb = p_render_data->render_buffers;
+	ERR_FAIL_COND(rb.is_null());
 	Ref<RenderBufferDataForwardClustered> rb_data;
-	if (p_render_data && p_render_data->render_buffers.is_valid()) {
-		rb = p_render_data->render_buffers;
-		if (rb->has_custom_data(RB_SCOPE_FORWARD_CLUSTERED)) {
-			// Our forward clustered custom data buffer will only be available when we're rendering our normal view.
-			// This will not be available when rendering reflection probes.
-			rb_data = rb->get_custom_data(RB_SCOPE_FORWARD_CLUSTERED);
-		}
+	if (rb->has_custom_data(RB_SCOPE_FORWARD_CLUSTERED)) {
+		// Our forward clustered custom data buffer will only be available when we're rendering our normal view.
+		// This will not be available when rendering reflection probes.
+		rb_data = rb->get_custom_data(RB_SCOPE_FORWARD_CLUSTERED);
 	}
+	bool is_reflection_probe = p_render_data->reflection_probe.is_valid();
+
 	static const int texture_multisamples[RS::VIEWPORT_MSAA_MAX] = { 1, 2, 4, 8 };
 
 	//first of all, make a new render pass
@@ -1588,18 +1569,16 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 
 		p_render_data->voxel_gi_count = 0;
 
-		if (rb.is_valid()) {
-			if (rb->has_custom_data(RB_SCOPE_SDFGI)) {
-				Ref<RendererRD::GI::SDFGI> sdfgi = rb->get_custom_data(RB_SCOPE_SDFGI);
-				if (sdfgi.is_valid()) {
-					sdfgi->update_cascades();
-					sdfgi->pre_process_gi(p_render_data->scene_data->cam_transform, p_render_data);
-					sdfgi->update_light();
-				}
+		if (rb->has_custom_data(RB_SCOPE_SDFGI)) {
+			Ref<RendererRD::GI::SDFGI> sdfgi = rb->get_custom_data(RB_SCOPE_SDFGI);
+			if (sdfgi.is_valid()) {
+				sdfgi->update_cascades();
+				sdfgi->pre_process_gi(p_render_data->scene_data->cam_transform, p_render_data);
+				sdfgi->update_light();
 			}
-
-			gi.setup_voxel_gi_instances(p_render_data, p_render_data->render_buffers, p_render_data->scene_data->cam_transform, *p_render_data->voxel_gi_instances, p_render_data->voxel_gi_count);
 		}
+
+		gi.setup_voxel_gi_instances(p_render_data, p_render_data->render_buffers, p_render_data->scene_data->cam_transform, *p_render_data->voxel_gi_instances, p_render_data->voxel_gi_count);
 	} else {
 		ERR_PRINT("No render buffer nor reflection atlas, bug"); //should never happen, will crash
 		current_cluster_builder = nullptr;
@@ -1618,7 +1597,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	// check if we need motion vectors
 	if (get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_MOTION_VECTORS) {
 		p_render_data->scene_data->calculate_motion_vectors = true;
-	} else if (rb.is_valid() && rb->get_use_taa()) {
+	} else if (!is_reflection_probe && rb->get_use_taa()) {
 		p_render_data->scene_data->calculate_motion_vectors = true;
 	} else {
 		p_render_data->scene_data->calculate_motion_vectors = false;
@@ -1641,9 +1620,9 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	bool using_sdfgi = false;
 	bool using_voxelgi = false;
 	bool reverse_cull = p_render_data->scene_data->cam_transform.basis.determinant() < 0;
-	bool using_ssil = p_render_data->environment.is_valid() && environment_get_ssil_enabled(p_render_data->environment);
+	bool using_ssil = !is_reflection_probe && p_render_data->environment.is_valid() && environment_get_ssil_enabled(p_render_data->environment);
 
-	if (p_render_data->reflection_probe.is_valid()) {
+	if (is_reflection_probe) {
 		uint32_t resolution = light_storage->reflection_probe_instance_get_resolution(p_render_data->reflection_probe);
 		screen_size.x = resolution;
 		screen_size.y = resolution;
@@ -1657,7 +1636,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 		}
 
 		reverse_cull = true; // for some reason our views are inverted
-	} else if (rb.is_valid()) {
+	} else {
 		screen_size = rb->get_internal_size();
 
 		if (rb->get_use_taa() || get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_MOTION_VECTORS) {
@@ -1685,8 +1664,6 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 
 		color_framebuffer = rb_data->get_color_pass_fb(color_pass_flags);
 		color_only_framebuffer = rb_data->get_color_only_fb();
-	} else {
-		ERR_FAIL(); //bug?
 	}
 
 	p_render_data->scene_data->emissive_exposure_normalization = -1.0;
@@ -1695,7 +1672,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 
 	_setup_lightmaps(p_render_data, *p_render_data->lightmaps, p_render_data->scene_data->cam_transform);
 	_setup_voxelgis(*p_render_data->voxel_gi_instances);
-	_setup_environment(p_render_data, p_render_data->reflection_probe.is_valid(), screen_size, !p_render_data->reflection_probe.is_valid(), p_default_bg_color, false);
+	_setup_environment(p_render_data, is_reflection_probe, screen_size, !is_reflection_probe, p_default_bg_color, false);
 
 	_update_render_base_uniform_set(); //may have changed due to the above (light buffer enlarged, as an example)
 
@@ -1707,7 +1684,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 
 	RD::get_singleton()->draw_command_end_label();
 
-	if (rb.is_valid() && !p_render_data->reflection_probe.is_valid()) {
+	if (!is_reflection_probe) {
 		if (using_voxelgi) {
 			depth_pass_mode = PASS_MODE_DEPTH_NORMAL_ROUGHNESS_VOXEL_GI;
 		} else if (p_render_data->environment.is_valid()) {
@@ -1739,7 +1716,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 		}
 	}
 
-	bool using_sss = rb_data.is_valid() && scene_state.used_sss && ss_effects->sss_get_quality() != RS::SUB_SURFACE_SCATTERING_QUALITY_DISABLED;
+	bool using_sss = rb_data.is_valid() && !is_reflection_probe && scene_state.used_sss && ss_effects->sss_get_quality() != RS::SUB_SURFACE_SCATTERING_QUALITY_DISABLED;
 
 	if (using_sss && !using_separate_specular) {
 		using_separate_specular = true;
@@ -1772,7 +1749,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 				clear_color.r *= bg_energy_multiplier;
 				clear_color.g *= bg_energy_multiplier;
 				clear_color.b *= bg_energy_multiplier;
-				if ((rb.is_valid() && rb->has_custom_data(RB_SCOPE_FOG)) || environment_get_fog_enabled(p_render_data->environment)) {
+				if ((rb->has_custom_data(RB_SCOPE_FOG)) || environment_get_fog_enabled(p_render_data->environment)) {
 					draw_sky_fog_only = true;
 					RendererRD::MaterialStorage::get_singleton()->material_set_param(sky.sky_scene_state.fog_material, "clear_color", Variant(clear_color.srgb_to_linear()));
 				}
@@ -1782,7 +1759,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 				clear_color.r *= bg_energy_multiplier;
 				clear_color.g *= bg_energy_multiplier;
 				clear_color.b *= bg_energy_multiplier;
-				if ((rb.is_valid() && rb->has_custom_data(RB_SCOPE_FOG)) || environment_get_fog_enabled(p_render_data->environment)) {
+				if ((rb->has_custom_data(RB_SCOPE_FOG)) || environment_get_fog_enabled(p_render_data->environment)) {
 					draw_sky_fog_only = true;
 					RendererRD::MaterialStorage::get_singleton()->material_set_param(sky.sky_scene_state.fog_material, "clear_color", Variant(clear_color.srgb_to_linear()));
 				}
@@ -1791,7 +1768,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 				draw_sky = true;
 			} break;
 			case RS::ENV_BG_CANVAS: {
-				if (rb.is_valid()) {
+				if (!is_reflection_probe) {
 					RID texture = RendererRD::TextureStorage::get_singleton()->render_target_get_rd_texture(rb->get_render_target());
 					copy_effects->copy_to_fb_rect(texture, color_only_framebuffer, Rect2i(), false, false, false, false, RID(), false, false, true);
 				}
@@ -1812,7 +1789,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 			RD::get_singleton()->draw_command_begin_label("Setup Sky");
 
 			// Setup our sky render information for this frame/viewport
-			if (p_render_data->reflection_probe.is_valid()) {
+			if (is_reflection_probe) {
 				Vector3 eye_offset;
 				Projection correction;
 				correction.set_depth_correction(true);
@@ -1849,7 +1826,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	bool debug_sdfgi_probes = get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_SDFGI_PROBES;
 	bool depth_pre_pass = bool(GLOBAL_GET("rendering/driver/depth_prepass/enable")) && depth_framebuffer.is_valid();
 
-	bool using_ssao = depth_pre_pass && rb.is_valid() && p_render_data->environment.is_valid() && environment_get_ssao_enabled(p_render_data->environment);
+	bool using_ssao = depth_pre_pass && !is_reflection_probe && p_render_data->environment.is_valid() && environment_get_ssao_enabled(p_render_data->environment);
 	bool continue_depth = false;
 	if (depth_pre_pass) { //depth pre pass
 
@@ -1881,7 +1858,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 			_pre_resolve_render(p_render_data, using_sdfgi || using_voxelgi);
 		}
 
-		if (rb.is_valid() && rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
+		if (rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
 			RENDER_TIMESTAMP("Resolve Depth Pre-Pass (MSAA)");
 			RD::get_singleton()->draw_command_begin_label("Resolve Depth Pre-Pass (MSAA)");
 			if (depth_pass_mode == PASS_MODE_DEPTH_NORMAL_ROUGHNESS || depth_pass_mode == PASS_MODE_DEPTH_NORMAL_ROUGHNESS_VOXEL_GI) {
@@ -1915,7 +1892,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 	p_render_data->scene_data->directional_light_count = p_render_data->directional_light_count;
 	p_render_data->scene_data->opaque_prepass_threshold = 0.0f;
 
-	_setup_environment(p_render_data, p_render_data->reflection_probe.is_valid(), screen_size, !p_render_data->reflection_probe.is_valid(), p_default_bg_color, rb.is_valid());
+	_setup_environment(p_render_data, is_reflection_probe, screen_size, !is_reflection_probe, p_default_bg_color, true);
 
 	RENDER_TIMESTAMP("Render Opaque Pass");
 
@@ -1996,7 +1973,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 		RD::get_singleton()->draw_command_end_label();
 	}
 
-	if (rb.is_valid() && !can_continue_color && rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
+	if (!can_continue_color && rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
 		// Handle views individual, might want to look at rewriting our resolve to do both layers in one pass.
 		for (uint32_t v = 0; v < rb->get_view_count(); v++) {
 			RD::get_singleton()->texture_resolve_multisample(rb_data->get_color_msaa(v), rb->get_internal_texture(v));
@@ -2008,7 +1985,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 		}
 	}
 
-	if (rb.is_valid() && !can_continue_depth && rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
+	if (!can_continue_depth && rb->get_msaa_3d() != RS::VIEWPORT_MSAA_DISABLED) {
 		for (uint32_t v = 0; v < rb->get_view_count(); v++) {
 			resolve_effects->resolve_depth(rb_data->get_depth_msaa(v), rb->get_depth_texture(v), rb->get_internal_size(), texture_multisamples[rb->get_msaa_3d()]);
 		}
@@ -2054,7 +2031,7 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
 
 	rp_uniform_set = _setup_render_pass_uniform_set(RENDER_LIST_ALPHA, p_render_data, radiance_texture, true);
 
-	_setup_environment(p_render_data, p_render_data->reflection_probe.is_valid(), screen_size, !p_render_data->reflection_probe.is_valid(), p_default_bg_color, false);
+	_setup_environment(p_render_data, is_reflection_probe, screen_size, !is_reflection_probe, p_default_bg_color, false);
 
 	{
 		uint32_t transparent_color_pass_flags = (color_pass_flags | COLOR_PASS_FLAG_TRANSPARENT) & ~(COLOR_PASS_FLAG_SEPARATE_SPECULAR);
@@ -2131,14 +2108,16 @@ void RenderForwardClustered::_render_buffers_debug_draw(Ref<RenderSceneBuffersRD
 
 	RID render_target = p_render_buffers->get_render_target();
 
-	if (get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_SSAO && rb_data->ss_effects_data.ssao.ao_final.is_valid()) {
+	if (get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_SSAO && p_render_buffers->has_texture(RB_SCOPE_SSAO, RB_FINAL)) {
+		RID final = p_render_buffers->get_texture_slice(RB_SCOPE_SSAO, RB_FINAL, 0, 0);
 		Size2i rtsize = texture_storage->render_target_get_size(render_target);
-		copy_effects->copy_to_fb_rect(rb_data->ss_effects_data.ssao.ao_final, texture_storage->render_target_get_rd_framebuffer(render_target), Rect2(Vector2(), rtsize), false, true);
+		copy_effects->copy_to_fb_rect(final, texture_storage->render_target_get_rd_framebuffer(render_target), Rect2(Vector2(), rtsize), false, true);
 	}
 
-	if (get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_SSIL && rb_data->ss_effects_data.ssil.ssil_final.is_valid()) {
+	if (get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_SSIL && p_render_buffers->has_texture(RB_SCOPE_SSIL, RB_FINAL)) {
+		RID final = p_render_buffers->get_texture_slice(RB_SCOPE_SSIL, RB_FINAL, 0, 0);
 		Size2i rtsize = texture_storage->render_target_get_size(render_target);
-		copy_effects->copy_to_fb_rect(rb_data->ss_effects_data.ssil.ssil_final, texture_storage->render_target_get_rd_framebuffer(render_target), Rect2(Vector2(), rtsize), false, false);
+		copy_effects->copy_to_fb_rect(final, texture_storage->render_target_get_rd_framebuffer(render_target), Rect2(Vector2(), rtsize), false, false);
 	}
 
 	if (get_debug_draw_mode() == RS::VIEWPORT_DEBUG_DRAW_GI_BUFFER && p_render_buffers->has_texture(RB_SCOPE_GI, RB_TEX_AMBIENT)) {
@@ -2617,8 +2596,8 @@ void RenderForwardClustered::_render_sdfgi(Ref<RenderSceneBuffersRD> p_render_bu
 	render_list[RENDER_LIST_SECONDARY].sort_by_key();
 	_fill_instance_data(RENDER_LIST_SECONDARY);
 
-	Vector3 half_extents = p_bounds.size * 0.5;
-	Vector3 center = p_bounds.position + half_extents;
+	Vector3 half_size = p_bounds.size * 0.5;
+	Vector3 center = p_bounds.position + half_size;
 
 	Vector<RID> sbs = {
 		p_albedo_texture,
@@ -2646,16 +2625,16 @@ void RenderForwardClustered::_render_sdfgi(Ref<RenderSceneBuffersRD> p_render_bu
 		fb_size.x = p_size[right_axis];
 		fb_size.y = p_size[up_axis];
 
-		scene_data.cam_transform.origin = center + axis * half_extents;
+		scene_data.cam_transform.origin = center + axis * half_size;
 		scene_data.cam_transform.basis.set_column(0, right);
 		scene_data.cam_transform.basis.set_column(1, up);
 		scene_data.cam_transform.basis.set_column(2, axis);
 
 		//print_line("pass: " + itos(i) + " xform " + scene_data.cam_transform);
 
-		float h_size = half_extents[right_axis];
-		float v_size = half_extents[up_axis];
-		float d_size = half_extents[i] * 2.0;
+		float h_size = half_size[right_axis];
+		float v_size = half_size[up_axis];
+		float d_size = half_size[i] * 2.0;
 		scene_data.cam_projection.set_orthogonal(-h_size, h_size, -v_size, v_size, 0, d_size);
 		//print_line("pass: " + itos(i) + " cam hsize: " + rtos(h_size) + " vsize: " + rtos(v_size) + " dsize " + rtos(d_size));
 
@@ -2886,10 +2865,13 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 	RendererRD::TextureStorage *texture_storage = RendererRD::TextureStorage::get_singleton();
 	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
 
+	bool is_multiview = false;
+
 	Ref<RenderSceneBuffersRD> rb; // handy for not having to fully type out p_render_data->render_buffers all the time...
 	Ref<RenderBufferDataForwardClustered> rb_data;
 	if (p_render_data && p_render_data->render_buffers.is_valid()) {
 		rb = p_render_data->render_buffers;
+		is_multiview = rb->get_view_count() > 1;
 		if (rb->has_custom_data(RB_SCOPE_FORWARD_CLUSTERED)) {
 			// Our forward clustered custom data buffer will only be available when we're rendering our normal view.
 			// This will not be available when rendering reflection probes.
@@ -3032,7 +3014,7 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		if (rb.is_valid() && rb->has_texture(RB_SCOPE_BUFFERS, RB_TEX_BACK_DEPTH)) {
 			texture = rb->get_texture(RB_SCOPE_BUFFERS, RB_TEX_BACK_DEPTH);
 		} else {
-			texture = texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_DEPTH);
+			texture = texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_DEPTH : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_DEPTH);
 		}
 		u.append_id(texture);
 		uniforms.push_back(u);
@@ -3042,7 +3024,7 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		u.binding = 11;
 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
 		RID bbt = rb_data.is_valid() ? rb->get_back_buffer_texture() : RID();
-		RID texture = bbt.is_valid() ? bbt : texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
+		RID texture = bbt.is_valid() ? bbt : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}
@@ -3051,7 +3033,7 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		RD::Uniform u;
 		u.binding = 12;
 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
-		RID texture = rb_data.is_valid() && rb_data->has_normal_roughness() ? rb_data->get_normal_roughness() : texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_NORMAL);
+		RID texture = rb_data.is_valid() && rb_data->has_normal_roughness() ? rb_data->get_normal_roughness() : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_NORMAL : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_NORMAL);
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}
@@ -3060,8 +3042,8 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		RD::Uniform u;
 		u.binding = 13;
 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
-		RID aot = rb_data.is_valid() ? rb_data->get_ao_texture() : RID();
-		RID texture = aot.is_valid() ? aot : texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
+		RID aot = rb.is_valid() && rb->has_texture(RB_SCOPE_SSAO, RB_FINAL) ? rb->get_texture(RB_SCOPE_SSAO, RB_FINAL) : RID();
+		RID texture = aot.is_valid() ? aot : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}
@@ -3070,7 +3052,7 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		RD::Uniform u;
 		u.binding = 14;
 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
-		RID texture = rb_data.is_valid() && rb->has_texture(RB_SCOPE_GI, RB_TEX_AMBIENT) ? rb->get_texture(RB_SCOPE_GI, RB_TEX_AMBIENT) : texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
+		RID texture = rb_data.is_valid() && rb->has_texture(RB_SCOPE_GI, RB_TEX_AMBIENT) ? rb->get_texture(RB_SCOPE_GI, RB_TEX_AMBIENT) : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}
@@ -3079,7 +3061,7 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		RD::Uniform u;
 		u.binding = 15;
 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
-		RID texture = rb_data.is_valid() && rb->has_texture(RB_SCOPE_GI, RB_TEX_REFLECTION) ? rb->get_texture(RB_SCOPE_GI, RB_TEX_REFLECTION) : texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
+		RID texture = rb_data.is_valid() && rb->has_texture(RB_SCOPE_GI, RB_TEX_REFLECTION) ? rb->get_texture(RB_SCOPE_GI, RB_TEX_REFLECTION) : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}
@@ -3146,8 +3128,8 @@ RID RenderForwardClustered::_setup_render_pass_uniform_set(RenderListType p_rend
 		RD::Uniform u;
 		u.binding = 20;
 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
-		RID ssil = rb_data.is_valid() ? rb_data->get_ssil_texture() : RID();
-		RID texture = ssil.is_valid() ? ssil : texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
+		RID ssil = rb.is_valid() && rb->has_texture(RB_SCOPE_SSIL, RB_FINAL) ? rb->get_texture(RB_SCOPE_SSIL, RB_FINAL) : RID();
+		RID texture = ssil.is_valid() ? ssil : texture_storage->texture_rd_get_default(is_multiview ? RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK : RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_BLACK);
 		u.append_id(texture);
 		uniforms.push_back(u);
 	}
@@ -3768,6 +3750,7 @@ void RenderForwardClustered::_geometry_instance_dependency_changed(Dependency::D
 		case Dependency::DEPENDENCY_CHANGED_MULTIMESH:
 		case Dependency::DEPENDENCY_CHANGED_SKELETON_DATA: {
 			static_cast<RenderGeometryInstance *>(p_tracker->userdata)->_mark_dirty();
+			static_cast<GeometryInstanceForwardClustered *>(p_tracker->userdata)->data->dirty_dependencies = true;
 		} break;
 		case Dependency::DEPENDENCY_CHANGED_MULTIMESH_VISIBLE_INSTANCES: {
 			GeometryInstanceForwardClustered *ginstance = static_cast<GeometryInstanceForwardClustered *>(p_tracker->userdata);
@@ -3782,6 +3765,7 @@ void RenderForwardClustered::_geometry_instance_dependency_changed(Dependency::D
 }
 void RenderForwardClustered::_geometry_instance_dependency_deleted(const RID &p_dependency, DependencyTracker *p_tracker) {
 	static_cast<RenderGeometryInstance *>(p_tracker->userdata)->_mark_dirty();
+	static_cast<GeometryInstanceForwardClustered *>(p_tracker->userdata)->data->dirty_dependencies = true;
 }
 
 RenderGeometryInstance *RenderForwardClustered::geometry_instance_create(RID p_base) {

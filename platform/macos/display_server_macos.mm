@@ -2024,7 +2024,7 @@ void DisplayServerMacOS::warp_mouse(const Point2i &p_position) {
 		// Local point in window coords.
 		const NSRect contentRect = [wd.window_view frame];
 		const float scale = screen_get_max_scale();
-		NSRect pointInWindowRect = NSMakeRect(p_position.x / scale, contentRect.size.height - (p_position.y / scale - 1), 0, 0);
+		NSRect pointInWindowRect = NSMakeRect(p_position.x / scale, contentRect.size.height - (p_position.y / scale), scale, scale);
 		NSPoint pointOnScreen = [[wd.window_view window] convertRectToScreen:pointInWindowRect].origin;
 
 		// Point in scren coords.
@@ -3284,6 +3284,8 @@ DisplayServerMacOS::CursorShape DisplayServerMacOS::cursor_get_shape() const {
 void DisplayServerMacOS::cursor_set_custom_image(const Ref<Resource> &p_cursor, CursorShape p_shape, const Vector2 &p_hotspot) {
 	_THREAD_SAFE_METHOD_
 
+	ERR_FAIL_INDEX(p_shape, CURSOR_MAX);
+
 	if (p_cursor.is_valid()) {
 		HashMap<CursorShape, Vector<Variant>>::Iterator cursor_c = cursors_cache.find(p_shape);
 
@@ -3681,8 +3683,23 @@ Rect2i DisplayServerMacOS::window_get_popup_safe_rect(WindowID p_window) const {
 void DisplayServerMacOS::popup_open(WindowID p_window) {
 	_THREAD_SAFE_METHOD_
 
+	bool has_popup_ancestor = false;
+	WindowID transient_root = p_window;
+	while (true) {
+		WindowID parent = windows[transient_root].transient_parent;
+		if (parent == INVALID_WINDOW_ID) {
+			break;
+		} else {
+			transient_root = parent;
+			if (windows[parent].is_popup) {
+				has_popup_ancestor = true;
+				break;
+			}
+		}
+	}
+
 	WindowData &wd = windows[p_window];
-	if (wd.is_popup) {
+	if (wd.is_popup || has_popup_ancestor) {
 		bool was_empty = popup_list.is_empty();
 		// Find current popup parent, or root popup if new window is not transient.
 		List<WindowID>::Element *C = nullptr;
@@ -3905,6 +3922,7 @@ DisplayServerMacOS::DisplayServerMacOS(const String &p_rendering_driver, WindowM
 		}
 	}
 	show_window(MAIN_WINDOW_ID);
+	force_process_and_drop_events();
 
 #if defined(GLES3_ENABLED)
 	if (rendering_driver == "opengl3") {

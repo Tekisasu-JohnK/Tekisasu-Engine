@@ -36,7 +36,7 @@ void SpriteFrames::add_frame(const StringName &p_anim, const Ref<Texture2D> &p_t
 	HashMap<StringName, Anim>::Iterator E = animations.find(p_anim);
 	ERR_FAIL_COND_MSG(!E, "Animation '" + String(p_anim) + "' doesn't exist.");
 
-	p_duration = MAX(0.0, p_duration);
+	p_duration = MAX(SPRITE_FRAME_MINIMUM_DURATION, p_duration);
 
 	Frame frame = { p_texture, p_duration };
 
@@ -57,7 +57,7 @@ void SpriteFrames::set_frame(const StringName &p_anim, int p_idx, const Ref<Text
 		return;
 	}
 
-	p_duration = MAX(0.0, p_duration);
+	p_duration = MAX(SPRITE_FRAME_MINIMUM_DURATION, p_duration);
 
 	Frame frame = { p_texture, p_duration };
 
@@ -201,6 +201,7 @@ void SpriteFrames::_set_animations(const Array &p_animations) {
 		anim.loop = d["loop"];
 		Array frames = d["frames"];
 		for (int j = 0; j < frames.size(); j++) {
+#ifndef DISABLE_DEPRECATED
 			// For compatibility.
 			Ref<Resource> res = frames[j];
 			if (res.is_valid()) {
@@ -208,13 +209,14 @@ void SpriteFrames::_set_animations(const Array &p_animations) {
 				anim.frames.push_back(frame);
 				continue;
 			}
+#endif
 
 			Dictionary f = frames[j];
 
 			ERR_CONTINUE(!f.has("texture"));
 			ERR_CONTINUE(!f.has("duration"));
 
-			Frame frame = { f["texture"], f["duration"] };
+			Frame frame = { f["texture"], MAX(SPRITE_FRAME_MINIMUM_DURATION, (float)f["duration"]) };
 			anim.frames.push_back(frame);
 		}
 

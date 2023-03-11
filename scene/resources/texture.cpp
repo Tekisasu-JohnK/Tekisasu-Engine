@@ -653,7 +653,7 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 	uint32_t mipmaps = f->get_32();
 	Image::Format format = Image::Format(f->get_32());
 
-	if (data_format == DATA_FORMAT_PNG || data_format == DATA_FORMAT_WEBP || data_format == DATA_FORMAT_BASIS_UNIVERSAL) {
+	if (data_format == DATA_FORMAT_PNG || data_format == DATA_FORMAT_WEBP) {
 		//look for a PNG or WebP file inside
 
 		int sw = w;
@@ -684,9 +684,7 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 			}
 
 			Ref<Image> img;
-			if (data_format == DATA_FORMAT_BASIS_UNIVERSAL && Image::basis_universal_unpacker) {
-				img = Image::basis_universal_unpacker(pv);
-			} else if (data_format == DATA_FORMAT_PNG && Image::png_unpacker) {
+			if (data_format == DATA_FORMAT_PNG && Image::png_unpacker) {
 				img = Image::png_unpacker(pv);
 			} else if (data_format == DATA_FORMAT_WEBP && Image::webp_unpacker) {
 				img = Image::webp_unpacker(pv);
@@ -745,6 +743,32 @@ Ref<Image> CompressedTexture2D::load_image_from_file(Ref<FileAccess> f, int p_si
 			return image;
 		}
 
+	} else if (data_format == DATA_FORMAT_BASIS_UNIVERSAL) {
+		int sw = w;
+		int sh = h;
+		uint32_t size = f->get_32();
+		if (p_size_limit > 0 && (sw > p_size_limit || sh > p_size_limit)) {
+			//can't load this due to size limit
+			sw = MAX(sw >> 1, 1);
+			sh = MAX(sh >> 1, 1);
+			f->seek(f->get_position() + size);
+			return Ref<Image>();
+		}
+		Vector<uint8_t> pv;
+		pv.resize(size);
+		{
+			uint8_t *wr = pv.ptrw();
+			f->get_buffer(wr, size);
+		}
+		Ref<Image> img;
+		img = Image::basis_universal_unpacker(pv);
+		if (img.is_null() || img->is_empty()) {
+			ERR_FAIL_COND_V(img.is_null() || img->is_empty(), Ref<Image>());
+		}
+		format = img->get_format();
+		sw = MAX(sw >> 1, 1);
+		sh = MAX(sh >> 1, 1);
+		return img;
 	} else if (data_format == DATA_FORMAT_IMAGE) {
 		int size = Image::get_image_data_size(w, h, format, mipmaps ? true : false);
 
@@ -2542,73 +2566,6 @@ void GradientTexture2D::_bind_methods() {
 
 //////////////////////////////////////
 
-void ProxyTexture::set_base(const Ref<Texture2D> &p_texture) {
-	ERR_FAIL_COND(p_texture == this);
-
-	base = p_texture;
-	if (base.is_valid()) {
-		ERR_FAIL_NULL(RenderingServer::get_singleton());
-		if (proxy_ph.is_valid()) {
-			RS::get_singleton()->texture_proxy_update(proxy, base->get_rid());
-			RS::get_singleton()->free(proxy_ph);
-			proxy_ph = RID();
-		} else if (proxy.is_valid()) {
-			RS::get_singleton()->texture_proxy_update(proxy, base->get_rid());
-		} else {
-			proxy = RS::get_singleton()->texture_proxy_create(base->get_rid());
-		}
-	}
-}
-
-Ref<Texture2D> ProxyTexture::get_base() const {
-	return base;
-}
-
-int ProxyTexture::get_width() const {
-	if (base.is_valid()) {
-		return base->get_width();
-	}
-	return 1;
-}
-
-int ProxyTexture::get_height() const {
-	if (base.is_valid()) {
-		return base->get_height();
-	}
-	return 1;
-}
-
-RID ProxyTexture::get_rid() const {
-	if (proxy.is_null()) {
-		proxy_ph = RS::get_singleton()->texture_2d_placeholder_create();
-		proxy = RS::get_singleton()->texture_proxy_create(proxy_ph);
-	}
-	return proxy;
-}
-
-bool ProxyTexture::has_alpha() const {
-	if (base.is_valid()) {
-		return base->has_alpha();
-	}
-	return false;
-}
-
-ProxyTexture::ProxyTexture() {
-	//proxy = RS::get_singleton()->texture_create();
-}
-
-ProxyTexture::~ProxyTexture() {
-	ERR_FAIL_NULL(RenderingServer::get_singleton());
-	if (proxy_ph.is_valid()) {
-		RS::get_singleton()->free(proxy_ph);
-	}
-	if (proxy.is_valid()) {
-		RS::get_singleton()->free(proxy);
-	}
-}
-
-//////////////////////////////////////////////
-
 void AnimatedTexture::_update_proxy() {
 	RWLockRead r(rw_lock);
 
@@ -2680,6 +2637,7 @@ void AnimatedTexture::set_current_frame(int p_frame) {
 	RWLockWrite r(rw_lock);
 
 	current_frame = p_frame;
+	time = 0;
 }
 
 int AnimatedTexture::get_current_frame() const {

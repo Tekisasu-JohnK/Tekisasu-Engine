@@ -946,7 +946,7 @@ String Node::validate_child_name(Node *p_child) {
 #endif
 
 String Node::adjust_name_casing(const String &p_name) {
-	switch (GLOBAL_GET("editor/node_naming/name_casing").operator int()) {
+	switch (GLOBAL_GET("editor/naming/node_name_casing").operator int()) {
 		case NAME_CASING_PASCAL_CASE:
 			return p_name.to_pascal_case();
 		case NAME_CASING_CAMEL_CASE:
@@ -1987,7 +1987,16 @@ String Node::get_scene_file_path() const {
 }
 
 void Node::set_editor_description(const String &p_editor_description) {
+	if (data.editor_description == p_editor_description) {
+		return;
+	}
+
 	data.editor_description = p_editor_description;
+
+	if (Engine::get_singleton()->is_editor_hint() && is_inside_tree()) {
+		// Update tree so the tooltip in the Scene tree dock is also updated in the editor.
+		get_tree()->tree_changed();
+	}
 }
 
 String Node::get_editor_description() const {
@@ -2126,13 +2135,13 @@ Node *Node::_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap) c
 	} else if ((p_flags & DUPLICATE_USE_INSTANTIATION) && !get_scene_file_path().is_empty()) {
 		Ref<PackedScene> res = ResourceLoader::load(get_scene_file_path());
 		ERR_FAIL_COND_V(res.is_null(), nullptr);
-		PackedScene::GenEditState ges = PackedScene::GEN_EDIT_STATE_DISABLED;
+		PackedScene::GenEditState edit_state = PackedScene::GEN_EDIT_STATE_DISABLED;
 #ifdef TOOLS_ENABLED
 		if (p_flags & DUPLICATE_FROM_EDITOR) {
-			ges = PackedScene::GEN_EDIT_STATE_INSTANCE;
+			edit_state = PackedScene::GEN_EDIT_STATE_INSTANCE;
 		}
 #endif
-		node = res->instantiate(ges);
+		node = res->instantiate(edit_state);
 		ERR_FAIL_COND_V(!node, nullptr);
 		node->set_scene_instance_load_placeholder(get_scene_instance_load_placeholder());
 
@@ -2213,7 +2222,7 @@ Node *Node::_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap) c
 
 			Variant value = N->get()->get(name).duplicate(true);
 
-			if (E.usage & PROPERTY_USAGE_DO_NOT_SHARE_ON_DUPLICATE) {
+			if (E.usage & PROPERTY_USAGE_ALWAYS_DUPLICATE) {
 				Resource *res = Object::cast_to<Resource>(value);
 				if (res) { // Duplicate only if it's a resource
 					current_node->set(name, res->duplicate());
@@ -2799,8 +2808,8 @@ void Node::unhandled_key_input(const Ref<InputEvent> &p_key_event) {
 }
 
 void Node::_bind_methods() {
-	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/node_naming/name_num_separator", PROPERTY_HINT_ENUM, "None,Space,Underscore,Dash"), 0);
-	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/node_naming/name_casing", PROPERTY_HINT_ENUM, "PascalCase,camelCase,snake_case"), NAME_CASING_PASCAL_CASE);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/naming/node_name_num_separator", PROPERTY_HINT_ENUM, "None,Space,Underscore,Dash"), 0);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/naming/node_name_casing", PROPERTY_HINT_ENUM, "PascalCase,camelCase,snake_case"), NAME_CASING_PASCAL_CASE);
 
 	ClassDB::bind_static_method("Node", D_METHOD("print_orphan_nodes"), &Node::print_orphan_nodes);
 	ClassDB::bind_method(D_METHOD("add_sibling", "sibling", "force_readable_name"), &Node::add_sibling, DEFVAL(false));
@@ -3022,7 +3031,7 @@ void Node::_bind_methods() {
 }
 
 String Node::_get_name_num_separator() {
-	switch (GLOBAL_GET("editor/node_naming/name_num_separator").operator int()) {
+	switch (GLOBAL_GET("editor/naming/node_name_num_separator").operator int()) {
 		case 0:
 			return "";
 		case 1:

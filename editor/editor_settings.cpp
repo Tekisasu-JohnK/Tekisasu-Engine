@@ -384,9 +384,6 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 			if (score > 0 && score >= best_score) {
 				best = locale;
 				best_score = score;
-				if (score == 10) {
-					break; // Exact match, skip the rest.
-				}
 			}
 		}
 		if (best_score == 0) {
@@ -410,7 +407,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING_USAGE(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/expand_to_title", true, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
 
 	EDITOR_SETTING_USAGE(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/editor/custom_display_scale", 1.0, "0.5,3,0.01", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
-	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "interface/editor/main_font_size", 13, "8,48,1")
+	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "interface/editor/main_font_size", 14, "8,48,1")
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "interface/editor/code_font_size", 14, "8,48,1")
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/code_font_contextual_ligatures", 1, "Enabled,Disable Contextual Alternates (Coding Ligatures),Use Custom OpenType Feature Set")
 	_initial_set("interface/editor/code_font_custom_opentype_features", "");
@@ -454,16 +451,24 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	// Theme
 	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_ENUM, "interface/theme/preset", "Default", "Default,Breeze Dark,Godot 2,Gray,Light,Solarized (Dark),Solarized (Light),Black (OLED),Custom")
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/theme/icon_and_font_color", 0, "Auto,Dark,Light")
-	EDITOR_SETTING(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/base_color", Color(0.18, 0.18, 0.42), "")
- 	EDITOR_SETTING(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/accent_color", Color(0.44, 0.47, 0.93), "")
- 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/contrast", 0.48, "-1,1,0.01")
+	EDITOR_SETTING(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/base_color", Color(0.2, 0.23, 0.31), "")
+	EDITOR_SETTING(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/accent_color", Color(0.41, 0.61, 0.91), "")
+	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/contrast", 0.3, "-1,1,0.01")
 	EDITOR_SETTING(Variant::BOOL, PROPERTY_HINT_NONE, "interface/theme/draw_extra_borders", false, "")
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/icon_saturation", 1.0, "0,2,0.01")
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/relationship_line_opacity", 0.1, "0.00,1,0.01")
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "interface/theme/border_size", 0, "0,2,1")
-	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "interface/theme/corner_radius", 5, "0,6,1")
+	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "interface/theme/corner_radius", 3, "0,6,1")
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/additional_spacing", 0.0, "0,5,0.1")
 	EDITOR_SETTING_USAGE(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "interface/theme/custom_theme", "", "*.res,*.tres,*.theme", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED)
+
+	// Touchscreen
+	bool has_touchscreen_ui = DisplayServer::get_singleton()->is_touchscreen_available();
+	EDITOR_SETTING(Variant::BOOL, PROPERTY_HINT_NONE, "interface/touchscreen/increase_scrollbar_touch_area", has_touchscreen_ui, "")
+	EDITOR_SETTING(Variant::BOOL, PROPERTY_HINT_NONE, "interface/touchscreen/enable_long_press_as_right_click", has_touchscreen_ui, "")
+	set_restart_if_changed("interface/touchscreen/enable_long_press_as_right_click", true);
+	EDITOR_SETTING(Variant::BOOL, PROPERTY_HINT_NONE, "interface/touchscreen/enable_pan_and_scale_gestures", has_touchscreen_ui, "")
+	set_restart_if_changed("interface/touchscreen/enable_pan_and_scale_gestures", true);
 
 	// Scene tabs
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/scene_tabs/display_close_button", 1, "Never,If Tab Active,Always"); // TabBar::CloseButtonDisplayPolicy
@@ -474,10 +479,10 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	/* Filesystem */
 
 	// External Programs
-	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_DIR, "filesystem/external_programs/raster_image_editor", "", "")
-	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_DIR, "filesystem/external_programs/vector_image_editor", "", "")
-	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_DIR, "filesystem/external_programs/audio_editor", "", "")
-	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_DIR, "filesystem/external_programs/3d_model_editor", "", "")
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "filesystem/external_programs/raster_image_editor", "", "")
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "filesystem/external_programs/vector_image_editor", "", "")
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "filesystem/external_programs/audio_editor", "", "")
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "filesystem/external_programs/3d_model_editor", "", "")
 
 	// Directories
 	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_DIR, "filesystem/directories/autoscan_project_path", "", "")
@@ -585,9 +590,9 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 
 	// Help
 	_initial_set("text_editor/help/show_help_index", true);
-	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "text_editor/help/help_font_size", 15, "8,48,1")
-	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "text_editor/help/help_source_font_size", 14, "8,48,1")
-	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "text_editor/help/help_title_font_size", 23, "8,48,1")
+	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "text_editor/help/help_font_size", 16, "8,48,1")
+	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "text_editor/help/help_source_font_size", 15, "8,48,1")
+	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "text_editor/help/help_title_font_size", 23, "8,64,1")
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "text_editor/help/class_reference_examples", 0, "GDScript,C#,GDScript and C#")
 
 	/* Editors */
@@ -741,7 +746,16 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 
 	// TRANSLATORS: Project Manager here refers to the tool used to create/manage Godot projects.
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "project_manager/sorting_order", 0, "Last Edited,Name,Path")
+
+#if defined(WEB_ENABLED)
+	// Web platform only supports `gl_compatibility`.
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_NONE, "project_manager/default_renderer", "gl_compatibility", "forward_plus,mobile,gl_compatibility")
+#elif defined(ANDROID_ENABLED)
+	// Use more suitable rendering method by default.
+	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_NONE, "project_manager/default_renderer", "mobile", "forward_plus,mobile,gl_compatibility")
+#else
 	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_NONE, "project_manager/default_renderer", "forward_plus", "forward_plus,mobile,gl_compatibility")
+#endif
 
 	if (p_extra_config.is_valid()) {
 		if (p_extra_config->has_section("init_projects") && p_extra_config->has_section_key("init_projects", "list")) {
@@ -772,7 +786,7 @@ void EditorSettings::_load_godot2_text_editor_theme() {
 	_initial_set("text_editor/theme/highlighting/base_type_color", Color(0.64, 1.0, 0.83));
 	_initial_set("text_editor/theme/highlighting/engine_type_color", Color(0.51, 0.83, 1.0));
 	_initial_set("text_editor/theme/highlighting/user_type_color", Color(0.42, 0.67, 0.93));
-	_initial_set("text_editor/theme/highlighting/comment_color", Color(0.6, 0.42, 0.35));
+	_initial_set("text_editor/theme/highlighting/comment_color", Color(0.4, 0.4, 0.4));
 	_initial_set("text_editor/theme/highlighting/string_color", Color(0.94, 0.43, 0.75));
 	_initial_set("text_editor/theme/highlighting/background_color", Color(0.13, 0.12, 0.15));
 	_initial_set("text_editor/theme/highlighting/completion_background_color", Color(0.17, 0.16, 0.2));
@@ -921,6 +935,7 @@ void EditorSettings::setup_language() {
 	}
 	// Load editor translation for configured/detected locale.
 	load_editor_translations(lang);
+	load_property_translations(lang);
 
 	// Load class reference translation.
 	load_doc_translations(lang);
@@ -1385,8 +1400,13 @@ float EditorSettings::get_auto_display_scale() const {
 
 // Shortcuts
 
+void EditorSettings::_add_shortcut_default(const String &p_name, const Ref<Shortcut> &p_shortcut) {
+	shortcuts[p_name] = p_shortcut;
+}
+
 void EditorSettings::add_shortcut(const String &p_name, const Ref<Shortcut> &p_shortcut) {
 	shortcuts[p_name] = p_shortcut;
+	shortcuts[p_name]->set_meta("customized", true);
 }
 
 bool EditorSettings::is_shortcut(const String &p_name, const Ref<InputEvent> &p_event) const {
@@ -1490,8 +1510,8 @@ void ED_SHORTCUT_OVERRIDE_ARRAY(const String &p_path, const String &p_feature, c
 		}
 	}
 
-	// Override the existing shortcut only if it wasn't customized by the user (i.e. still "original").
-	if (Shortcut::is_event_array_equal(sc->get_events(), sc->get_meta("original"))) {
+	// Override the existing shortcut only if it wasn't customized by the user.
+	if (!sc->has_meta("customized")) {
 		sc->set_events(events);
 	}
 
@@ -1544,7 +1564,7 @@ Ref<Shortcut> ED_SHORTCUT_ARRAY(const String &p_path, const String &p_name, cons
 	sc->set_name(p_name);
 	sc->set_events(events);
 	sc->set_meta("original", events.duplicate(true)); //to compare against changes
-	EditorSettings::get_singleton()->add_shortcut(p_path, sc);
+	EditorSettings::get_singleton()->_add_shortcut_default(p_path, sc);
 
 	return sc;
 }

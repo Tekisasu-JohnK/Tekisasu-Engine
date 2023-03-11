@@ -103,9 +103,8 @@ class TextureRegionEditor : public AcceptDialog {
 	bool request_center = false;
 
 	Ref<ViewPanner> panner;
-	void _scroll_callback(Vector2 p_scroll_vec, bool p_alt);
-	void _pan_callback(Vector2 p_scroll_vec);
-	void _zoom_callback(Vector2 p_scroll_vec, Vector2 p_origin, bool p_alt);
+	void _pan_callback(Vector2 p_scroll_vec, Ref<InputEvent> p_event);
+	void _zoom_callback(float p_zoom_factor, Vector2 p_origin, Ref<InputEvent> p_event);
 
 	void _set_snap_mode(int p_mode);
 	void _set_snap_off_x(float p_val);
@@ -157,7 +156,7 @@ class EditorInspectorPluginTextureRegion : public EditorInspectorPlugin {
 
 public:
 	virtual bool can_handle(Object *p_object) override;
-	virtual bool parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const uint32_t p_usage, const bool p_wide) override;
+	virtual bool parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const BitField<PropertyUsageFlags> p_usage, const bool p_wide) override;
 
 	EditorInspectorPluginTextureRegion();
 };

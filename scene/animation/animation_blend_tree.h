@@ -257,7 +257,7 @@ public:
 class AnimationNodeTimeSeek : public AnimationNode {
 	GDCLASS(AnimationNodeTimeSeek, AnimationNode);
 
-	StringName seek_pos = PNAME("seek_position");
+	StringName seek_pos_request = PNAME("seek_request");
 
 protected:
 	static void _bind_methods();
@@ -276,16 +276,11 @@ public:
 class AnimationNodeTransition : public AnimationNodeSync {
 	GDCLASS(AnimationNodeTransition, AnimationNodeSync);
 
-	enum {
-		MAX_INPUTS = 32
-	};
 	struct InputData {
-		String name;
 		bool auto_advance = false;
+		bool reset = true;
 	};
-
-	InputData inputs[MAX_INPUTS];
-	int enabled_inputs = 0;
+	Vector<InputData> input_data;
 
 	StringName time = "time";
 	StringName prev_xfading = "prev_xfading";
@@ -299,13 +294,15 @@ class AnimationNodeTransition : public AnimationNodeSync {
 
 	double xfade_time = 0.0;
 	Ref<Curve> xfade_curve;
-	bool reset = true;
+	bool allow_transition_to_self = false;
 
-	void _update_inputs();
+	bool pending_update = false;
 
 protected:
+	bool _get(const StringName &p_path, Variant &r_ret) const;
+	bool _set(const StringName &p_path, const Variant &p_value);
 	static void _bind_methods();
-	void _validate_property(PropertyInfo &p_property) const;
+	void _get_property_list(List<PropertyInfo> *p_list) const;
 
 public:
 	virtual void get_parameter_list(List<PropertyInfo> *r_list) const override;
@@ -314,15 +311,17 @@ public:
 
 	virtual String get_caption() const override;
 
-	void set_enabled_inputs(int p_inputs);
-	int get_enabled_inputs();
+	void set_input_count(int p_inputs);
+
+	virtual bool add_input(const String &p_name) override;
+	virtual void remove_input(int p_index) override;
+	virtual bool set_input_name(int p_input, const String &p_name) override;
 
 	void set_input_as_auto_advance(int p_input, bool p_enable);
 	bool is_input_set_as_auto_advance(int p_input) const;
 
-	void set_input_caption(int p_input, const String &p_name);
-	String get_input_caption(int p_input) const;
-	int find_input_caption(const String &p_name) const;
+	void set_input_reset(int p_input, bool p_enable);
+	bool is_input_reset(int p_input) const;
 
 	void set_xfade_time(double p_fade);
 	double get_xfade_time() const;
@@ -330,8 +329,8 @@ public:
 	void set_xfade_curve(const Ref<Curve> &p_curve);
 	Ref<Curve> get_xfade_curve() const;
 
-	void set_reset(bool p_reset);
-	bool is_reset() const;
+	void set_allow_transition_to_self(bool p_enable);
+	bool is_allow_transition_to_self() const;
 
 	double process(double p_time, bool p_seek, bool p_is_external_seeking) override;
 
@@ -362,7 +361,6 @@ class AnimationNodeBlendTree : public AnimationRootNode {
 
 	Vector2 graph_offset;
 
-	void _tree_changed();
 	void _node_changed(const StringName &p_node);
 
 	void _initialize_node_tree();
@@ -372,6 +370,10 @@ protected:
 	bool _set(const StringName &p_name, const Variant &p_value);
 	bool _get(const StringName &p_name, Variant &r_ret) const;
 	void _get_property_list(List<PropertyInfo> *p_list) const;
+
+	virtual void _tree_changed() override;
+	virtual void _animation_node_renamed(const ObjectID &p_oid, const String &p_old_name, const String &p_new_name) override;
+	virtual void _animation_node_removed(const ObjectID &p_oid, const StringName &p_node) override;
 
 	virtual void reset_state() override;
 

@@ -57,10 +57,9 @@ class NavigationAgent2D : public Node {
 	int max_neighbors = 10;
 	real_t time_horizon = 1.0;
 	real_t max_speed = 100.0;
-
 	real_t path_max_distance = 100.0;
 
-	Vector2 target_location;
+	Vector2 target_position;
 	bool target_position_submitted = false;
 	Ref<NavigationPathQueryParameters2D> navigation_query;
 	Ref<NavigationPathQueryResult2D> navigation_result;
@@ -73,6 +72,22 @@ class NavigationAgent2D : public Node {
 	bool navigation_finished = true;
 	// No initialized on purpose
 	uint32_t update_frame_id = 0;
+
+	// Debug properties for exposed bindings
+	bool debug_enabled = false;
+	float debug_path_custom_point_size = 4.0;
+	float debug_path_custom_line_width = 1.0;
+	bool debug_use_custom = false;
+	Color debug_path_custom_color = Color(1.0, 1.0, 1.0, 1.0);
+#ifdef DEBUG_ENABLED
+	// Debug properties internal only
+	bool debug_path_dirty = true;
+	RID debug_path_instance;
+
+private:
+	void _navigation_debug_changed();
+	void _update_debug_path();
+#endif // DEBUG_ENABLED
 
 protected:
 	static void _bind_methods();
@@ -143,10 +158,10 @@ public:
 	void set_path_max_distance(real_t p_pmd);
 	real_t get_path_max_distance();
 
-	void set_target_location(Vector2 p_location);
-	Vector2 get_target_location() const;
+	void set_target_position(Vector2 p_position);
+	Vector2 get_target_position() const;
 
-	Vector2 get_next_location();
+	Vector2 get_next_path_position();
 
 	Ref<NavigationPathQueryResult2D> get_current_navigation_result() const {
 		return navigation_result;
@@ -162,12 +177,27 @@ public:
 	bool is_target_reached() const;
 	bool is_target_reachable();
 	bool is_navigation_finished();
-	Vector2 get_final_location();
+	Vector2 get_final_position();
 
 	void set_velocity(Vector2 p_velocity);
 	void _avoidance_done(Vector3 p_new_velocity);
 
 	PackedStringArray get_configuration_warnings() const override;
+
+	void set_debug_enabled(bool p_enabled);
+	bool get_debug_enabled() const;
+
+	void set_debug_use_custom(bool p_enabled);
+	bool get_debug_use_custom() const;
+
+	void set_debug_path_custom_color(Color p_color);
+	Color get_debug_path_custom_color() const;
+
+	void set_debug_path_custom_point_size(float p_point_size);
+	float get_debug_path_custom_point_size() const;
+
+	void set_debug_path_custom_line_width(float p_line_width);
+	float get_debug_path_custom_line_width() const;
 
 private:
 	void update_navigation();

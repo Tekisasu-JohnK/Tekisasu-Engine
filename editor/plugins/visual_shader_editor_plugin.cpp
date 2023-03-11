@@ -40,6 +40,7 @@
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_undo_redo_manager.h"
+#include "editor/filesystem_dock.h"
 #include "editor/inspector_dock.h"
 #include "editor/plugins/curve_editor_plugin.h"
 #include "editor/plugins/shader_editor_plugin.h"
@@ -127,7 +128,7 @@ void VisualShaderGraphPlugin::set_connections(const List<VisualShader::Connectio
 	connections = p_connections;
 }
 
-void VisualShaderGraphPlugin::show_port_preview(VisualShader::Type p_type, int p_node_id, int p_port_id) {
+void VisualShaderGraphPlugin::show_port_preview(VisualShader::Type p_type, int p_node_id, int p_port_id, bool p_is_valid) {
 	if (visual_shader->get_shader_type() == p_type && links.has(p_node_id) && links[p_node_id].output_ports.has(p_port_id)) {
 		Link &link = links[p_node_id];
 
@@ -161,7 +162,7 @@ void VisualShaderGraphPlugin::show_port_preview(VisualShader::Type p_type, int p
 			vbox->add_child(offset);
 
 			VisualShaderNodePortPreview *port_preview = memnew(VisualShaderNodePortPreview);
-			port_preview->setup(visual_shader, visual_shader->get_shader_type(), p_node_id, p_port_id);
+			port_preview->setup(visual_shader, visual_shader->get_shader_type(), p_node_id, p_port_id, p_is_valid);
 			port_preview->set_h_size_flags(Control::SIZE_SHRINK_CENTER);
 			vbox->add_child(port_preview);
 			link.preview_visible = true;
@@ -348,6 +349,29 @@ void VisualShaderGraphPlugin::update_theme() {
 	vector_expanded_color[1] = editor->get_theme_color(SNAME("axis_y_color"), SNAME("Editor")); // green
 	vector_expanded_color[2] = editor->get_theme_color(SNAME("axis_z_color"), SNAME("Editor")); // blue
 	vector_expanded_color[3] = editor->get_theme_color(SNAME("axis_w_color"), SNAME("Editor")); // alpha
+}
+
+bool VisualShaderGraphPlugin::is_node_has_parameter_instances_relatively(VisualShader::Type p_type, int p_node) const {
+	bool result = false;
+
+	Ref<VisualShaderNodeParameter> parameter_node = Object::cast_to<VisualShaderNodeParameter>(visual_shader->get_node_unchecked(p_type, p_node).ptr());
+	if (parameter_node.is_valid()) {
+		if (parameter_node->get_qualifier() == VisualShaderNodeParameter::QUAL_INSTANCE) {
+			return true;
+		}
+	}
+
+	LocalVector<int> prev_connected_nodes;
+	visual_shader->get_prev_connected_nodes(p_type, p_node, prev_connected_nodes);
+
+	for (const int &E : prev_connected_nodes) {
+		result = is_node_has_parameter_instances_relatively(p_type, E);
+		if (result) {
+			break;
+		}
+	}
+
+	return result;
 }
 
 void VisualShaderGraphPlugin::add_node(VisualShader::Type p_type, int p_id, bool p_just_update) {
@@ -968,8 +992,10 @@ void VisualShaderGraphPlugin::add_node(VisualShader::Type p_type, int p_id, bool
 		}
 	}
 
+	bool has_relative_parameter_instances = false;
 	if (vsnode->get_output_port_for_preview() >= 0) {
-		show_port_preview(p_type, p_id, vsnode->get_output_port_for_preview());
+		has_relative_parameter_instances = is_node_has_parameter_instances_relatively(p_type, p_id);
+		show_port_preview(p_type, p_id, vsnode->get_output_port_for_preview(), !has_relative_parameter_instances);
 	} else {
 		offset = memnew(Control);
 		offset->set_custom_minimum_size(Size2(0, 4 * EDSCALE));
@@ -977,6 +1003,9 @@ void VisualShaderGraphPlugin::add_node(VisualShader::Type p_type, int p_id, bool
 	}
 
 	String error = vsnode->get_warning(mode, p_type);
+	if (has_relative_parameter_instances) {
+		error += "\n" + TTR("The 2D preview cannot correctly show the result retrieved from instance parameter.");
+	}
 	if (!error.is_empty()) {
 		Label *error_label = memnew(Label);
 		error_label->add_theme_color_override("font_color", editor->get_theme_color(SNAME("error_color"), SNAME("Editor")));
@@ -1271,18 +1300,55 @@ Dictionary VisualShaderEditor::get_custom_node_data(Ref<VisualShaderNodeCustom> 
 	return dict;
 }
 
-void VisualShaderEditor::update_custom_type(const Ref<Resource> &p_resource) {
-	Ref<Script> scr = Ref<Script>(p_resource.ptr());
-	if (scr.is_null() || scr->get_instance_base_type() != "VisualShaderNodeCustom") {
+void VisualShaderEditor::_get_current_mode_limits(int &r_begin_type, int &r_end_type) const {
+	switch (visual_shader->get_mode()) {
+		case Shader::MODE_CANVAS_ITEM:
+		case Shader::MODE_SPATIAL: {
+			r_begin_type = 0;
+			r_end_type = 3;
+		} break;
+		case Shader::MODE_PARTICLES: {
+			r_begin_type = 3;
+			r_end_type = 5 + r_begin_type;
+		} break;
+		case Shader::MODE_SKY: {
+			r_begin_type = 8;
+			r_end_type = 1 + r_begin_type;
+		} break;
+		case Shader::MODE_FOG: {
+			r_begin_type = 9;
+			r_end_type = 1 + r_begin_type;
+		} break;
+		default: {
+		} break;
+	}
+}
+
+void VisualShaderEditor::_script_created(const Ref<Script> &p_script) {
+	if (p_script.is_null() || p_script->get_instance_base_type() != "VisualShaderNodeCustom") {
+		return;
+	}
+	Ref<VisualShaderNodeCustom> ref;
+	ref.instantiate();
+	ref->set_script(p_script);
+
+	Dictionary dict = get_custom_node_data(ref);
+	add_custom_type(dict["name"], dict["script"], dict["description"], dict["return_icon_type"], dict["category"], dict["highend"]);
+
+	_update_options_menu();
+}
+
+void VisualShaderEditor::_update_custom_script(const Ref<Script> &p_script) {
+	if (p_script.is_null() || p_script->get_instance_base_type() != "VisualShaderNodeCustom") {
 		return;
 	}
 
 	Ref<VisualShaderNodeCustom> ref;
 	ref.instantiate();
-	ref->set_script(scr);
+	ref->set_script(p_script);
 	if (!ref->is_available(visual_shader->get_mode(), visual_shader->get_shader_type())) {
 		for (int i = 0; i < add_options.size(); i++) {
-			if (add_options[i].is_custom && add_options[i].script == scr) {
+			if (add_options[i].is_custom && add_options[i].script == p_script) {
 				add_options.remove_at(i);
 				_update_options_menu();
 				// TODO: Make indication for the existed custom nodes with that script on graph to be disabled.
@@ -1296,8 +1362,8 @@ void VisualShaderEditor::update_custom_type(const Ref<Resource> &p_resource) {
 	bool found_type = false;
 	bool need_rebuild = false;
 
-	for (int i = 0; i < add_options.size(); i++) {
-		if (add_options[i].is_custom && add_options[i].script == scr) {
+	for (int i = custom_node_option_idx; i < add_options.size(); i++) {
+		if (add_options[i].script == p_script) {
 			found_type = true;
 
 			add_options.write[i].name = dict["name"];
@@ -1306,31 +1372,11 @@ void VisualShaderEditor::update_custom_type(const Ref<Resource> &p_resource) {
 			add_options.write[i].category = dict["category"];
 			add_options.write[i].highend = dict["highend"];
 
-			int max_type = 0;
-			int type_offset = 0;
-			switch (visual_shader->get_mode()) {
-				case Shader::MODE_CANVAS_ITEM:
-				case Shader::MODE_SPATIAL: {
-					max_type = 3;
-				} break;
-				case Shader::MODE_PARTICLES: {
-					max_type = 5;
-					type_offset = 3;
-				} break;
-				case Shader::MODE_SKY: {
-					max_type = 1;
-					type_offset = 8;
-				} break;
-				case Shader::MODE_FOG: {
-					max_type = 1;
-					type_offset = 9;
-				} break;
-				default: {
-				} break;
-			}
-			max_type = type_offset + max_type;
+			int begin_type = 0;
+			int end_type = 0;
+			_get_current_mode_limits(begin_type, end_type);
 
-			for (int t = type_offset; t < max_type; t++) {
+			for (int t = begin_type; t < end_type; t++) {
 				VisualShader::Type type = (VisualShader::Type)t;
 				Vector<int> nodes = visual_shader->get_node_list(type);
 
@@ -1339,28 +1385,27 @@ void VisualShaderEditor::update_custom_type(const Ref<Resource> &p_resource) {
 
 				List<VisualShader::Connection> custom_node_input_connections;
 				List<VisualShader::Connection> custom_node_output_connections;
+
 				for (const VisualShader::Connection &E : node_connections) {
 					int from = E.from_node;
-					int from_idx = E.from_port;
+					int from_port = E.from_port;
 					int to = E.to_node;
-					int to_idx = E.to_port;
+					int to_port = E.to_port;
 
-					if (graph_plugin->get_node_script(from) == scr) {
-						custom_node_output_connections.push_back({ from, from_idx, to, to_idx });
-					} else if (graph_plugin->get_node_script(to) == scr) {
-						custom_node_input_connections.push_back({ from, from_idx, to, to_idx });
+					if (graph_plugin->get_node_script(from) == p_script) {
+						custom_node_output_connections.push_back({ from, from_port, to, to_port });
+					} else if (graph_plugin->get_node_script(to) == p_script) {
+						custom_node_input_connections.push_back({ from, from_port, to, to_port });
 					}
 				}
 
-				for (int j = 0; j < nodes.size(); j++) {
-					int node_id = nodes[j];
-
+				for (int node_id : nodes) {
 					Ref<VisualShaderNode> vsnode = visual_shader->get_node(type, node_id);
 					if (vsnode.is_null()) {
 						continue;
 					}
 					Ref<VisualShaderNodeCustom> custom_node = Ref<VisualShaderNodeCustom>(vsnode.ptr());
-					if (custom_node.is_null() || custom_node->get_script() != scr) {
+					if (custom_node.is_null() || custom_node->get_script() != p_script) {
 						continue;
 					}
 					need_rebuild = true;
@@ -1426,6 +1471,89 @@ void VisualShaderEditor::update_custom_type(const Ref<Resource> &p_resource) {
 		_block_rebuild_shader = true;
 
 		call_deferred(SNAME("_rebuild_shader_deferred"));
+	}
+}
+
+void VisualShaderEditor::_resource_saved(const Ref<Resource> &p_resource) {
+	_update_custom_script(Ref<Script>(p_resource.ptr()));
+}
+
+void VisualShaderEditor::_resources_removed() {
+	bool has_any_instance = false;
+
+	for (const Ref<Script> &scr : custom_scripts_to_delete) {
+		for (int i = custom_node_option_idx; i < add_options.size(); i++) {
+			if (add_options[i].script == scr) {
+				add_options.remove_at(i);
+
+				// Removes all node instances using that script from the graph.
+				{
+					int begin_type = 0;
+					int end_type = 0;
+					_get_current_mode_limits(begin_type, end_type);
+
+					for (int t = begin_type; t < end_type; t++) {
+						VisualShader::Type type = (VisualShader::Type)t;
+
+						List<VisualShader::Connection> node_connections;
+						visual_shader->get_node_connections(type, &node_connections);
+
+						for (const VisualShader::Connection &E : node_connections) {
+							int from = E.from_node;
+							int from_port = E.from_port;
+							int to = E.to_node;
+							int to_port = E.to_port;
+
+							if (graph_plugin->get_node_script(from) == scr || graph_plugin->get_node_script(to) == scr) {
+								visual_shader->disconnect_nodes(type, from, from_port, to, to_port);
+								graph_plugin->disconnect_nodes(type, from, from_port, to, to_port);
+							}
+						}
+
+						Vector<int> nodes = visual_shader->get_node_list(type);
+						for (int node_id : nodes) {
+							Ref<VisualShaderNode> vsnode = visual_shader->get_node(type, node_id);
+							if (vsnode.is_null()) {
+								continue;
+							}
+							Ref<VisualShaderNodeCustom> custom_node = Ref<VisualShaderNodeCustom>(vsnode.ptr());
+							if (custom_node.is_null() || custom_node->get_script() != scr) {
+								continue;
+							}
+							visual_shader->remove_node(type, node_id);
+							graph_plugin->remove_node(type, node_id, false);
+
+							has_any_instance = true;
+						}
+					}
+				}
+
+				break;
+			}
+		}
+	}
+	if (has_any_instance) {
+		EditorUndoRedoManager::get_singleton()->clear_history(); // Need to clear undo history, otherwise it may lead to hard-detected errors and crashes (since the script was removed).
+		ResourceSaver::save(visual_shader, visual_shader->get_path());
+	}
+	_update_options_menu();
+
+	custom_scripts_to_delete.clear();
+	pending_custom_scripts_to_delete = false;
+}
+
+void VisualShaderEditor::_resource_removed(const Ref<Resource> &p_resource) {
+	Ref<Script> scr = Ref<Script>(p_resource.ptr());
+	if (scr.is_null() || scr->get_instance_base_type() != "VisualShaderNodeCustom") {
+		return;
+	}
+
+	custom_scripts_to_delete.push_back(scr);
+
+	if (!pending_custom_scripts_to_delete) {
+		pending_custom_scripts_to_delete = true;
+
+		call_deferred("_resources_removed");
 	}
 }
 
@@ -4870,6 +4998,29 @@ void VisualShaderEditor::_update_preview() {
 	}
 }
 
+void VisualShaderEditor::_update_next_previews(int p_node_id) {
+	VisualShader::Type type = get_current_shader_type();
+
+	LocalVector<int> nodes;
+	_get_next_nodes_recursively(type, p_node_id, nodes);
+
+	for (int node_id : nodes) {
+		if (graph_plugin->is_preview_visible(node_id)) {
+			graph_plugin->update_node_deferred(type, node_id);
+		}
+	}
+}
+
+void VisualShaderEditor::_get_next_nodes_recursively(VisualShader::Type p_type, int p_node_id, LocalVector<int> &r_nodes) const {
+	LocalVector<int> next_connections;
+	visual_shader->get_next_connected_nodes(p_type, p_node_id, next_connections);
+
+	for (int node_id : next_connections) {
+		r_nodes.push_back(node_id);
+		_get_next_nodes_recursively(p_type, node_id, r_nodes);
+	}
+}
+
 void VisualShaderEditor::_visibility_changed() {
 	if (!is_visible()) {
 		if (preview_window->is_visible()) {
@@ -4901,13 +5052,17 @@ void VisualShaderEditor::_bind_methods() {
 	ClassDB::bind_method("_expand_output_port", &VisualShaderEditor::_expand_output_port);
 	ClassDB::bind_method("_update_options_menu_deferred", &VisualShaderEditor::_update_options_menu_deferred);
 	ClassDB::bind_method("_rebuild_shader_deferred", &VisualShaderEditor::_rebuild_shader_deferred);
+	ClassDB::bind_method("_resources_removed", &VisualShaderEditor::_resources_removed);
+	ClassDB::bind_method("_update_next_previews", &VisualShaderEditor::_update_next_previews);
 
 	ClassDB::bind_method("_is_available", &VisualShaderEditor::_is_available);
 }
 
 VisualShaderEditor::VisualShaderEditor() {
 	ShaderLanguage::get_keyword_list(&keyword_list);
-	EditorNode::get_singleton()->connect("resource_saved", callable_mp(this, &VisualShaderEditor::update_custom_type));
+	EditorNode::get_singleton()->connect("resource_saved", callable_mp(this, &VisualShaderEditor::_resource_saved));
+	FileSystemDock::get_singleton()->get_script_create_dialog()->connect("script_created", callable_mp(this, &VisualShaderEditor::_script_created));
+	FileSystemDock::get_singleton()->connect("resource_removed", callable_mp(this, &VisualShaderEditor::_resource_removed));
 
 	graph = memnew(GraphEdit);
 	graph->get_zoom_hbox()->set_h_size_flags(SIZE_EXPAND_FILL);
@@ -5433,6 +5588,7 @@ VisualShaderEditor::VisualShaderEditor() {
 	add_options.push_back(AddOption("ViewIndex", "Input/Vertex", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "view_index", "VIEW_INDEX"), { "view_index" }, VisualShaderNode::PORT_TYPE_SCALAR_INT, TYPE_FLAGS_VERTEX, Shader::MODE_SPATIAL));
 	add_options.push_back(AddOption("ViewMonoLeft", "Input/Vertex", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "view_mono_left", "VIEW_MONO_LEFT"), { "view_mono_left" }, VisualShaderNode::PORT_TYPE_SCALAR_INT, TYPE_FLAGS_VERTEX, Shader::MODE_SPATIAL));
 	add_options.push_back(AddOption("ViewRight", "Input/Vertex", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "view_right", "VIEW_RIGHT"), { "view_right" }, VisualShaderNode::PORT_TYPE_SCALAR_INT, TYPE_FLAGS_VERTEX, Shader::MODE_SPATIAL));
+	add_options.push_back(AddOption("EyeOffset", "Input/Vertex", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "eye_offset", "EYE_OFFSET"), { "eye_offset" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_VERTEX, Shader::MODE_SPATIAL));
 	add_options.push_back(AddOption("NodePositionWorld", "Input/Vertex", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "node_position_world", "NODE_POSITION_WORLD"), { "node_position_world" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_VERTEX, Shader::MODE_SPATIAL));
 	add_options.push_back(AddOption("CameraPositionWorld", "Input/Vertex", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "camera_position_world", "CAMERA_POSITION_WORLD"), { "camera_position_world" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_VERTEX, Shader::MODE_SPATIAL));
 	add_options.push_back(AddOption("CameraDirectionWorld", "Input/Vertex", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "camera_direction_world", "CAMERA_DIRECTION_WORLD"), { "camera_direction_world" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_VERTEX, Shader::MODE_SPATIAL));
@@ -5451,6 +5607,7 @@ VisualShaderEditor::VisualShaderEditor() {
 	add_options.push_back(AddOption("ViewIndex", "Input/Fragment", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "view_index", "VIEW_INDEX"), { "view_index" }, VisualShaderNode::PORT_TYPE_SCALAR_INT, TYPE_FLAGS_FRAGMENT, Shader::MODE_SPATIAL));
 	add_options.push_back(AddOption("ViewMonoLeft", "Input/Fragment", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "view_mono_left", "VIEW_MONO_LEFT"), { "view_mono_left" }, VisualShaderNode::PORT_TYPE_SCALAR_INT, TYPE_FLAGS_FRAGMENT, Shader::MODE_SPATIAL));
 	add_options.push_back(AddOption("ViewRight", "Input/Fragment", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "view_right", "VIEW_RIGHT"), { "view_right" }, VisualShaderNode::PORT_TYPE_SCALAR_INT, TYPE_FLAGS_FRAGMENT, Shader::MODE_SPATIAL));
+	add_options.push_back(AddOption("EyeOffset", "Input/Fragment", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "eye_offset", "EYE_OFFSET"), { "eye_offset" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_FRAGMENT, Shader::MODE_SPATIAL));
 	add_options.push_back(AddOption("NodePositionWorld", "Input/Fragment", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "node_position_world", "NODE_POSITION_WORLD"), { "node_position_world" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_FRAGMENT, Shader::MODE_SPATIAL));
 	add_options.push_back(AddOption("CameraPositionWorld", "Input/Fragment", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "camera_position_world", "CAMERA_POSITION_WORLD"), { "camera_position_world" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_FRAGMENT, Shader::MODE_SPATIAL));
 	add_options.push_back(AddOption("CameraDirectionWorld", "Input/Fragment", "VisualShaderNodeInput", vformat(input_param_for_vertex_and_fragment_shader_modes, "camera_direction_world", "CAMERA_DIRECTION_WORLD"), { "camera_direction_world" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_FRAGMENT, Shader::MODE_SPATIAL));
@@ -5544,7 +5701,7 @@ VisualShaderEditor::VisualShaderEditor() {
 	add_options.push_back(AddOption("WorldPosition", "Input/Fog", "VisualShaderNodeInput", vformat(input_param_for_fog_shader_mode, "world_position", "WORLD_POSITION"), { "world_position" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_FOG, Shader::MODE_FOG));
 	add_options.push_back(AddOption("ObjectPosition", "Input/Fog", "VisualShaderNodeInput", vformat(input_param_for_fog_shader_mode, "object_position", "OBJECT_POSITION"), { "object_position" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_FOG, Shader::MODE_FOG));
 	add_options.push_back(AddOption("UVW", "Input/Fog", "VisualShaderNodeInput", vformat(input_param_for_fog_shader_mode, "uvw", "UVW"), { "uvw" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_FOG, Shader::MODE_FOG));
-	add_options.push_back(AddOption("Extents", "Input/Fog", "VisualShaderNodeInput", vformat(input_param_for_fog_shader_mode, "extents", "EXTENTS"), { "extents" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_FOG, Shader::MODE_FOG));
+	add_options.push_back(AddOption("Size", "Input/Fog", "VisualShaderNodeInput", vformat(input_param_for_fog_shader_mode, "size", "SIZE"), { "size" }, VisualShaderNode::PORT_TYPE_VECTOR_3D, TYPE_FLAGS_FOG, Shader::MODE_FOG));
 	add_options.push_back(AddOption("SDF", "Input/Fog", "VisualShaderNodeInput", vformat(input_param_for_fog_shader_mode, "sdf", "SDF"), { "sdf" }, VisualShaderNode::PORT_TYPE_SCALAR, TYPE_FLAGS_FOG, Shader::MODE_FOG));
 	add_options.push_back(AddOption("Time", "Input/Fog", "VisualShaderNodeInput", vformat(input_param_for_fog_shader_mode, "time", "TIME"), { "time" }, VisualShaderNode::PORT_TYPE_SCALAR, TYPE_FLAGS_FOG, Shader::MODE_FOG));
 
@@ -6187,6 +6344,8 @@ public:
 		if (p_property != "constant") {
 			VisualShaderGraphPlugin *graph_plugin = editor->get_graph_plugin();
 			if (graph_plugin) {
+				undo_redo->add_do_method(editor, "_update_next_previews", node_id);
+				undo_redo->add_undo_method(editor, "_update_next_previews", node_id);
 				undo_redo->add_do_method(graph_plugin, "update_node_deferred", shader_type, node_id);
 				undo_redo->add_undo_method(graph_plugin, "update_node_deferred", shader_type, node_id);
 			}
@@ -6465,7 +6624,7 @@ bool EditorInspectorVisualShaderModePlugin::can_handle(Object *p_object) {
 	return true; // Can handle everything.
 }
 
-bool EditorInspectorVisualShaderModePlugin::parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const uint32_t p_usage, const bool p_wide) {
+bool EditorInspectorVisualShaderModePlugin::parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const BitField<PropertyUsageFlags> p_usage, const bool p_wide) {
 	if (p_path == "mode" && p_object->is_class("VisualShader") && p_type == Variant::INT) {
 		EditorPropertyVisualShaderMode *mode_editor = memnew(EditorPropertyVisualShaderMode);
 		Vector<String> options = p_hint_text.split(",");
@@ -6481,7 +6640,7 @@ bool EditorInspectorVisualShaderModePlugin::parse_property(Object *p_object, con
 //////////////////////////////////
 
 void VisualShaderNodePortPreview::_shader_changed() {
-	if (shader.is_null()) {
+	if (!is_valid || shader.is_null()) {
 		return;
 	}
 
@@ -6528,12 +6687,13 @@ void VisualShaderNodePortPreview::_shader_changed() {
 	set_material(mat);
 }
 
-void VisualShaderNodePortPreview::setup(const Ref<VisualShader> &p_shader, VisualShader::Type p_type, int p_node, int p_port) {
+void VisualShaderNodePortPreview::setup(const Ref<VisualShader> &p_shader, VisualShader::Type p_type, int p_node, int p_port, bool p_is_valid) {
 	shader = p_shader;
-	shader->connect("changed", callable_mp(this, &VisualShaderNodePortPreview::_shader_changed));
+	shader->connect("changed", callable_mp(this, &VisualShaderNodePortPreview::_shader_changed), CONNECT_DEFERRED);
 	type = p_type;
 	port = p_port;
 	node = p_node;
+	is_valid = p_is_valid;
 	queue_redraw();
 	_shader_changed();
 }
@@ -6560,14 +6720,24 @@ void VisualShaderNodePortPreview::_notification(int p_what) {
 				Vector2(0, 1)
 			};
 
-			Vector<Color> colors = {
-				Color(1, 1, 1, 1),
-				Color(1, 1, 1, 1),
-				Color(1, 1, 1, 1),
-				Color(1, 1, 1, 1)
-			};
+			if (is_valid) {
+				Vector<Color> colors = {
+					Color(1, 1, 1, 1),
+					Color(1, 1, 1, 1),
+					Color(1, 1, 1, 1),
+					Color(1, 1, 1, 1)
+				};
+				draw_primitive(points, colors, uvs);
+			} else {
+				Vector<Color> colors = {
+					Color(0, 0, 0, 1),
+					Color(0, 0, 0, 1),
+					Color(0, 0, 0, 1),
+					Color(0, 0, 0, 1)
+				};
+				draw_primitive(points, colors, uvs);
+			}
 
-			draw_primitive(points, colors, uvs);
 		} break;
 	}
 }

@@ -48,6 +48,33 @@ class GDScriptByteCodeGenerator : public GDScriptCodeGenerator {
 
 	const static int RESERVED_STACK = 3; // For self, class, and nil.
 
+	struct CallTarget {
+		Address target;
+		bool is_new_temporary = false;
+		GDScriptByteCodeGenerator *codegen = nullptr;
+#ifdef DEV_ENABLED
+		bool cleaned = false;
+#endif
+
+		void cleanup() {
+			DEV_ASSERT(!cleaned);
+			if (is_new_temporary) {
+				codegen->pop_temporary();
+			}
+#ifdef DEV_ENABLED
+			cleaned = true;
+#endif
+		}
+
+		CallTarget(Address p_target, bool p_is_new_temporary, GDScriptByteCodeGenerator *p_codegen) :
+				target(p_target),
+				is_new_temporary(p_is_new_temporary),
+				codegen(p_codegen) {}
+		~CallTarget() { DEV_ASSERT(cleaned); }
+		CallTarget(const CallTarget &) = delete;
+		CallTarget &operator=(CallTarget &) = delete;
+	};
+
 	bool ended = false;
 	GDScriptFunction *function = nullptr;
 	bool debug_stack = false;
@@ -131,7 +158,6 @@ class GDScriptByteCodeGenerator : public GDScriptCodeGenerator {
 	List<int> ternary_jump_skip_pos;
 
 	List<List<int>> current_breaks_to_patch;
-	List<List<int>> match_continues_to_patch;
 
 	void add_stack_identifier(const StringName &p_id, int p_stackpos) {
 		if (locals.size() > max_locals) {
@@ -327,7 +353,7 @@ class GDScriptByteCodeGenerator : public GDScriptCodeGenerator {
 		}
 	}
 
-	Address get_call_target(const Address &p_target, Variant::Type p_type = Variant::NIL);
+	CallTarget get_call_target(const Address &p_target, Variant::Type p_type = Variant::NIL);
 
 	int address_of(const Address &p_address) {
 		switch (p_address.mode) {
@@ -455,8 +481,7 @@ public:
 	virtual void write_type_adjust(const Address &p_target, Variant::Type p_new_type) override;
 	virtual void write_unary_operator(const Address &p_target, Variant::Operator p_operator, const Address &p_left_operand) override;
 	virtual void write_binary_operator(const Address &p_target, Variant::Operator p_operator, const Address &p_left_operand, const Address &p_right_operand) override;
-	virtual void write_type_test(const Address &p_target, const Address &p_source, const Address &p_type) override;
-	virtual void write_type_test_builtin(const Address &p_target, const Address &p_source, Variant::Type p_type) override;
+	virtual void write_type_test(const Address &p_target, const Address &p_source, const GDScriptDataType &p_type) override;
 	virtual void write_and_left_operand(const Address &p_left_operand) override;
 	virtual void write_and_right_operand(const Address &p_right_operand) override;
 	virtual void write_end_and(const Address &p_target) override;
@@ -514,12 +539,8 @@ public:
 	virtual void start_while_condition() override;
 	virtual void write_while(const Address &p_condition) override;
 	virtual void write_endwhile() override;
-	virtual void start_match() override;
-	virtual void start_match_branch() override;
-	virtual void end_match() override;
 	virtual void write_break() override;
 	virtual void write_continue() override;
-	virtual void write_continue_match() override;
 	virtual void write_breakpoint() override;
 	virtual void write_newline(int p_line) override;
 	virtual void write_return(const Address &p_return_value) override;

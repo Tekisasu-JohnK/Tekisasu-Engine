@@ -36,6 +36,14 @@
 class AnimationNodeBlendSpace1D : public AnimationRootNode {
 	GDCLASS(AnimationNodeBlendSpace1D, AnimationRootNode);
 
+public:
+	enum BlendMode {
+		BLEND_MODE_INTERPOLATED,
+		BLEND_MODE_DISCRETE,
+		BLEND_MODE_DISCRETE_CARRY,
+	};
+
+protected:
 	enum {
 		MAX_BLEND_POINTS = 64
 	};
@@ -58,15 +66,20 @@ class AnimationNodeBlendSpace1D : public AnimationRootNode {
 
 	void _add_blend_point(int p_index, const Ref<AnimationRootNode> &p_node);
 
-	void _tree_changed();
-
 	StringName blend_position = "blend_position";
+	StringName closest = "closest";
+	StringName length_internal = "length_internal";
 
-protected:
+	BlendMode blend_mode = BLEND_MODE_INTERPOLATED;
+
 	bool sync = false;
 
 	void _validate_property(PropertyInfo &p_property) const;
 	static void _bind_methods();
+
+	virtual void _tree_changed() override;
+	virtual void _animation_node_renamed(const ObjectID &p_oid, const String &p_old_name, const String &p_new_name) override;
+	virtual void _animation_node_removed(const ObjectID &p_oid, const StringName &p_node) override;
 
 public:
 	virtual void get_parameter_list(List<PropertyInfo> *r_list) const override;
@@ -95,6 +108,9 @@ public:
 	void set_value_label(const String &p_label);
 	String get_value_label() const;
 
+	void set_blend_mode(BlendMode p_blend_mode);
+	BlendMode get_blend_mode() const;
+
 	void set_use_sync(bool p_sync);
 	bool is_using_sync() const;
 
@@ -106,5 +122,7 @@ public:
 	AnimationNodeBlendSpace1D();
 	~AnimationNodeBlendSpace1D();
 };
+
+VARIANT_ENUM_CAST(AnimationNodeBlendSpace1D::BlendMode)
 
 #endif // ANIMATION_BLEND_SPACE_1D_H

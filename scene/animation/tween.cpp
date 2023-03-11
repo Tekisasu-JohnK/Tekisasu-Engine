@@ -60,6 +60,20 @@ void Tweener::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("finished"));
 }
 
+bool Tween::_validate_type_match(const Variant &p_from, Variant &r_to) {
+	if (p_from.get_type() != r_to.get_type()) {
+		// Cast r_to between double and int to avoid minor annoyances.
+		if (p_from.get_type() == Variant::FLOAT && r_to.get_type() == Variant::INT) {
+			r_to = double(r_to);
+		} else if (p_from.get_type() == Variant::INT && r_to.get_type() == Variant::FLOAT) {
+			r_to = int(r_to);
+		} else {
+			ERR_FAIL_V_MSG(false, "Type mismatch between initial and final value: " + Variant::get_type_name(p_from.get_type()) + " and " + Variant::get_type_name(r_to.get_type()));
+		}
+	}
+	return true;
+}
+
 void Tween::_start_tweeners() {
 	if (tweeners.is_empty()) {
 		dead = true;
@@ -85,16 +99,8 @@ Ref<PropertyTweener> Tween::tween_property(Object *p_target, NodePath p_property
 	ERR_FAIL_COND_V_MSG(!valid, nullptr, "Tween invalid. Either finished or created outside scene tree.");
 	ERR_FAIL_COND_V_MSG(started, nullptr, "Can't append to a Tween that has started. Use stop() first.");
 
-	Variant::Type property_type = p_target->get_indexed(p_property.get_as_property_path().get_subnames()).get_type();
-	if (property_type != p_to.get_type()) {
-		// Cast p_to between double and int to avoid minor annoyances.
-		if (property_type == Variant::FLOAT && p_to.get_type() == Variant::INT) {
-			p_to = double(p_to);
-		} else if (property_type == Variant::INT && p_to.get_type() == Variant::FLOAT) {
-			p_to = int(p_to);
-		} else {
-			ERR_FAIL_V_MSG(Ref<PropertyTweener>(), "Type mismatch between property and final value: " + Variant::get_type_name(property_type) + " and " + Variant::get_type_name(p_to.get_type()));
-		}
+	if (!_validate_type_match(p_target->get_indexed(p_property.get_as_property_path().get_subnames()), p_to)) {
+		return nullptr;
 	}
 
 	Ref<PropertyTweener> tweener = memnew(PropertyTweener(p_target, p_property, p_to, p_duration));
@@ -123,6 +129,10 @@ Ref<CallbackTweener> Tween::tween_callback(Callable p_callback) {
 Ref<MethodTweener> Tween::tween_method(Callable p_callback, Variant p_from, Variant p_to, double p_duration) {
 	ERR_FAIL_COND_V_MSG(!valid, nullptr, "Tween invalid. Either finished or created outside scene tree.");
 	ERR_FAIL_COND_V_MSG(started, nullptr, "Can't append to a Tween that has started. Use stop() first.");
+
+	if (!_validate_type_match(p_from, p_to)) {
+		return nullptr;
+	}
 
 	Ref<MethodTweener> tweener = memnew(MethodTweener(p_callback, p_from, p_to, p_duration));
 	append(tweener);
@@ -594,7 +604,7 @@ PropertyTweener::PropertyTweener(Object *p_target, NodePath p_property, Variant 
 }
 
 PropertyTweener::PropertyTweener() {
-	ERR_FAIL_MSG("Can't create empty PropertyTweener. Use get_tree().tween_property() or tween_property() instead.");
+	ERR_FAIL_MSG("PropertyTweener can't be created directly. Use the tween_property() method in Tween.");
 }
 
 void IntervalTweener::start() {
@@ -625,7 +635,7 @@ IntervalTweener::IntervalTweener(double p_time) {
 }
 
 IntervalTweener::IntervalTweener() {
-	ERR_FAIL_MSG("Can't create empty IntervalTweener. Use get_tree().tween_interval() instead.");
+	ERR_FAIL_MSG("IntervalTweener can't be created directly. Use the tween_interval() method in Tween.");
 }
 
 Ref<CallbackTweener> CallbackTweener::set_delay(double p_delay) {
@@ -676,7 +686,7 @@ CallbackTweener::CallbackTweener(Callable p_callback) {
 }
 
 CallbackTweener::CallbackTweener() {
-	ERR_FAIL_MSG("Can't create empty CallbackTweener. Use get_tree().tween_callback() instead.");
+	ERR_FAIL_MSG("CallbackTweener can't be created directly. Use the tween_callback() method in Tween.");
 }
 
 Ref<MethodTweener> MethodTweener::set_delay(double p_delay) {
@@ -769,5 +779,5 @@ MethodTweener::MethodTweener(Callable p_callback, Variant p_from, Variant p_to, 
 }
 
 MethodTweener::MethodTweener() {
-	ERR_FAIL_MSG("Can't create empty MethodTweener. Use get_tree().tween_method() instead.");
+	ERR_FAIL_MSG("MethodTweener can't be created directly. Use the tween_method() method in Tween.");
 }

@@ -155,6 +155,7 @@ private:
 	bool breaked = false;
 	bool can_debug = false;
 	bool move_to_foreground = true;
+	bool can_request_idle_draw = false;
 
 	bool live_debug;
 
@@ -209,6 +210,8 @@ private:
 	void _clear_breakpoints();
 
 	void _breakpoint_tree_clicked();
+
+	String _format_frame_text(const ScriptLanguage::StackInfo *info);
 
 protected:
 	void _notification(int p_what);

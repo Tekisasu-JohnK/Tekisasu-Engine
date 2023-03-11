@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Godot
@@ -18,22 +19,51 @@ namespace Godot
         /// <summary>
         /// The basis matrix's X vector (column 0). Equivalent to array index <c>[0]</c>.
         /// </summary>
-        public Vector2 x;
+        public Vector2 X;
 
         /// <summary>
         /// The basis matrix's Y vector (column 1). Equivalent to array index <c>[1]</c>.
         /// </summary>
-        public Vector2 y;
+        public Vector2 Y;
 
         /// <summary>
         /// The origin vector (column 2, the third column). Equivalent to array index <c>[2]</c>.
         /// The origin vector represents translation.
         /// </summary>
-        public Vector2 origin;
+        public Vector2 Origin;
+
+        /// <summary>
+        /// Returns the transform's rotation (in radians).
+        /// </summary>
+        public readonly real_t Rotation => Mathf.Atan2(X.Y, X.X);
+
+        /// <summary>
+        /// Returns the scale.
+        /// </summary>
+        public readonly Vector2 Scale
+        {
+            get
+            {
+                real_t detSign = Mathf.Sign(BasisDeterminant());
+                return new Vector2(X.Length(), detSign * Y.Length());
+            }
+        }
+
+        /// <summary>
+        /// Returns the transform's skew (in radians).
+        /// </summary>
+        public readonly real_t Skew
+        {
+            get
+            {
+                real_t detSign = Mathf.Sign(BasisDeterminant());
+                return Mathf.Acos(X.Normalized().Dot(detSign * Y.Normalized())) - Mathf.Pi * 0.5f;
+            }
+        }
 
         /// <summary>
         /// Access whole columns in the form of <see cref="Vector2"/>.
-        /// The third column is the <see cref="origin"/> vector.
+        /// The third column is the <see cref="Origin"/> vector.
         /// </summary>
         /// <param name="column">Which column vector.</param>
         /// <exception cref="ArgumentOutOfRangeException">
@@ -46,11 +76,11 @@ namespace Godot
                 switch (column)
                 {
                     case 0:
-                        return x;
+                        return X;
                     case 1:
-                        return y;
+                        return Y;
                     case 2:
-                        return origin;
+                        return Origin;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(column));
                 }
@@ -60,13 +90,13 @@ namespace Godot
                 switch (column)
                 {
                     case 0:
-                        x = value;
+                        X = value;
                         return;
                     case 1:
-                        y = value;
+                        Y = value;
                         return;
                     case 2:
-                        origin = value;
+                        Origin = value;
                         return;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(column));
@@ -76,7 +106,7 @@ namespace Godot
 
         /// <summary>
         /// Access matrix elements in column-major order.
-        /// The third column is the <see cref="origin"/> vector.
+        /// The third column is the <see cref="Origin"/> vector.
         /// </summary>
         /// <param name="column">Which column, the matrix horizontal position.</param>
         /// <param name="row">Which row, the matrix vertical position.</param>
@@ -131,14 +161,15 @@ namespace Godot
         /// and is usually considered invalid.
         /// </summary>
         /// <returns>The determinant of the basis matrix.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private readonly real_t BasisDeterminant()
         {
-            return (x.x * y.y) - (x.y * y.x);
+            return (X.X * Y.Y) - (X.Y * Y.X);
         }
 
         /// <summary>
         /// Returns a vector transformed (multiplied) by the basis matrix.
-        /// This method does not account for translation (the <see cref="origin"/> vector).
+        /// This method does not account for translation (the <see cref="Origin"/> vector).
         /// </summary>
         /// <seealso cref="BasisXformInv(Vector2)"/>
         /// <param name="v">A vector to transform.</param>
@@ -150,7 +181,7 @@ namespace Godot
 
         /// <summary>
         /// Returns a vector transformed (multiplied) by the inverse basis matrix.
-        /// This method does not account for translation (the <see cref="origin"/> vector).
+        /// This method does not account for translation (the <see cref="Origin"/> vector).
         ///
         /// Note: This results in a multiplication by the inverse of the
         /// basis matrix only if it represents a rotation-reflection.
@@ -160,24 +191,7 @@ namespace Godot
         /// <returns>The inversely transformed vector.</returns>
         public readonly Vector2 BasisXformInv(Vector2 v)
         {
-            return new Vector2(x.Dot(v), y.Dot(v));
-        }
-
-        /// <summary>
-        /// Returns the transform's rotation (in radians).
-        /// </summary>
-        public readonly real_t GetRotation()
-        {
-            return Mathf.Atan2(x.y, x.x);
-        }
-
-        /// <summary>
-        /// Returns the scale.
-        /// </summary>
-        public readonly Vector2 GetScale()
-        {
-            real_t detSign = Mathf.Sign(BasisDeterminant());
-            return new Vector2(x.Length(), detSign * y.Length());
+            return new Vector2(X.Dot(v), Y.Dot(v));
         }
 
         /// <summary>
@@ -188,48 +202,13 @@ namespace Godot
         /// <returns>The interpolated transform.</returns>
         public readonly Transform2D InterpolateWith(Transform2D transform, real_t weight)
         {
-            real_t r1 = GetRotation();
-            real_t r2 = transform.GetRotation();
-
-            Vector2 s1 = GetScale();
-            Vector2 s2 = transform.GetScale();
-
-            // Slerp rotation
-            (real_t sin1, real_t cos1) = Mathf.SinCos(r1);
-            (real_t sin2, real_t cos2) = Mathf.SinCos(r2);
-            var v1 = new Vector2(cos1, sin1);
-            var v2 = new Vector2(cos2, sin2);
-
-            real_t dot = v1.Dot(v2);
-
-            dot = Mathf.Clamp(dot, -1.0f, 1.0f);
-
-            Vector2 v;
-
-            if (dot > 0.9995f)
-            {
-                // Linearly interpolate to avoid numerical precision issues
-                v = v1.Lerp(v2, weight).Normalized();
-            }
-            else
-            {
-                real_t angle = weight * Mathf.Acos(dot);
-                Vector2 v3 = (v2 - (v1 * dot)).Normalized();
-                (real_t sine, real_t cos) = Mathf.SinCos(angle);
-                v = (v1 * sine) + (v3 * cos);
-            }
-
-            // Extract parameters
-            Vector2 p1 = origin;
-            Vector2 p2 = transform.origin;
-
-            // Construct matrix
-            var res = new Transform2D(Mathf.Atan2(v.y, v.x), p1.Lerp(p2, weight));
-            Vector2 scale = s1.Lerp(s2, weight);
-            res.x *= scale;
-            res.y *= scale;
-
-            return res;
+            return new Transform2D
+            (
+                Mathf.LerpAngle(Rotation, transform.Rotation, weight),
+                Scale.Lerp(transform.Scale, weight),
+                Mathf.LerpAngle(Skew, transform.Skew, weight),
+                Origin.Lerp(transform.Origin, weight)
+            );
         }
 
         /// <summary>
@@ -243,10 +222,10 @@ namespace Godot
             Transform2D inv = this;
 
             // Swap
-            inv.x.y = y.x;
-            inv.y.x = x.y;
+            inv.X.Y = Y.X;
+            inv.Y.X = X.Y;
 
-            inv.origin = inv.BasisXform(-inv.origin);
+            inv.Origin = inv.BasisXform(-inv.Origin);
 
             return inv;
         }
@@ -258,7 +237,7 @@ namespace Godot
         /// <returns>Whether this vector is finite or not.</returns>
         public readonly bool IsFinite()
         {
-            return x.IsFinite() && y.IsFinite() && origin.IsFinite();
+            return X.IsFinite() && Y.IsFinite() && Origin.IsFinite();
         }
 
         /// <summary>
@@ -268,19 +247,19 @@ namespace Godot
         /// <returns>The orthonormalized transform.</returns>
         public readonly Transform2D Orthonormalized()
         {
-            Transform2D on = this;
+            Transform2D ortho = this;
 
-            Vector2 onX = on.x;
-            Vector2 onY = on.y;
+            Vector2 orthoX = ortho.X;
+            Vector2 orthoY = ortho.Y;
 
-            onX.Normalize();
-            onY = onY - (onX * onX.Dot(onY));
-            onY.Normalize();
+            orthoX.Normalize();
+            orthoY = orthoY - orthoX * orthoX.Dot(orthoY);
+            orthoY.Normalize();
 
-            on.x = onX;
-            on.y = onY;
+            ortho.X = orthoX;
+            ortho.Y = orthoY;
 
-            return on;
+            return ortho;
         }
 
         /// <summary>
@@ -292,7 +271,7 @@ namespace Godot
         /// <returns>The rotated transformation matrix.</returns>
         public readonly Transform2D Rotated(real_t angle)
         {
-            return this * new Transform2D(angle, new Vector2());
+            return new Transform2D(angle, new Vector2()) * this;
         }
 
         /// <summary>
@@ -304,7 +283,7 @@ namespace Godot
         /// <returns>The rotated transformation matrix.</returns>
         public readonly Transform2D RotatedLocal(real_t angle)
         {
-            return new Transform2D(angle, new Vector2()) * this;
+            return this * new Transform2D(angle, new Vector2());
         }
 
         /// <summary>
@@ -317,9 +296,9 @@ namespace Godot
         public readonly Transform2D Scaled(Vector2 scale)
         {
             Transform2D copy = this;
-            copy.x *= scale;
-            copy.y *= scale;
-            copy.origin *= scale;
+            copy.X *= scale;
+            copy.Y *= scale;
+            copy.Origin *= scale;
             return copy;
         }
 
@@ -333,8 +312,8 @@ namespace Godot
         public readonly Transform2D ScaledLocal(Vector2 scale)
         {
             Transform2D copy = this;
-            copy.x *= scale;
-            copy.y *= scale;
+            copy.X *= scale;
+            copy.Y *= scale;
             return copy;
         }
 
@@ -358,7 +337,7 @@ namespace Godot
         public readonly Transform2D Translated(Vector2 offset)
         {
             Transform2D copy = this;
-            copy.origin += offset;
+            copy.Origin += offset;
             return copy;
         }
 
@@ -372,7 +351,7 @@ namespace Godot
         public readonly Transform2D TranslatedLocal(Vector2 offset)
         {
             Transform2D copy = this;
-            copy.origin += copy.BasisXform(offset);
+            copy.Origin += copy.BasisXform(offset);
             return copy;
         }
 
@@ -407,26 +386,26 @@ namespace Godot
         /// <param name="originPos">The origin vector, or column index 2.</param>
         public Transform2D(Vector2 xAxis, Vector2 yAxis, Vector2 originPos)
         {
-            x = xAxis;
-            y = yAxis;
-            origin = originPos;
+            X = xAxis;
+            Y = yAxis;
+            Origin = originPos;
         }
 
         /// <summary>
         /// Constructs a transformation matrix from the given components.
-        /// Arguments are named such that xy is equal to calling <c>x.y</c>.
+        /// Arguments are named such that xy is equal to calling <c>X.Y</c>.
         /// </summary>
-        /// <param name="xx">The X component of the X column vector, accessed via <c>t.x.x</c> or <c>[0][0]</c>.</param>
-        /// <param name="xy">The Y component of the X column vector, accessed via <c>t.x.y</c> or <c>[0][1]</c>.</param>
-        /// <param name="yx">The X component of the Y column vector, accessed via <c>t.y.x</c> or <c>[1][0]</c>.</param>
-        /// <param name="yy">The Y component of the Y column vector, accessed via <c>t.y.y</c> or <c>[1][1]</c>.</param>
-        /// <param name="ox">The X component of the origin vector, accessed via <c>t.origin.x</c> or <c>[2][0]</c>.</param>
-        /// <param name="oy">The Y component of the origin vector, accessed via <c>t.origin.y</c> or <c>[2][1]</c>.</param>
+        /// <param name="xx">The X component of the X column vector, accessed via <c>t.X.X</c> or <c>[0][0]</c>.</param>
+        /// <param name="xy">The Y component of the X column vector, accessed via <c>t.X.Y</c> or <c>[0][1]</c>.</param>
+        /// <param name="yx">The X component of the Y column vector, accessed via <c>t.Y.X</c> or <c>[1][0]</c>.</param>
+        /// <param name="yy">The Y component of the Y column vector, accessed via <c>t.Y.Y</c> or <c>[1][1]</c>.</param>
+        /// <param name="ox">The X component of the origin vector, accessed via <c>t.Origin.X</c> or <c>[2][0]</c>.</param>
+        /// <param name="oy">The Y component of the origin vector, accessed via <c>t.Origin.Y</c> or <c>[2][1]</c>.</param>
         public Transform2D(real_t xx, real_t xy, real_t yx, real_t yy, real_t ox, real_t oy)
         {
-            x = new Vector2(xx, xy);
-            y = new Vector2(yx, yy);
-            origin = new Vector2(ox, oy);
+            X = new Vector2(xx, xy);
+            Y = new Vector2(yx, yy);
+            Origin = new Vector2(ox, oy);
         }
 
         /// <summary>
@@ -438,10 +417,10 @@ namespace Godot
         public Transform2D(real_t rotation, Vector2 origin)
         {
             (real_t sin, real_t cos) = Mathf.SinCos(rotation);
-            x.x = y.y = cos;
-            x.y = y.x = sin;
-            y.x *= -1;
-            this.origin = origin;
+            X.X = Y.Y = cos;
+            X.Y = Y.X = sin;
+            Y.X *= -1;
+            Origin = origin;
         }
 
         /// <summary>
@@ -457,11 +436,11 @@ namespace Godot
         {
             (real_t rotationSin, real_t rotationCos) = Mathf.SinCos(rotation);
             (real_t rotationSkewSin, real_t rotationSkewCos) = Mathf.SinCos(rotation + skew);
-            x.x = rotationCos * scale.x;
-            y.y = rotationSkewCos * scale.y;
-            y.x = -rotationSkewSin * scale.y;
-            x.y = rotationSin * scale.x;
-            this.origin = origin;
+            X.X = rotationCos * scale.X;
+            Y.Y = rotationSkewCos * scale.Y;
+            Y.X = -rotationSkewSin * scale.Y;
+            X.Y = rotationSin * scale.X;
+            Origin = origin;
         }
 
         /// <summary>
@@ -474,17 +453,17 @@ namespace Godot
         /// <returns>The composed transform.</returns>
         public static Transform2D operator *(Transform2D left, Transform2D right)
         {
-            left.origin = left * right.origin;
+            left.Origin = left * right.Origin;
 
-            real_t x0 = left.Tdotx(right.x);
-            real_t x1 = left.Tdoty(right.x);
-            real_t y0 = left.Tdotx(right.y);
-            real_t y1 = left.Tdoty(right.y);
+            real_t x0 = left.Tdotx(right.X);
+            real_t x1 = left.Tdoty(right.X);
+            real_t y0 = left.Tdotx(right.Y);
+            real_t y1 = left.Tdoty(right.Y);
 
-            left.x.x = x0;
-            left.x.y = x1;
-            left.y.x = y0;
-            left.y.y = y1;
+            left.X.X = x0;
+            left.X.Y = x1;
+            left.Y.X = y0;
+            left.Y.Y = y1;
 
             return left;
         }
@@ -497,7 +476,7 @@ namespace Godot
         /// <returns>The transformed Vector2.</returns>
         public static Vector2 operator *(Transform2D transform, Vector2 vector)
         {
-            return new Vector2(transform.Tdotx(vector), transform.Tdoty(vector)) + transform.origin;
+            return new Vector2(transform.Tdotx(vector), transform.Tdoty(vector)) + transform.Origin;
         }
 
         /// <summary>
@@ -508,8 +487,8 @@ namespace Godot
         /// <returns>The inversely transformed Vector2.</returns>
         public static Vector2 operator *(Vector2 vector, Transform2D transform)
         {
-            Vector2 vInv = vector - transform.origin;
-            return new Vector2(transform.x.Dot(vInv), transform.y.Dot(vInv));
+            Vector2 vInv = vector - transform.Origin;
+            return new Vector2(transform.X.Dot(vInv), transform.Y.Dot(vInv));
         }
 
         /// <summary>
@@ -521,8 +500,8 @@ namespace Godot
         public static Rect2 operator *(Transform2D transform, Rect2 rect)
         {
             Vector2 pos = transform * rect.Position;
-            Vector2 toX = transform.x * rect.Size.x;
-            Vector2 toY = transform.y * rect.Size.y;
+            Vector2 toX = transform.X * rect.Size.X;
+            Vector2 toY = transform.Y * rect.Size.Y;
 
             return new Rect2(pos, new Vector2()).Expand(pos + toX).Expand(pos + toY).Expand(pos + toX + toY);
         }
@@ -536,9 +515,9 @@ namespace Godot
         public static Rect2 operator *(Rect2 rect, Transform2D transform)
         {
             Vector2 pos = rect.Position * transform;
-            Vector2 to1 = new Vector2(rect.Position.x, rect.Position.y + rect.Size.y) * transform;
-            Vector2 to2 = new Vector2(rect.Position.x + rect.Size.x, rect.Position.y + rect.Size.y) * transform;
-            Vector2 to3 = new Vector2(rect.Position.x + rect.Size.x, rect.Position.y) * transform;
+            Vector2 to1 = new Vector2(rect.Position.X, rect.Position.Y + rect.Size.Y) * transform;
+            Vector2 to2 = new Vector2(rect.Position.X + rect.Size.X, rect.Position.Y + rect.Size.Y) * transform;
+            Vector2 to3 = new Vector2(rect.Position.X + rect.Size.X, rect.Position.Y) * transform;
 
             return new Rect2(pos, new Vector2()).Expand(to1).Expand(to2).Expand(to3);
         }
@@ -627,7 +606,7 @@ namespace Godot
         /// <returns>Whether or not the matrices are exactly equal.</returns>
         public readonly bool Equals(Transform2D other)
         {
-            return x.Equals(other.x) && y.Equals(other.y) && origin.Equals(other.origin);
+            return X.Equals(other.X) && Y.Equals(other.Y) && Origin.Equals(other.Origin);
         }
 
         /// <summary>
@@ -638,7 +617,7 @@ namespace Godot
         /// <returns>Whether or not the matrices are approximately equal.</returns>
         public readonly bool IsEqualApprox(Transform2D other)
         {
-            return x.IsEqualApprox(other.x) && y.IsEqualApprox(other.y) && origin.IsEqualApprox(other.origin);
+            return X.IsEqualApprox(other.X) && Y.IsEqualApprox(other.Y) && Origin.IsEqualApprox(other.Origin);
         }
 
         /// <summary>
@@ -647,7 +626,7 @@ namespace Godot
         /// <returns>A hash code for this transform.</returns>
         public override readonly int GetHashCode()
         {
-            return x.GetHashCode() ^ y.GetHashCode() ^ origin.GetHashCode();
+            return X.GetHashCode() ^ Y.GetHashCode() ^ Origin.GetHashCode();
         }
 
         /// <summary>
@@ -656,7 +635,7 @@ namespace Godot
         /// <returns>A string representation of this transform.</returns>
         public override readonly string ToString()
         {
-            return $"[X: {x}, Y: {y}, O: {origin}]";
+            return $"[X: {X}, Y: {Y}, O: {Origin}]";
         }
 
         /// <summary>
@@ -665,7 +644,7 @@ namespace Godot
         /// <returns>A string representation of this transform.</returns>
         public readonly string ToString(string format)
         {
-            return $"[X: {x.ToString(format)}, Y: {y.ToString(format)}, O: {origin.ToString(format)}]";
+            return $"[X: {X.ToString(format)}, Y: {Y.ToString(format)}, O: {Origin.ToString(format)}]";
         }
     }
 }

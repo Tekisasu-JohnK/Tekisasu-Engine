@@ -77,13 +77,13 @@
 		    tween = create_tween()
 		[/gdscript]
 		[csharp]
-		private Tween tween;
+		private Tween _tween;
 
 		public void Animate()
 		{
-		    if (tween != null)
-		        tween.Kill(); // Abort the previous animation
-		    tween = CreateTween();
+		    if (_tween != null)
+		        _tween.Kill(); // Abort the previous animation
+		    _tween = CreateTween();
 		}
 		[/csharp]
 		[/codeblocks]
@@ -214,6 +214,7 @@
 			<param index="0" name="ease" type="int" enum="Tween.EaseType" />
 			<description>
 				Sets the default ease type for [PropertyTweener]s and [MethodTweener]s animated by this [Tween].
+				If not specified, the default value is [constant EASE_IN_OUT].
 			</description>
 		</method>
 		<method name="set_loops">
@@ -260,6 +261,7 @@
 			<param index="0" name="trans" type="int" enum="Tween.TransitionType" />
 			<description>
 				Sets the default transition type for [PropertyTweener]s and [MethodTweener]s animated by this [Tween].
+				If not specified, the default value is [constant TRANS_LINEAR].
 			</description>
 		</method>
 		<method name="stop">

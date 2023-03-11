@@ -491,6 +491,8 @@ void MeshStorage::mesh_set_custom_aabb(RID p_mesh, const AABB &p_aabb) {
 	Mesh *mesh = mesh_owner.get_or_null(p_mesh);
 	ERR_FAIL_COND(!mesh);
 	mesh->custom_aabb = p_aabb;
+
+	mesh->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_AABB);
 }
 
 AABB MeshStorage::mesh_get_custom_aabb(RID p_mesh) const {
@@ -997,6 +999,11 @@ void MeshStorage::mesh_instance_check_for_update(RID p_mesh_instance) {
 	}
 }
 
+void MeshStorage::mesh_instance_set_canvas_item_transform(RID p_mesh_instance, const Transform2D &p_transform) {
+	MeshInstance *mi = mesh_instance_owner.get_or_null(p_mesh_instance);
+	mi->canvas_item_transform_2d = p_transform;
+}
+
 void MeshStorage::_blend_shape_bind_mesh_instance_buffer(MeshInstance *p_mi, uint32_t p_surface) {
 	glBindBuffer(GL_ARRAY_BUFFER, p_mi->surfaces[p_surface].vertex_buffers[0]);
 
@@ -1163,6 +1170,16 @@ void MeshStorage::update_mesh_instances() {
 				skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::BLEND_SHAPE_COUNT, float(mi->mesh->blend_shape_count), skeleton_shader.shader_version, variant, specialization);
 
 				if (can_use_skeleton) {
+					Transform2D transform = mi->canvas_item_transform_2d.affine_inverse() * sk->base_transform_2d;
+					skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::SKELETON_TRANSFORM_X, transform[0], skeleton_shader.shader_version, variant, specialization);
+					skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::SKELETON_TRANSFORM_Y, transform[1], skeleton_shader.shader_version, variant, specialization);
+					skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::SKELETON_TRANSFORM_OFFSET, transform[2], skeleton_shader.shader_version, variant, specialization);
+
+					Transform2D inverse_transform = transform.affine_inverse();
+					skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::INVERSE_TRANSFORM_X, inverse_transform[0], skeleton_shader.shader_version, variant, specialization);
+					skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::INVERSE_TRANSFORM_Y, inverse_transform[1], skeleton_shader.shader_version, variant, specialization);
+					skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::INVERSE_TRANSFORM_OFFSET, inverse_transform[2], skeleton_shader.shader_version, variant, specialization);
+
 					// Do last blendshape in the same pass as the Skeleton.
 					_compute_skeleton(mi, sk, i);
 					can_use_skeleton = false;
@@ -1200,6 +1217,16 @@ void MeshStorage::update_mesh_instances() {
 				if (!success) {
 					continue;
 				}
+
+				Transform2D transform = mi->canvas_item_transform_2d.affine_inverse() * sk->base_transform_2d;
+				skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::SKELETON_TRANSFORM_X, transform[0], skeleton_shader.shader_version, variant, specialization);
+				skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::SKELETON_TRANSFORM_Y, transform[1], skeleton_shader.shader_version, variant, specialization);
+				skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::SKELETON_TRANSFORM_OFFSET, transform[2], skeleton_shader.shader_version, variant, specialization);
+
+				Transform2D inverse_transform = transform.affine_inverse();
+				skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::INVERSE_TRANSFORM_X, inverse_transform[0], skeleton_shader.shader_version, variant, specialization);
+				skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::INVERSE_TRANSFORM_Y, inverse_transform[1], skeleton_shader.shader_version, variant, specialization);
+				skeleton_shader.shader.version_set_uniform(SkeletonShaderGLES3::INVERSE_TRANSFORM_OFFSET, inverse_transform[2], skeleton_shader.shader_version, variant, specialization);
 
 				glBindVertexArray(mi->mesh->surfaces[i]->skeleton_vertex_array);
 				_compute_skeleton(mi, sk, i);
@@ -1659,6 +1686,8 @@ void MeshStorage::multimesh_set_buffer(RID p_multimesh, const Vector<float> &p_b
 		uint32_t old_stride = multimesh->xform_format == RS::MULTIMESH_TRANSFORM_2D ? 8 : 12;
 		old_stride += multimesh->uses_colors ? 4 : 0;
 		old_stride += multimesh->uses_custom_data ? 4 : 0;
+		ERR_FAIL_COND(p_buffer.size() != (multimesh->instances * (int)old_stride));
+
 		for (int i = 0; i < multimesh->instances; i++) {
 			{
 				float *dataptr = w + i * old_stride;
@@ -1808,8 +1837,12 @@ void MeshStorage::multimesh_set_visible_instances(RID p_multimesh, int p_visible
 	}
 
 	if (multimesh->data_cache.size()) {
-		//there is a data cache..
+		// There is a data cache, but we may need to update some sections.
 		_multimesh_mark_all_dirty(multimesh, false, true);
+		int start = multimesh->visible_instances >= 0 ? multimesh->visible_instances : multimesh->instances;
+		for (int i = start; i < p_visible; i++) {
+			_multimesh_mark_dirty(multimesh, i, true);
+		}
 	}
 
 	multimesh->visible_instances = p_visible;
@@ -1841,7 +1874,7 @@ void MeshStorage::_update_dirty_multimeshes() {
 				if (multimesh->data_cache_used_dirty_regions > 32 || multimesh->data_cache_used_dirty_regions > visible_region_count / 2) {
 					// If there too many dirty regions, or represent the majority of regions, just copy all, else transfer cost piles up too much
 					glBindBuffer(GL_ARRAY_BUFFER, multimesh->buffer);
-					glBufferData(GL_ARRAY_BUFFER, MIN(visible_region_count * region_size, multimesh->instances * multimesh->stride_cache * sizeof(float)), data, GL_STATIC_DRAW);
+					glBufferSubData(GL_ARRAY_BUFFER, 0, MIN(visible_region_count * region_size, multimesh->instances * multimesh->stride_cache * sizeof(float)), data);
 					glBindBuffer(GL_ARRAY_BUFFER, 0);
 				} else {
 					// Not that many regions? update them all

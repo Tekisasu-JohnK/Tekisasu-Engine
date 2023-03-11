@@ -132,9 +132,10 @@ void finish_language() {
 
 StringName GDScriptTestRunner::test_function_name;
 
-GDScriptTestRunner::GDScriptTestRunner(const String &p_source_dir, bool p_init_language) {
+GDScriptTestRunner::GDScriptTestRunner(const String &p_source_dir, bool p_init_language, bool p_print_filenames) {
 	test_function_name = StaticCString::create("test");
 	do_init_languages = p_init_language;
+	print_filenames = p_print_filenames;
 
 	source_dir = p_source_dir;
 	if (!source_dir.ends_with("/")) {
@@ -145,11 +146,11 @@ GDScriptTestRunner::GDScriptTestRunner(const String &p_source_dir, bool p_init_l
 		init_language(p_source_dir);
 	}
 #ifdef DEBUG_ENABLED
-	// Enable all warnings for GDScript, so we can test them.
+	// Set all warning levels to "Warn" in order to test them properly, even the ones that default to error.
 	ProjectSettings::get_singleton()->set_setting("debug/gdscript/warnings/enable", true);
 	for (int i = 0; i < (int)GDScriptWarning::WARNING_MAX; i++) {
-		String warning = GDScriptWarning::get_name_from_code((GDScriptWarning::Code)i).to_lower();
-		ProjectSettings::get_singleton()->set_setting("debug/gdscript/warnings/" + warning, true);
+		String warning_setting = GDScriptWarning::get_settings_path_from_code((GDScriptWarning::Code)i);
+		ProjectSettings::get_singleton()->set_setting(warning_setting, (int)GDScriptWarning::WARN);
 	}
 #endif
 
@@ -194,6 +195,9 @@ int GDScriptTestRunner::run_tests() {
 	int failed = 0;
 	for (int i = 0; i < tests.size(); i++) {
 		GDScriptTest test = tests[i];
+		if (print_filenames) {
+			print_line(test.get_source_relative_filepath());
+		}
 		GDScriptTest::TestResult result = test.run_test();
 
 		String expected = FileAccess::get_file_as_string(test.get_output_file());
@@ -225,8 +229,13 @@ bool GDScriptTestRunner::generate_outputs() {
 	}
 
 	for (int i = 0; i < tests.size(); i++) {
-		OS::get_singleton()->print(".");
 		GDScriptTest test = tests[i];
+		if (print_filenames) {
+			print_line(test.get_source_relative_filepath());
+		} else {
+			OS::get_singleton()->print(".");
+		}
+
 		bool result = test.generate_output();
 
 		if (!result) {
@@ -337,15 +346,10 @@ GDScriptTest::GDScriptTest(const String &p_source_path, const String &p_output_p
 
 void GDScriptTestRunner::handle_cmdline() {
 	List<String> cmdline_args = OS::get_singleton()->get_cmdline_args();
-	// TODO: this could likely be ported to use test commands:
-	// https://github.com/godotengine/godot/pull/41355
-	// Currently requires to startup the whole engine, which is slow.
-	String test_cmd = "--gdscript-test";
-	String gen_cmd = "--gdscript-generate-tests";
 
 	for (List<String>::Element *E = cmdline_args.front(); E; E = E->next()) {
 		String &cmd = E->get();
-		if (cmd == test_cmd || cmd == gen_cmd) {
+		if (cmd == "--gdscript-generate-tests") {
 			if (E->next() == nullptr) {
 				ERR_PRINT("Needed a path for the test files.");
 				exit(-1);
@@ -353,14 +357,10 @@ void GDScriptTestRunner::handle_cmdline() {
 
 			const String &path = E->next()->get();
 
-			GDScriptTestRunner runner(path, false);
-			int failed = 0;
-			if (cmd == test_cmd) {
-				failed = runner.run_tests();
-			} else {
-				bool completed = runner.generate_outputs();
-				failed = completed ? 0 : -1;
-			}
+			GDScriptTestRunner runner(path, false, cmdline_args.find("--print-filenames") != nullptr);
+
+			bool completed = runner.generate_outputs();
+			int failed = completed ? 0 : -1;
 			exit(failed);
 		}
 	}

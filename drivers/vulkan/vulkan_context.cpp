@@ -101,6 +101,7 @@ VkResult VulkanContext::vkCreateRenderPass2KHR(VkDevice p_device, const VkRender
 			attachments.push_back(att);
 		}
 
+		Vector<Vector<VkAttachmentReference>> attachment_references;
 		Vector<VkSubpassDescription> subpasses;
 		for (uint32_t i = 0; i < p_create_info->subpassCount; i++) {
 			// Here we need to do more, again it's just stripping out type and next
@@ -124,6 +125,10 @@ VkResult VulkanContext::vkCreateRenderPass2KHR(VkDevice p_device, const VkRender
 				p_create_info->pSubpasses[i].preserveAttachmentCount, /* preserveAttachmentCount */
 				p_create_info->pSubpasses[i].pPreserveAttachments /* pPreserveAttachments */
 			};
+			attachment_references.push_back(input_attachments);
+			attachment_references.push_back(color_attachments);
+			attachment_references.push_back(resolve_attachments);
+			attachment_references.push_back(depth_attachments);
 
 			subpasses.push_back(subpass);
 		}
@@ -1299,8 +1304,15 @@ Error VulkanContext::_create_physical_device(VkSurfaceKHR p_surface) {
 	// Get device version
 	device_api_version = gpu_props.apiVersion;
 
+	String rendering_method;
+	if (OS::get_singleton()->get_current_rendering_method() == "mobile") {
+		rendering_method = "Forward Mobile";
+	} else {
+		rendering_method = "Forward+";
+	}
+
 	// Output our device version
-	print_line("Vulkan API " + get_device_api_version() + " - " + "Using Vulkan Device #" + itos(device_index) + ": " + device_vendor + " - " + device_name);
+	print_line(vformat("Vulkan API %s - %s - Using Vulkan Device #%d: %s - %s", get_device_api_version(), rendering_method, device_index, device_vendor, device_name));
 
 	{
 		Error _err = _initialize_device_extensions();
@@ -1864,7 +1876,10 @@ Error VulkanContext::_update_swap_chain(Window *window) {
 
 	// Set the windows present mode if it is available, otherwise FIFO is used (guaranteed supported).
 	if (present_mode_available) {
-		window->presentMode = requested_present_mode;
+		if (window->presentMode != requested_present_mode) {
+			window->presentMode = requested_present_mode;
+			print_verbose("Using present mode: " + String(string_VkPresentModeKHR(window->presentMode)));
+		}
 	} else {
 		String present_mode_string;
 		switch (window->vsync_mode) {
@@ -1884,8 +1899,6 @@ Error VulkanContext::_update_swap_chain(Window *window) {
 		WARN_PRINT(vformat("The requested V-Sync mode %s is not available. Falling back to V-Sync mode Enabled.", present_mode_string));
 		window->vsync_mode = DisplayServer::VSYNC_ENABLED; // Set to default.
 	}
-
-	print_verbose("Using present mode: " + String(string_VkPresentModeKHR(window->presentMode)));
 
 	free(presentModes);
 
@@ -2264,7 +2277,7 @@ Error VulkanContext::prepare_buffers() {
 				print_verbose("Vulkan: Early suboptimal swapchain.");
 				break;
 			} else if (err != VK_SUCCESS) {
-				ERR_BREAK_MSG(err != VK_SUCCESS, "Vulkan: Did not create swapchain successfully.");
+				ERR_BREAK_MSG(err != VK_SUCCESS, "Vulkan: Did not create swapchain successfully. Error code: " + String(string_VkResult(err)));
 			} else {
 				w->semaphore_acquired = true;
 			}
@@ -2341,7 +2354,7 @@ Error VulkanContext::swap_buffers() {
 	submit_info.signalSemaphoreCount = 1;
 	submit_info.pSignalSemaphores = &draw_complete_semaphores[frame_index];
 	err = vkQueueSubmit(graphics_queue, 1, &submit_info, fences[frame_index]);
-	ERR_FAIL_COND_V(err, ERR_CANT_CREATE);
+	ERR_FAIL_COND_V_MSG(err, ERR_CANT_CREATE, "Vulkan: Cannot submit graphics queue. Error code: " + String(string_VkResult(err)));
 
 	command_buffer_queue.write[0] = nullptr;
 	command_buffer_count = 1;
@@ -2372,7 +2385,7 @@ Error VulkanContext::swap_buffers() {
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &image_ownership_semaphores[frame_index];
 		err = vkQueueSubmit(present_queue, 1, &submit_info, nullFence);
-		ERR_FAIL_COND_V(err, ERR_CANT_CREATE);
+		ERR_FAIL_COND_V_MSG(err, ERR_CANT_CREATE, "Vulkan: Cannot submit present queue. Error code: " + String(string_VkResult(err)));
 	}
 
 	// If we are using separate queues, we have to wait for image ownership,
@@ -2481,14 +2494,14 @@ Error VulkanContext::swap_buffers() {
 	if (err == VK_ERROR_OUT_OF_DATE_KHR) {
 		// Swapchain is out of date (e.g. the window was resized) and
 		// must be recreated.
-		print_verbose("Vulkan: Swapchain is out of date, recreating.");
+		print_verbose("Vulkan queue submit: Swapchain is out of date, recreating.");
 		resize_notify();
 	} else if (err == VK_SUBOPTIMAL_KHR) {
 		// Swapchain is not as optimal as it could be, but the platform's
 		// presentation engine will still present the image correctly.
-		print_verbose("Vulkan: Swapchain is suboptimal.");
+		print_verbose("Vulkan queue submit: Swapchain is suboptimal.");
 	} else {
-		ERR_FAIL_COND_V(err, ERR_CANT_CREATE);
+		ERR_FAIL_COND_V_MSG(err, ERR_CANT_CREATE, "Error code: " + String(string_VkResult(err)));
 	}
 
 	buffers_prepared = false;

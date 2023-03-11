@@ -247,7 +247,8 @@ Error EditorExportPlatform::_save_pack_file(void *p_userdata, const String &p_pa
 
 	pd->file_ofs.push_back(sd);
 
-	if (pd->ep->step(TTR("Storing File:") + " " + p_path, 2 + p_file * 100 / p_total, false)) {
+	// TRANSLATORS: This is an editor progress label describing the storing of a file.
+	if (pd->ep->step(vformat(TTR("Storing File: %s"), p_path), 2 + p_file * 100 / p_total, false)) {
 		return ERR_SKIP;
 	}
 
@@ -785,10 +786,10 @@ String EditorExportPlatform::_export_customize(const String &p_path, LocalVector
 					break;
 				}
 			}
-		}
 
-		if (_export_customize_object(res.ptr(), customize_resources_plugins)) {
-			modified = true;
+			if (_export_customize_object(res.ptr(), customize_resources_plugins)) {
+				modified = true;
+			}
 		}
 
 		if (modified || p_force_save) {
@@ -814,7 +815,7 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 	HashSet<String> paths;
 	Vector<String> path_remaps;
 
-	paths.insert(ProjectSettings::get_singleton()->get_project_data_path().path_join("global_script_class_cache.cfg"));
+	paths.insert(ProjectSettings::get_singleton()->get_global_class_list_path());
 	if (p_preset->get_export_filter() == EditorExportPreset::EXPORT_ALL_RESOURCES) {
 		//find stuff
 		_export_find_resources(EditorFileSystem::get_singleton()->get_filesystem(), paths);
@@ -1513,7 +1514,7 @@ Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, b
 		f = FileAccess::open(p_path, FileAccess::WRITE);
 		if (f.is_null()) {
 			DirAccess::remove_file_or_error(tmppath);
-			add_message(EXPORT_MESSAGE_ERROR, TTR("Save PCK"), vformat(TTR("Can't open file to read from path \"%s\"."), tmppath));
+			add_message(EXPORT_MESSAGE_ERROR, TTR("Save PCK"), vformat(TTR("Can't open file for writing at path \"%s\"."), p_path));
 			return ERR_CANT_CREATE;
 		}
 	} else {
@@ -1521,7 +1522,7 @@ Error EditorExportPlatform::save_pack(const Ref<EditorExportPreset> &p_preset, b
 		f = FileAccess::open(p_path, FileAccess::READ_WRITE);
 		if (f.is_null()) {
 			DirAccess::remove_file_or_error(tmppath);
-			add_message(EXPORT_MESSAGE_ERROR, TTR("Save PCK"), vformat(TTR("Can't open executable file from path \"%s\"."), tmppath));
+			add_message(EXPORT_MESSAGE_ERROR, TTR("Save PCK"), vformat(TTR("Can't open file for reading-writing at path \"%s\"."), p_path));
 			return ERR_FILE_CANT_OPEN;
 		}
 
@@ -1802,6 +1803,13 @@ Error EditorExportPlatform::ssh_run_on_remote(const String &p_host, const String
 	List<String> args;
 	args.push_back("-p");
 	args.push_back(p_port);
+	args.push_back("-q");
+	args.push_back("-o");
+	args.push_back("LogLevel=error");
+	args.push_back("-o");
+	args.push_back("BatchMode=yes");
+	args.push_back("-o");
+	args.push_back("StrictHostKeyChecking=no");
 	for (const String &E : p_ssh_args) {
 		args.push_back(E);
 	}
@@ -1852,6 +1860,13 @@ Error EditorExportPlatform::ssh_run_on_remote_no_wait(const String &p_host, cons
 	List<String> args;
 	args.push_back("-p");
 	args.push_back(p_port);
+	args.push_back("-q");
+	args.push_back("-o");
+	args.push_back("LogLevel=error");
+	args.push_back("-o");
+	args.push_back("BatchMode=yes");
+	args.push_back("-o");
+	args.push_back("StrictHostKeyChecking=no");
 	for (const String &E : p_ssh_args) {
 		args.push_back(E);
 	}
@@ -1882,6 +1897,13 @@ Error EditorExportPlatform::ssh_push_to_remote(const String &p_host, const Strin
 	List<String> args;
 	args.push_back("-P");
 	args.push_back(p_port);
+	args.push_back("-q");
+	args.push_back("-o");
+	args.push_back("LogLevel=error");
+	args.push_back("-o");
+	args.push_back("BatchMode=yes");
+	args.push_back("-o");
+	args.push_back("StrictHostKeyChecking=no");
 	for (const String &E : p_scp_args) {
 		args.push_back(E);
 	}

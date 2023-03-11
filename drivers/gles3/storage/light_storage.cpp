@@ -311,6 +311,13 @@ uint64_t LightStorage::light_get_version(RID p_light) const {
 	return light->version;
 }
 
+uint32_t LightStorage::light_get_cull_mask(RID p_light) const {
+	const Light *light = light_owner.get_or_null(p_light);
+	ERR_FAIL_COND_V(!light, 0);
+
+	return light->cull_mask;
+}
+
 AABB LightStorage::light_get_aabb(RID p_light) const {
 	const Light *light = light_owner.get_or_null(p_light);
 	ERR_FAIL_COND_V(!light, AABB());
@@ -403,7 +410,7 @@ void LightStorage::reflection_probe_set_ambient_energy(RID p_probe, float p_ener
 void LightStorage::reflection_probe_set_max_distance(RID p_probe, float p_distance) {
 }
 
-void LightStorage::reflection_probe_set_extents(RID p_probe, const Vector3 &p_extents) {
+void LightStorage::reflection_probe_set_size(RID p_probe, const Vector3 &p_size) {
 }
 
 void LightStorage::reflection_probe_set_origin_offset(RID p_probe, const Vector3 &p_offset) {
@@ -436,7 +443,7 @@ uint32_t LightStorage::reflection_probe_get_cull_mask(RID p_probe) const {
 	return 0;
 }
 
-Vector3 LightStorage::reflection_probe_get_extents(RID p_probe) const {
+Vector3 LightStorage::reflection_probe_get_size(RID p_probe) const {
 	return Vector3();
 }
 

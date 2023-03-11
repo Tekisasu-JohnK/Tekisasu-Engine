@@ -38,6 +38,7 @@
 class AcceptDialog;
 class Button;
 class ConfirmationDialog;
+class EditorInspector;
 class LineEdit;
 class OptionButton;
 class PanelContainer;
@@ -47,11 +48,7 @@ class TextureRect;
 
 class EditorPropertyRevert {
 public:
-	static bool get_instantiated_node_original_property(Node *p_node, const StringName &p_prop, Variant &value, bool p_check_class_default = true);
-	static bool is_node_property_different(Node *p_node, const Variant &p_current, const Variant &p_orig);
-	static bool is_property_value_different(const Variant &p_a, const Variant &p_b);
 	static Variant get_property_revert_value(Object *p_object, const StringName &p_property, bool *r_is_valid);
-
 	static bool can_property_revert(Object *p_object, const StringName &p_property, const Variant *p_custom_current_value = nullptr);
 };
 
@@ -151,6 +148,7 @@ public:
 
 	Object *get_edited_object();
 	StringName get_edited_property() const;
+	EditorInspector *get_parent_inspector() const;
 
 	void set_doc_path(const String &p_doc_path);
 
@@ -227,11 +225,11 @@ public:
 protected:
 	static void _bind_methods();
 
-	GDVIRTUAL1RC(bool, _can_handle, Variant)
+	GDVIRTUAL1RC(bool, _can_handle, Object *)
 	GDVIRTUAL1(_parse_begin, Object *)
 	GDVIRTUAL2(_parse_category, Object *, String)
 	GDVIRTUAL2(_parse_group, Object *, String)
-	GDVIRTUAL7R(bool, _parse_property, Object *, int, String, int, String, int, bool)
+	GDVIRTUAL7R(bool, _parse_property, Object *, Variant::Type, String, PropertyHint, String, BitField<PropertyUsageFlags>, bool)
 	GDVIRTUAL1(_parse_end, Object *)
 
 public:
@@ -243,7 +241,7 @@ public:
 	virtual void parse_begin(Object *p_object);
 	virtual void parse_category(Object *p_object, const String &p_category);
 	virtual void parse_group(Object *p_object, const String &p_group);
-	virtual bool parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const uint32_t p_usage, const bool p_wide = false);
+	virtual bool parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const BitField<PropertyUsageFlags> p_usage, const bool p_wide = false);
 	virtual void parse_end(Object *p_object);
 };
 
@@ -331,7 +329,7 @@ class EditorInspectorArray : public EditorInspectorSection {
 	AcceptDialog *resize_dialog = nullptr;
 	SpinBox *new_size_spin_box = nullptr;
 
-	// Pagination
+	// Pagination.
 	int page_length = 5;
 	int page = 0;
 	int max_page = 0;
@@ -455,7 +453,7 @@ class EditorInspector : public ScrollContainer {
 	List<EditorInspectorSection *> sections;
 	HashSet<StringName> pending;
 
-	void _clear();
+	void _clear(bool p_hide_plugins = true);
 	Object *object = nullptr;
 
 	//
@@ -495,14 +493,13 @@ class EditorInspector : public ScrollContainer {
 
 	HashMap<ObjectID, int> scroll_cache;
 
-	String property_prefix; //used for sectioned inspector
+	String property_prefix; // Used for sectioned inspector.
 	String object_class;
 	Variant property_clipboard;
 
 	bool restrict_to_basic = false;
 
 	void _edit_set(const String &p_name, const Variant &p_value, bool p_refresh_all, const String &p_changed_field);
-	bool _is_main_editor_inspector() const;
 
 	void _property_changed(const String &p_path, const Variant &p_value, const String &p_name = "", bool p_changing = false, bool p_update_all = false);
 	void _multiple_properties_changed(Vector<String> p_paths, Array p_values, bool p_changing = false);
@@ -556,6 +553,7 @@ public:
 
 	static EditorProperty *instantiate_property_editor(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const uint32_t p_usage, const bool p_wide = false);
 
+	bool is_main_editor_inspector() const;
 	String get_selected_path() const;
 
 	void update_tree();

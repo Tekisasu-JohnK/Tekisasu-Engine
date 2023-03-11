@@ -369,7 +369,15 @@ void ShaderMaterial::set_shader_parameter(const StringName &p_param, const Varia
 		param_cache.erase(p_param);
 		RS::get_singleton()->material_set_param(_get_material(), p_param, Variant());
 	} else {
-		param_cache[p_param] = p_value;
+		Variant *v = param_cache.getptr(p_param);
+		if (!v) {
+			// Never assigned, also update the remap cache.
+			remap_cache["shader_parameter/" + p_param.operator String()] = p_param;
+			param_cache.insert(p_param, p_value);
+		} else {
+			*v = p_value;
+		}
+
 		if (p_value.get_type() == Variant::OBJECT) {
 			RID tex_rid = p_value;
 			if (tex_rid == RID()) {
@@ -955,11 +963,14 @@ void BaseMaterial3D::_update_shader() {
 		} break;
 		case BILLBOARD_PARTICLES: {
 			//make billboard
-			code += "	mat4 mat_world = mat4(normalize(INV_VIEW_MATRIX[0]) * length(MODEL_MATRIX[0]), normalize(INV_VIEW_MATRIX[1]) * length(MODEL_MATRIX[0]),normalize(INV_VIEW_MATRIX[2]) * length(MODEL_MATRIX[2]), MODEL_MATRIX[3]);\n";
+			code += "	mat4 mat_world = mat4(normalize(INV_VIEW_MATRIX[0]), normalize(INV_VIEW_MATRIX[1]) ,normalize(INV_VIEW_MATRIX[2]), MODEL_MATRIX[3]);\n";
 			//rotate by rotation
 			code += "	mat_world = mat_world * mat4(vec4(cos(INSTANCE_CUSTOM.x), -sin(INSTANCE_CUSTOM.x), 0.0, 0.0), vec4(sin(INSTANCE_CUSTOM.x), cos(INSTANCE_CUSTOM.x), 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 0.0, 1.0));\n";
 			//set modelview
 			code += "	MODELVIEW_MATRIX = VIEW_MATRIX * mat_world;\n";
+			if (flags[FLAG_BILLBOARD_KEEP_SCALE]) {
+				code += "	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0),vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0), vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0), vec4(0.0, 0.0, 0.0, 1.0));\n";
+			}
 			//set modelview normal
 			code += "	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);\n";
 
@@ -1903,12 +1914,6 @@ void BaseMaterial3D::_validate_feature(const String &text, Feature feature, Prop
 	}
 }
 
-void BaseMaterial3D::_validate_high_end(const String &text, PropertyInfo &property) const {
-	if (property.name.begins_with(text)) {
-		property.usage |= PROPERTY_USAGE_HIGH_END_GFX;
-	}
-}
-
 void BaseMaterial3D::_validate_property(PropertyInfo &p_property) const {
 	_validate_feature("normal", FEATURE_NORMAL_MAPPING, p_property);
 	_validate_feature("emission", FEATURE_EMISSION, p_property);
@@ -1921,10 +1926,6 @@ void BaseMaterial3D::_validate_property(PropertyInfo &p_property) const {
 	_validate_feature("backlight", FEATURE_BACKLIGHT, p_property);
 	_validate_feature("refraction", FEATURE_REFRACTION, p_property);
 	_validate_feature("detail", FEATURE_DETAIL, p_property);
-
-	_validate_high_end("refraction", p_property);
-	_validate_high_end("subsurf_scatter", p_property);
-	_validate_high_end("heightmap", p_property);
 
 	if (p_property.name == "emission_intensity" && !GLOBAL_GET("rendering/lights_and_shadows/use_physical_light_units")) {
 		p_property.usage = PROPERTY_USAGE_NONE;
@@ -2316,71 +2317,51 @@ BaseMaterial3D::TextureChannel BaseMaterial3D::get_refraction_texture_channel() 
 	return refraction_texture_channel;
 }
 
-Ref<Material> BaseMaterial3D::get_material_for_2d(bool p_shaded, bool p_transparent, bool p_double_sided, bool p_cut_alpha, bool p_opaque_prepass, bool p_billboard, bool p_billboard_y, bool p_msdf, bool p_no_depth, bool p_fixed_size, TextureFilter p_filter, RID *r_shader_rid) {
-	int64_t hash = 0;
-	if (p_shaded) {
-		hash |= 1 << 0;
-	}
-	if (p_transparent) {
-		hash |= 1 << 1;
-	}
-	if (p_cut_alpha) {
-		hash |= 1 << 2;
-	}
-	if (p_opaque_prepass) {
-		hash |= 1 << 3;
-	}
-	if (p_double_sided) {
-		hash |= 1 << 4;
-	}
-	if (p_billboard) {
-		hash |= 1 << 5;
-	}
-	if (p_billboard_y) {
-		hash |= 1 << 6;
-	}
-	if (p_msdf) {
-		hash |= 1 << 7;
-	}
-	if (p_no_depth) {
-		hash |= 1 << 8;
-	}
-	if (p_fixed_size) {
-		hash |= 1 << 9;
-	}
-	hash = hash_murmur3_one_64(p_filter, hash);
+Ref<Material> BaseMaterial3D::get_material_for_2d(bool p_shaded, Transparency p_transparency, bool p_double_sided, bool p_billboard, bool p_billboard_y, bool p_msdf, bool p_no_depth, bool p_fixed_size, TextureFilter p_filter, AlphaAntiAliasing p_alpha_antialiasing_mode, RID *r_shader_rid) {
+	uint64_t key = 0;
+	key |= ((int8_t)p_shaded & 0x01) << 0;
+	key |= ((int8_t)p_transparency & 0x07) << 1; // Bits 1-3.
+	key |= ((int8_t)p_double_sided & 0x01) << 4;
+	key |= ((int8_t)p_billboard & 0x01) << 5;
+	key |= ((int8_t)p_billboard_y & 0x01) << 6;
+	key |= ((int8_t)p_msdf & 0x01) << 7;
+	key |= ((int8_t)p_no_depth & 0x01) << 8;
+	key |= ((int8_t)p_fixed_size & 0x01) << 9;
+	key |= ((int8_t)p_filter & 0x07) << 10; // Bits 10-12.
+	key |= ((int8_t)p_alpha_antialiasing_mode & 0x07) << 13; // Bits 13-15.
 
-	if (materials_for_2d.has(hash)) {
+	if (materials_for_2d.has(key)) {
 		if (r_shader_rid) {
-			*r_shader_rid = materials_for_2d[hash]->get_shader_rid();
+			*r_shader_rid = materials_for_2d[key]->get_shader_rid();
 		}
-		return materials_for_2d[hash];
+		return materials_for_2d[key];
 	}
 
 	Ref<StandardMaterial3D> material;
 	material.instantiate();
 
 	material->set_shading_mode(p_shaded ? SHADING_MODE_PER_PIXEL : SHADING_MODE_UNSHADED);
-	material->set_transparency(p_transparent ? (p_opaque_prepass ? TRANSPARENCY_ALPHA_DEPTH_PRE_PASS : (p_cut_alpha ? TRANSPARENCY_ALPHA_SCISSOR : TRANSPARENCY_ALPHA)) : TRANSPARENCY_DISABLED);
+	material->set_transparency(p_transparency);
 	material->set_cull_mode(p_double_sided ? CULL_DISABLED : CULL_BACK);
 	material->set_flag(FLAG_SRGB_VERTEX_COLOR, true);
 	material->set_flag(FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
 	material->set_flag(FLAG_ALBEDO_TEXTURE_MSDF, p_msdf);
 	material->set_flag(FLAG_DISABLE_DEPTH_TEST, p_no_depth);
 	material->set_flag(FLAG_FIXED_SIZE, p_fixed_size);
+	material->set_alpha_antialiasing(p_alpha_antialiasing_mode);
 	material->set_texture_filter(p_filter);
 	if (p_billboard || p_billboard_y) {
 		material->set_flag(FLAG_BILLBOARD_KEEP_SCALE, true);
 		material->set_billboard_mode(p_billboard_y ? BILLBOARD_FIXED_Y : BILLBOARD_ENABLED);
 	}
 
-	materials_for_2d[hash] = material;
+	materials_for_2d[key] = material;
 
 	if (r_shader_rid) {
-		*r_shader_rid = materials_for_2d[hash]->get_shader_rid();
+		*r_shader_rid = materials_for_2d[key]->get_shader_rid();
 	}
 
-	return materials_for_2d[hash];
+	return materials_for_2d[key];
 }
 
 void BaseMaterial3D::set_on_top_of_alpha() {

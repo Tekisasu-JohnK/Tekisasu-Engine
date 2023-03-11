@@ -145,7 +145,7 @@ public:
 	virtual Vector3 region_get_connection_pathway_start(RID p_region, int p_connection_id) const = 0;
 	virtual Vector3 region_get_connection_pathway_end(RID p_region, int p_connection_id) const = 0;
 
-	/// Creates a new link between locations in the nav map.
+	/// Creates a new link between positions in the nav map.
 	virtual RID link_create() = 0;
 
 	/// Set the map of this link.
@@ -160,13 +160,13 @@ public:
 	virtual void link_set_navigation_layers(RID p_link, uint32_t p_navigation_layers) = 0;
 	virtual uint32_t link_get_navigation_layers(RID p_link) const = 0;
 
-	/// Set the start location of the link.
-	virtual void link_set_start_location(RID p_link, Vector3 p_location) = 0;
-	virtual Vector3 link_get_start_location(RID p_link) const = 0;
+	/// Set the start position of the link.
+	virtual void link_set_start_position(RID p_link, Vector3 p_position) = 0;
+	virtual Vector3 link_get_start_position(RID p_link) const = 0;
 
-	/// Set the end location of the link.
-	virtual void link_set_end_location(RID p_link, Vector3 p_location) = 0;
-	virtual Vector3 link_get_end_location(RID p_link) const = 0;
+	/// Set the end position of the link.
+	virtual void link_set_end_position(RID p_link, Vector3 p_position) = 0;
+	virtual Vector3 link_get_end_position(RID p_link) const = 0;
 
 	/// Set the enter cost of the link.
 	virtual void link_set_enter_cost(RID p_link, real_t p_enter_cost) = 0;
@@ -238,7 +238,7 @@ public:
 	virtual bool agent_is_map_changed(RID p_agent) const = 0;
 
 	/// Callback called at the end of the RVO process
-	virtual void agent_set_callback(RID p_agent, ObjectID p_object_id, StringName p_method, Variant p_udata = Variant()) = 0;
+	virtual void agent_set_callback(RID p_agent, Callable p_callback) = 0;
 
 	/// Destroy the `RID`
 	virtual void free(RID p_object) = 0;
@@ -253,12 +253,12 @@ public:
 	virtual void process(real_t delta_time) = 0;
 
 	/// Returns a customized navigation path using a query parameters object
-	void query_path(const Ref<NavigationPathQueryParameters3D> &p_query_parameters, Ref<NavigationPathQueryResult3D> p_query_result) const;
+	virtual void query_path(const Ref<NavigationPathQueryParameters3D> &p_query_parameters, Ref<NavigationPathQueryResult3D> p_query_result) const;
 
 	virtual NavigationUtilities::PathQueryResult _query_path(const NavigationUtilities::PathQueryParameters &p_parameters) const = 0;
 
 	NavigationServer3D();
-	virtual ~NavigationServer3D();
+	~NavigationServer3D() override;
 
 	enum ProcessInfo {
 		INFO_ACTIVE_MAPS,
@@ -274,9 +274,13 @@ public:
 
 	virtual int get_process_info(ProcessInfo p_info) const = 0;
 
-#ifdef DEBUG_ENABLED
+	void set_debug_enabled(bool p_enabled);
+	bool get_debug_enabled() const;
+
 private:
 	bool debug_enabled = false;
+
+#ifdef DEBUG_ENABLED
 	bool debug_dirty = true;
 	void _emit_navigation_debug_changed_signal();
 
@@ -287,6 +291,9 @@ private:
 	Color debug_navigation_geometry_face_disabled_color = Color(0.5, 0.5, 0.5, 0.4);
 	Color debug_navigation_link_connection_color = Color(1.0, 0.5, 1.0, 1.0);
 	Color debug_navigation_link_connection_disabled_color = Color(0.5, 0.5, 0.5, 1.0);
+	Color debug_navigation_agent_path_color = Color(1.0, 0.0, 0.0, 1.0);
+
+	float debug_navigation_agent_path_point_size = 4.0;
 
 	bool debug_navigation_enable_edge_connections = true;
 	bool debug_navigation_enable_edge_connections_xray = true;
@@ -295,6 +302,8 @@ private:
 	bool debug_navigation_enable_geometry_face_random_color = true;
 	bool debug_navigation_enable_link_connections = true;
 	bool debug_navigation_enable_link_connections_xray = true;
+	bool debug_navigation_enable_agent_paths = true;
+	bool debug_navigation_enable_agent_paths_xray = true;
 
 	Ref<StandardMaterial3D> debug_navigation_geometry_edge_material;
 	Ref<StandardMaterial3D> debug_navigation_geometry_face_material;
@@ -304,10 +313,10 @@ private:
 	Ref<StandardMaterial3D> debug_navigation_link_connections_material;
 	Ref<StandardMaterial3D> debug_navigation_link_connections_disabled_material;
 
-public:
-	void set_debug_enabled(bool p_enabled);
-	bool get_debug_enabled() const;
+	Ref<StandardMaterial3D> debug_navigation_agent_path_line_material;
+	Ref<StandardMaterial3D> debug_navigation_agent_path_point_material;
 
+public:
 	void set_debug_navigation_edge_connection_color(const Color &p_color);
 	Color get_debug_navigation_edge_connection_color() const;
 
@@ -328,6 +337,9 @@ public:
 
 	void set_debug_navigation_link_connection_disabled_color(const Color &p_color);
 	Color get_debug_navigation_link_connection_disabled_color() const;
+
+	void set_debug_navigation_agent_path_color(const Color &p_color);
+	Color get_debug_navigation_agent_path_color() const;
 
 	void set_debug_navigation_enable_edge_connections(const bool p_value);
 	bool get_debug_navigation_enable_edge_connections() const;
@@ -350,6 +362,15 @@ public:
 	void set_debug_navigation_enable_link_connections_xray(const bool p_value);
 	bool get_debug_navigation_enable_link_connections_xray() const;
 
+	void set_debug_navigation_enable_agent_paths(const bool p_value);
+	bool get_debug_navigation_enable_agent_paths() const;
+
+	void set_debug_navigation_enable_agent_paths_xray(const bool p_value);
+	bool get_debug_navigation_enable_agent_paths_xray() const;
+
+	void set_debug_navigation_agent_path_point_size(float p_point_size);
+	float get_debug_navigation_agent_path_point_size() const;
+
 	Ref<StandardMaterial3D> get_debug_navigation_geometry_face_material();
 	Ref<StandardMaterial3D> get_debug_navigation_geometry_edge_material();
 	Ref<StandardMaterial3D> get_debug_navigation_geometry_face_disabled_material();
@@ -357,6 +378,9 @@ public:
 	Ref<StandardMaterial3D> get_debug_navigation_edge_connections_material();
 	Ref<StandardMaterial3D> get_debug_navigation_link_connections_material();
 	Ref<StandardMaterial3D> get_debug_navigation_link_connections_disabled_material();
+
+	Ref<StandardMaterial3D> get_debug_navigation_agent_path_line_material();
+	Ref<StandardMaterial3D> get_debug_navigation_agent_path_point_material();
 #endif // DEBUG_ENABLED
 };
 

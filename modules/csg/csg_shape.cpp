@@ -558,7 +558,7 @@ void CSGShape3D::_notification(int p_what) {
 				set_collision_layer(collision_layer);
 				set_collision_mask(collision_mask);
 				set_collision_priority(collision_priority);
-				_update_collision_faces();
+				_make_dirty();
 			}
 		} break;
 
@@ -1255,6 +1255,30 @@ Vector3 CSGBox3D::get_size() const {
 	return size;
 }
 
+#ifndef DISABLE_DEPRECATED
+// Kept for compatibility from 3.x to 4.0.
+bool CSGBox3D::_set(const StringName &p_name, const Variant &p_value) {
+	if (p_name == "width") {
+		size.x = p_value;
+		_make_dirty();
+		update_gizmos();
+		return true;
+	} else if (p_name == "height") {
+		size.y = p_value;
+		_make_dirty();
+		update_gizmos();
+		return true;
+	} else if (p_name == "depth") {
+		size.z = p_value;
+		_make_dirty();
+		update_gizmos();
+		return true;
+	} else {
+		return false;
+	}
+}
+#endif
+
 void CSGBox3D::set_material(const Ref<Material> &p_material) {
 	material = p_material;
 	_make_dirty();
@@ -1763,7 +1787,7 @@ CSGBrush *CSGPolygon3D::_build_brush() {
 			}
 		}
 
-		if (!path) {
+		if (!path || !path->is_inside_tree()) {
 			return new_brush;
 		}
 

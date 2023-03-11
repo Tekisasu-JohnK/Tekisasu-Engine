@@ -125,7 +125,7 @@ private:
 	TypedArray<Dictionary> _intersect_point(const Ref<PhysicsPointQueryParameters3D> &p_point_query, int p_max_results = 32);
 	TypedArray<Dictionary> _intersect_shape(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query, int p_max_results = 32);
 	Vector<real_t> _cast_motion(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query);
-	TypedArray<PackedVector2Array> _collide_shape(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query, int p_max_results = 32);
+	TypedArray<PackedVector3Array> _collide_shape(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query, int p_max_results = 32);
 	Dictionary _get_rest_info(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query);
 
 protected:
@@ -316,8 +316,7 @@ public:
 		AREA_PARAM_GRAVITY,
 		AREA_PARAM_GRAVITY_VECTOR,
 		AREA_PARAM_GRAVITY_IS_POINT,
-		AREA_PARAM_GRAVITY_DISTANCE_SCALE,
-		AREA_PARAM_GRAVITY_POINT_ATTENUATION,
+		AREA_PARAM_GRAVITY_POINT_UNIT_DISTANCE,
 		AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE,
 		AREA_PARAM_LINEAR_DAMP,
 		AREA_PARAM_ANGULAR_DAMP_OVERRIDE_MODE,

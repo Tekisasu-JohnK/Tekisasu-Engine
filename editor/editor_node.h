@@ -398,7 +398,7 @@ private:
 	PopupMenu *editor_layouts = nullptr;
 	EditorLayoutsDialog *layout_dialog = nullptr;
 
-	ConfirmationDialog *custom_build_manage_templates = nullptr;
+	ConfirmationDialog *gradle_build_manage_templates = nullptr;
 	ConfirmationDialog *install_android_build_template = nullptr;
 	ConfirmationDialog *remove_android_build_template = nullptr;
 
@@ -460,6 +460,7 @@ private:
 	EditorToaster *editor_toaster = nullptr;
 	LinkButton *version_btn = nullptr;
 	Button *bottom_panel_raise = nullptr;
+	bool bottom_panel_updating = false;
 
 	Tree *disk_changed_list = nullptr;
 	ConfirmationDialog *disk_changed = nullptr;
@@ -564,6 +565,7 @@ private:
 	void _update_file_menu_closed();
 
 	void _remove_plugin_from_enabled(const String &p_name);
+	void _plugin_over_edit(EditorPlugin *p_plugin, Object *p_object);
 
 	void _fs_changed();
 	void _resources_reimported(const Vector<String> &p_resources);
@@ -797,6 +799,7 @@ public:
 
 	void push_item(Object *p_object, const String &p_property = "", bool p_inspector_only = false);
 	void edit_item(Object *p_object, Object *p_editing_owner);
+	void push_node_item(Node *p_node);
 	void hide_unused_editors(const Object *p_editing_owner = nullptr);
 
 	void select_editor_by_name(const String &p_name);
@@ -829,6 +832,8 @@ public:
 		// Used if the original parent node is lost
 		Transform2D transform_2d;
 		Transform3D transform_3d;
+		// Used to keep track of the ownership of all ancestor nodes so they can be restored later.
+		HashMap<Node *, Node *> ownership_table;
 	};
 
 	struct ConnectionWithNodePath {
@@ -842,6 +847,8 @@ public:
 		List<Connection> connections_from;
 		List<Node::GroupInfo> groups;
 	};
+
+	void update_ownership_table_for_addition_node_ancestors(Node *p_current_node, HashMap<Node *, Node *> &p_ownership_table);
 
 	void update_diff_data_for_node(
 			Node *p_edited_scene,

@@ -3349,10 +3349,10 @@ String VisualShaderNodeUVFunc::generate_code(Shader::Mode p_mode, VisualShader::
 
 	switch (func) {
 		case FUNC_PANNING: {
-			code += vformat("	%s = fma(%s, %s, %s);\n", p_output_vars[0], offset_pivot, scale, uv);
+			code += vformat("	%s = %s * %s + %s;\n", p_output_vars[0], offset_pivot, scale, uv);
 		} break;
 		case FUNC_SCALING: {
-			code += vformat("	%s = fma((%s - %s), %s, %s);\n", p_output_vars[0], uv, offset_pivot, scale, offset_pivot);
+			code += vformat("	%s = (%s - %s) * %s + %s;\n", p_output_vars[0], uv, offset_pivot, scale, offset_pivot);
 		} break;
 		default:
 			break;
@@ -3690,14 +3690,45 @@ String VisualShaderNodeDerivativeFunc::get_output_port_name(int p_port) const {
 
 String VisualShaderNodeDerivativeFunc::generate_code(Shader::Mode p_mode, VisualShader::Type p_type, int p_id, const String *p_input_vars, const String *p_output_vars, bool p_for_preview) const {
 	static const char *functions[FUNC_MAX] = {
-		"fwidth($)",
-		"dFdx($)",
-		"dFdy($)"
+		"fwidth$($)",
+		"dFdx$($)",
+		"dFdy$($)"
+	};
+
+	static const char *precisions[PRECISION_MAX] = {
+		"",
+		"Coarse",
+		"Fine"
 	};
 
 	String code;
-	code += "	" + p_output_vars[0] + " = " + String(functions[func]).replace("$", p_input_vars[0]) + ";\n";
+	if (OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
+		code += "	" + p_output_vars[0] + " = " + String(functions[func]).replace_first("$", "").replace_first("$", p_input_vars[0]) + ";\n";
+		return code;
+	}
+
+	code += "	" + p_output_vars[0] + " = " + String(functions[func]).replace_first("$", String(precisions[precision])).replace_first("$", p_input_vars[0]) + ";\n";
 	return code;
+}
+
+String VisualShaderNodeDerivativeFunc::get_warning(Shader::Mode p_mode, VisualShader::Type p_type) const {
+	if (precision != PRECISION_NONE && OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
+		String precision_str;
+		switch (precision) {
+			case PRECISION_COARSE: {
+				precision_str = "Coarse";
+			} break;
+			case PRECISION_FINE: {
+				precision_str = "Fine";
+			} break;
+			default: {
+			} break;
+		}
+
+		return vformat(RTR("`%s` precision mode is not available for `gl_compatibility` profile.\nReverted to `None` precision."), precision_str);
+	}
+
+	return String();
 }
 
 void VisualShaderNodeDerivativeFunc::set_op_type(OpType p_op_type) {
@@ -3742,10 +3773,24 @@ VisualShaderNodeDerivativeFunc::Function VisualShaderNodeDerivativeFunc::get_fun
 	return func;
 }
 
+void VisualShaderNodeDerivativeFunc::set_precision(Precision p_precision) {
+	ERR_FAIL_INDEX(int(p_precision), int(PRECISION_MAX));
+	if (precision == p_precision) {
+		return;
+	}
+	precision = p_precision;
+	emit_changed();
+}
+
+VisualShaderNodeDerivativeFunc::Precision VisualShaderNodeDerivativeFunc::get_precision() const {
+	return precision;
+}
+
 Vector<StringName> VisualShaderNodeDerivativeFunc::get_editable_properties() const {
 	Vector<StringName> props;
 	props.push_back("op_type");
 	props.push_back("function");
+	props.push_back("precision");
 	return props;
 }
 
@@ -3756,8 +3801,12 @@ void VisualShaderNodeDerivativeFunc::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_function", "func"), &VisualShaderNodeDerivativeFunc::set_function);
 	ClassDB::bind_method(D_METHOD("get_function"), &VisualShaderNodeDerivativeFunc::get_function);
 
+	ClassDB::bind_method(D_METHOD("set_precision", "precision"), &VisualShaderNodeDerivativeFunc::set_precision);
+	ClassDB::bind_method(D_METHOD("get_precision"), &VisualShaderNodeDerivativeFunc::get_precision);
+
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "op_type", PROPERTY_HINT_ENUM, "Scalar,Vector2,Vector3,Vector4"), "set_op_type", "get_op_type");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "function", PROPERTY_HINT_ENUM, "Sum,X,Y"), "set_function", "get_function");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "precision", PROPERTY_HINT_ENUM, "None,Coarse,Fine"), "set_precision", "get_precision");
 
 	BIND_ENUM_CONSTANT(OP_TYPE_SCALAR);
 	BIND_ENUM_CONSTANT(OP_TYPE_VECTOR_2D);
@@ -3769,6 +3818,11 @@ void VisualShaderNodeDerivativeFunc::_bind_methods() {
 	BIND_ENUM_CONSTANT(FUNC_X);
 	BIND_ENUM_CONSTANT(FUNC_Y);
 	BIND_ENUM_CONSTANT(FUNC_MAX);
+
+	BIND_ENUM_CONSTANT(PRECISION_NONE);
+	BIND_ENUM_CONSTANT(PRECISION_COARSE);
+	BIND_ENUM_CONSTANT(PRECISION_FINE);
+	BIND_ENUM_CONSTANT(PRECISION_MAX);
 }
 
 VisualShaderNodeDerivativeFunc::VisualShaderNodeDerivativeFunc() {
@@ -6869,15 +6923,34 @@ void VisualShaderNodeSwitch::_bind_methods() { // static
 }
 
 String VisualShaderNodeSwitch::generate_code(Shader::Mode p_mode, VisualShader::Type p_type, int p_id, const String *p_input_vars, const String *p_output_vars, bool p_for_preview) const {
+	bool use_mix = false;
+	switch (op_type) {
+		case OP_TYPE_FLOAT: {
+			use_mix = true;
+		} break;
+		case OP_TYPE_VECTOR_2D: {
+			use_mix = true;
+		} break;
+		case OP_TYPE_VECTOR_3D: {
+			use_mix = true;
+		} break;
+		case OP_TYPE_VECTOR_4D: {
+			use_mix = true;
+		} break;
+		default: {
+		} break;
+	}
+
 	String code;
-	code += "	if(" + p_input_vars[0] + ")\n";
-	code += "	{\n";
-	code += "		" + p_output_vars[0] + " = " + p_input_vars[1] + ";\n";
-	code += "	}\n";
-	code += "	else\n";
-	code += "	{\n";
-	code += "		" + p_output_vars[0] + " = " + p_input_vars[2] + ";\n";
-	code += "	}\n";
+	if (use_mix) {
+		code += "	" + p_output_vars[0] + " = mix(" + p_input_vars[2] + ", " + p_input_vars[1] + ", float(" + p_input_vars[0] + "));\n";
+	} else {
+		code += "	if (" + p_input_vars[0] + ") {\n";
+		code += "		" + p_output_vars[0] + " = " + p_input_vars[1] + ";\n";
+		code += "	} else {\n";
+		code += "		" + p_output_vars[0] + " = " + p_input_vars[2] + ";\n";
+		code += "	}\n";
+	}
 	return code;
 }
 
@@ -7409,6 +7482,9 @@ String VisualShaderNodeMultiplyAdd::get_output_port_name(int p_port) const {
 }
 
 String VisualShaderNodeMultiplyAdd::generate_code(Shader::Mode p_mode, VisualShader::Type p_type, int p_id, const String *p_input_vars, const String *p_output_vars, bool p_for_preview) const {
+	if (OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
+		return "	" + p_output_vars[0] + " = (" + p_input_vars[0] + " * " + p_input_vars[1] + ") + " + p_input_vars[2] + ";\n";
+	}
 	return "	" + p_output_vars[0] + " = fma(" + p_input_vars[0] + ", " + p_input_vars[1] + ", " + p_input_vars[2] + ");\n";
 }
 
@@ -7530,8 +7606,11 @@ String VisualShaderNodeBillboard::generate_code(Shader::Mode p_mode, VisualShade
 			break;
 		case BILLBOARD_TYPE_PARTICLES:
 			code += "	{\n";
-			code += "		mat4 __wm = mat4(normalize(INV_VIEW_MATRIX[0]) * length(MODEL_MATRIX[0]), normalize(INV_VIEW_MATRIX[1]) * length(MODEL_MATRIX[0]), normalize(INV_VIEW_MATRIX[2]) * length(MODEL_MATRIX[2]), MODEL_MATRIX[3]);\n";
+			code += "		mat4 __wm = mat4(normalize(INV_VIEW_MATRIX[0]), normalize(INV_VIEW_MATRIX[1]), normalize(INV_VIEW_MATRIX[2]), MODEL_MATRIX[3]);\n";
 			code += "		__wm = __wm * mat4(vec4(cos(INSTANCE_CUSTOM.x), -sin(INSTANCE_CUSTOM.x), 0.0, 0.0), vec4(sin(INSTANCE_CUSTOM.x), cos(INSTANCE_CUSTOM.x), 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 0.0, 1.0));\n";
+			if (keep_scale) {
+				code += "		__wm = __wm * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0), vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0), vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0), vec4(0.0, 0.0, 0.0, 1.0));\n";
+			}
 			code += "		" + p_output_vars[0] + " = VIEW_MATRIX * __wm;\n";
 			code += "	}\n";
 			break;
@@ -7574,7 +7653,7 @@ bool VisualShaderNodeBillboard::is_keep_scale_enabled() const {
 Vector<StringName> VisualShaderNodeBillboard::get_editable_properties() const {
 	Vector<StringName> props;
 	props.push_back("billboard_type");
-	if (billboard_type == BILLBOARD_TYPE_ENABLED || billboard_type == BILLBOARD_TYPE_FIXED_Y) {
+	if (billboard_type == BILLBOARD_TYPE_ENABLED || billboard_type == BILLBOARD_TYPE_FIXED_Y || billboard_type == BILLBOARD_TYPE_PARTICLES) {
 		props.push_back("keep_scale");
 	}
 	return props;

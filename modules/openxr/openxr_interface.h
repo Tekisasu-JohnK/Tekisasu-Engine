@@ -123,6 +123,10 @@ public:
 	void set_display_refresh_rate(float p_refresh_rate);
 	Array get_available_display_refresh_rates() const;
 
+	bool is_action_set_active(const String &p_action_set) const;
+	void set_action_set_active(const String &p_action_set, bool p_active);
+	Array get_action_sets() const;
+
 	virtual Size2 get_render_target_size() override;
 	virtual uint32_t get_view_count() override;
 	virtual Transform3D get_camera_transform() override;
@@ -142,6 +146,10 @@ public:
 	virtual bool is_passthrough_enabled() override;
 	virtual bool start_passthrough() override;
 	virtual void stop_passthrough() override;
+
+	/** environment blend mode. */
+	virtual Array get_supported_environment_blend_modes() override;
+	virtual bool set_environment_blend_mode(XRInterface::EnvironmentBlendMode mode) override;
 
 	void on_state_ready();
 	void on_state_visible();

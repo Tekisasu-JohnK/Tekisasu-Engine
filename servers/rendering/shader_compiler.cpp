@@ -1151,6 +1151,9 @@ String ShaderCompiler::_dump_node_code(const SL::Node *p_node, int p_level, Gene
 
 					bool is_texture_func = false;
 					bool is_screen_texture = false;
+					bool texture_func_no_uv = false;
+					bool texture_func_returns_data = false;
+
 					if (onode->op == SL::OP_STRUCT) {
 						code += _mkid(vnode->name);
 					} else if (onode->op == SL::OP_CONSTRUCT) {
@@ -1164,6 +1167,8 @@ String ShaderCompiler::_dump_node_code(const SL::Node *p_node, int p_level, Gene
 						if (is_internal_func) {
 							code += vnode->name;
 							is_texture_func = texture_functions.has(vnode->name);
+							texture_func_no_uv = (vnode->name == "textureSize" || vnode->name == "textureQueryLevels");
+							texture_func_returns_data = texture_func_no_uv || vnode->name == "textureQueryLod";
 						} else if (p_default_actions.renames.has(vnode->name)) {
 							code += p_default_actions.renames[vnode->name];
 						} else {
@@ -1173,9 +1178,10 @@ String ShaderCompiler::_dump_node_code(const SL::Node *p_node, int p_level, Gene
 
 					code += "(";
 
-					// if normal roughness texture is used, we will add logic to automatically switch between
+					// if color backbuffer, depth backbuffer or normal roughness texture is used,
+					// we will add logic to automatically switch between
 					// sampler2D and sampler2D array and vec2 UV and vec3 UV.
-					bool normal_roughness_texture_used = false;
+					bool multiview_uv_needed = false;
 
 					for (int i = 1; i < onode->arguments.size(); i++) {
 						if (i > 1) {
@@ -1220,8 +1226,8 @@ String ShaderCompiler::_dump_node_code(const SL::Node *p_node, int p_level, Gene
 						}
 
 						String node_code = _dump_node_code(onode->arguments[i], p_level, r_gen_code, p_actions, p_default_actions, p_assigning);
-						if (!RS::get_singleton()->is_low_end() && is_texture_func && i == 1) {
-							//need to map from texture to sampler in order to sample when using Vulkan GLSL
+						if (is_texture_func && i == 1) {
+							// If we're doing a texture lookup we need to check our texture argument
 							StringName texture_uniform;
 							bool correct_texture_uniform = false;
 
@@ -1240,8 +1246,10 @@ String ShaderCompiler::_dump_node_code(const SL::Node *p_node, int p_level, Gene
 									break;
 							}
 
-							if (correct_texture_uniform) {
+							if (correct_texture_uniform && !RS::get_singleton()->is_low_end()) {
+								// Need to map from texture to sampler in order to sample when using Vulkan GLSL.
 								String sampler_name;
+								bool is_depth_texture = false;
 								bool is_normal_roughness_texture = false;
 
 								if (actions.custom_samplers.has(texture_uniform)) {
@@ -1251,6 +1259,8 @@ String ShaderCompiler::_dump_node_code(const SL::Node *p_node, int p_level, Gene
 										const ShaderLanguage::ShaderNode::Uniform &u = shader->uniforms[texture_uniform];
 										if (u.hint == ShaderLanguage::ShaderNode::Uniform::HINT_SCREEN_TEXTURE) {
 											is_screen_texture = true;
+										} else if (u.hint == ShaderLanguage::ShaderNode::Uniform::HINT_DEPTH_TEXTURE) {
+											is_depth_texture = true;
 										} else if (u.hint == ShaderLanguage::ShaderNode::Uniform::HINT_NORMAL_ROUGHNESS_TEXTURE) {
 											is_normal_roughness_texture = true;
 										}
@@ -1281,28 +1291,44 @@ String ShaderCompiler::_dump_node_code(const SL::Node *p_node, int p_level, Gene
 								}
 
 								String data_type_name = "";
-								if (is_normal_roughness_texture) {
+								if (actions.check_multiview_samplers && (is_screen_texture || is_depth_texture || is_normal_roughness_texture)) {
 									data_type_name = "multiviewSampler";
-									normal_roughness_texture_used = true;
+									multiview_uv_needed = true;
 								} else {
 									data_type_name = ShaderLanguage::get_datatype_name(onode->arguments[i]->get_datatype());
 								}
 
 								code += data_type_name + "(" + node_code + ", " + sampler_name + ")";
+							} else if (actions.check_multiview_samplers && correct_texture_uniform && RS::get_singleton()->is_low_end()) {
+								// Texture function on low end hardware (i.e. OpenGL).
+								// We just need to know if the texture supports multiview.
+
+								if (shader->uniforms.has(texture_uniform)) {
+									const ShaderLanguage::ShaderNode::Uniform &u = shader->uniforms[texture_uniform];
+									if (u.hint == ShaderLanguage::ShaderNode::Uniform::HINT_SCREEN_TEXTURE) {
+										multiview_uv_needed = true;
+									} else if (u.hint == ShaderLanguage::ShaderNode::Uniform::HINT_DEPTH_TEXTURE) {
+										multiview_uv_needed = true;
+									} else if (u.hint == ShaderLanguage::ShaderNode::Uniform::HINT_NORMAL_ROUGHNESS_TEXTURE) {
+										multiview_uv_needed = true;
+									}
+								}
+
+								code += node_code;
 							} else {
 								code += node_code;
 							}
-						} else {
-							if (normal_roughness_texture_used && i == 2) {
-								// UV coordinate after using normal roughness texture.
-								node_code = "normal_roughness_uv(" + node_code + ".xy)";
-							}
+						} else if (multiview_uv_needed && !texture_func_no_uv && i == 2) {
+							// UV coordinate after using color, depth or normal roughness texture.
+							node_code = "multiview_uv(" + node_code + ".xy)";
 
+							code += node_code;
+						} else {
 							code += node_code;
 						}
 					}
 					code += ")";
-					if (is_screen_texture && actions.apply_luminance_multiplier) {
+					if (is_screen_texture && !texture_func_returns_data && actions.apply_luminance_multiplier) {
 						code = "(" + code + " * vec4(vec3(sc_luminance_multiplier), 1.0))";
 					}
 				} break;

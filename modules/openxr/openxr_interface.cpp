@@ -47,6 +47,10 @@ void OpenXRInterface::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_display_refresh_rate", "refresh_rate"), &OpenXRInterface::set_display_refresh_rate);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "display_refresh_rate"), "set_display_refresh_rate", "get_display_refresh_rate");
 
+	ClassDB::bind_method(D_METHOD("is_action_set_active", "name"), &OpenXRInterface::is_action_set_active);
+	ClassDB::bind_method(D_METHOD("set_action_set_active", "name", "active"), &OpenXRInterface::set_action_set_active);
+	ClassDB::bind_method(D_METHOD("get_action_sets"), &OpenXRInterface::get_action_sets);
+
 	ClassDB::bind_method(D_METHOD("get_available_display_refresh_rates"), &OpenXRInterface::get_available_display_refresh_rates);
 }
 
@@ -621,6 +625,38 @@ Array OpenXRInterface::get_available_display_refresh_rates() const {
 	}
 }
 
+bool OpenXRInterface::is_action_set_active(const String &p_action_set) const {
+	for (ActionSet *action_set : action_sets) {
+		if (action_set->action_set_name == p_action_set) {
+			return action_set->is_active;
+		}
+	}
+
+	WARN_PRINT("OpenXR: Unknown action set " + p_action_set);
+	return false;
+}
+
+void OpenXRInterface::set_action_set_active(const String &p_action_set, bool p_active) {
+	for (ActionSet *action_set : action_sets) {
+		if (action_set->action_set_name == p_action_set) {
+			action_set->is_active = p_active;
+			return;
+		}
+	}
+
+	WARN_PRINT("OpenXR: Unknown action set " + p_action_set);
+}
+
+Array OpenXRInterface::get_action_sets() const {
+	Array arr;
+
+	for (ActionSet *action_set : action_sets) {
+		arr.push_back(action_set->action_set_name);
+	}
+
+	return arr;
+}
+
 Size2 OpenXRInterface::get_render_target_size() {
 	if (openxr_api == nullptr) {
 		return Size2();
@@ -832,6 +868,60 @@ void OpenXRInterface::stop_passthrough() {
 	if (passthrough_wrapper) {
 		passthrough_wrapper->stop_passthrough();
 	}
+}
+
+Array OpenXRInterface::get_supported_environment_blend_modes() {
+	Array modes;
+
+	if (!openxr_api) {
+		return modes;
+	}
+
+	uint32_t count = 0;
+	const XrEnvironmentBlendMode *env_blend_modes = openxr_api->get_supported_environment_blend_modes(count);
+
+	if (!env_blend_modes) {
+		return modes;
+	}
+
+	for (uint32_t i = 0; i < count; i++) {
+		switch (env_blend_modes[i]) {
+			case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
+				modes.push_back(XR_ENV_BLEND_MODE_OPAQUE);
+				break;
+			case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
+				modes.push_back(XR_ENV_BLEND_MODE_ADDITIVE);
+				break;
+			case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
+				modes.push_back(XR_ENV_BLEND_MODE_ALPHA_BLEND);
+				break;
+			default:
+				WARN_PRINT("Unsupported blend mode found: " + String::num_int64(int64_t(env_blend_modes[i])));
+		}
+	}
+	return modes;
+}
+
+bool OpenXRInterface::set_environment_blend_mode(XRInterface::EnvironmentBlendMode mode) {
+	if (openxr_api) {
+		XrEnvironmentBlendMode oxr_blend_mode;
+		switch (mode) {
+			case XR_ENV_BLEND_MODE_OPAQUE:
+				oxr_blend_mode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+				break;
+			case XR_ENV_BLEND_MODE_ADDITIVE:
+				oxr_blend_mode = XR_ENVIRONMENT_BLEND_MODE_ADDITIVE;
+				break;
+			case XR_ENV_BLEND_MODE_ALPHA_BLEND:
+				oxr_blend_mode = XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND;
+				break;
+			default:
+				WARN_PRINT("Unknown blend mode requested: " + String::num_int64(int64_t(mode)));
+				oxr_blend_mode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+		}
+		return openxr_api->set_environment_blend_mode(oxr_blend_mode);
+	}
+	return false;
 }
 
 void OpenXRInterface::on_state_ready() {

@@ -3893,7 +3893,7 @@ bool TextServerAdvanced::_shaped_text_add_string(const RID &p_shaped, const Stri
 	return true;
 }
 
-bool TextServerAdvanced::_shaped_text_add_object(const RID &p_shaped, const Variant &p_key, const Size2 &p_size, InlineAlignment p_inline_align, int64_t p_length, float p_baseline) {
+bool TextServerAdvanced::_shaped_text_add_object(const RID &p_shaped, const Variant &p_key, const Size2 &p_size, InlineAlignment p_inline_align, int64_t p_length, double p_baseline) {
 	_THREAD_SAFE_METHOD_
 	ShapedTextDataAdvanced *sd = shaped_owner.get_or_null(p_shaped);
 	ERR_FAIL_COND_V(!sd, false);
@@ -3924,7 +3924,7 @@ bool TextServerAdvanced::_shaped_text_add_object(const RID &p_shaped, const Vari
 	return true;
 }
 
-bool TextServerAdvanced::_shaped_text_resize_object(const RID &p_shaped, const Variant &p_key, const Size2 &p_size, InlineAlignment p_inline_align, float p_baseline) {
+bool TextServerAdvanced::_shaped_text_resize_object(const RID &p_shaped, const Variant &p_key, const Size2 &p_size, InlineAlignment p_inline_align, double p_baseline) {
 	ShapedTextDataAdvanced *sd = shaped_owner.get_or_null(p_shaped);
 	ERR_FAIL_COND_V(!sd, false);
 
@@ -4068,7 +4068,6 @@ void TextServerAdvanced::_realign(ShapedTextDataAdvanced *p_sd) const {
 
 RID TextServerAdvanced::_shaped_text_substr(const RID &p_shaped, int64_t p_start, int64_t p_length) const {
 	_THREAD_SAFE_METHOD_
-
 	const ShapedTextDataAdvanced *sd = shaped_owner.get_or_null(p_shaped);
 	ERR_FAIL_COND_V(!sd, RID());
 
@@ -5513,6 +5512,7 @@ void TextServerAdvanced::_shape_run(ShapedTextDataAdvanced *p_sd, int64_t p_star
 }
 
 bool TextServerAdvanced::_shaped_text_shape(const RID &p_shaped) {
+	_THREAD_SAFE_METHOD_
 	ShapedTextDataAdvanced *sd = shaped_owner.get_or_null(p_shaped);
 	ERR_FAIL_COND_V(!sd, false);
 
@@ -6118,20 +6118,22 @@ int64_t TextServerAdvanced::_is_confusable(const String &p_string, const PackedS
 	Vector<UChar *> skeletons;
 	skeletons.resize(p_dict.size());
 
-	USpoofChecker *sc = uspoof_open(&status);
-	uspoof_setChecks(sc, USPOOF_CONFUSABLE, &status);
+	if (sc_conf == nullptr) {
+		sc_conf = uspoof_open(&status);
+		uspoof_setChecks(sc_conf, USPOOF_CONFUSABLE, &status);
+	}
 	for (int i = 0; i < p_dict.size(); i++) {
 		Char16String word = p_dict[i].utf16();
-		int32_t len = uspoof_getSkeleton(sc, 0, word.get_data(), -1, NULL, 0, &status);
+		int32_t len = uspoof_getSkeleton(sc_conf, 0, word.get_data(), -1, NULL, 0, &status);
 		skeletons.write[i] = (UChar *)memalloc(++len * sizeof(UChar));
 		status = U_ZERO_ERROR;
-		uspoof_getSkeleton(sc, 0, word.get_data(), -1, skeletons.write[i], len, &status);
+		uspoof_getSkeleton(sc_conf, 0, word.get_data(), -1, skeletons.write[i], len, &status);
 	}
 
-	int32_t len = uspoof_getSkeleton(sc, 0, utf16.get_data(), -1, NULL, 0, &status);
+	int32_t len = uspoof_getSkeleton(sc_conf, 0, utf16.get_data(), -1, NULL, 0, &status);
 	UChar *skel = (UChar *)memalloc(++len * sizeof(UChar));
 	status = U_ZERO_ERROR;
-	uspoof_getSkeleton(sc, 0, utf16.get_data(), -1, skel, len, &status);
+	uspoof_getSkeleton(sc_conf, 0, utf16.get_data(), -1, skel, len, &status);
 	for (int i = 0; i < skeletons.size(); i++) {
 		if (u_strcmp(skel, skeletons[i]) == 0) {
 			match_index = i;
@@ -6143,7 +6145,6 @@ int64_t TextServerAdvanced::_is_confusable(const String &p_string, const PackedS
 	for (int i = 0; i < skeletons.size(); i++) {
 		memfree(skeletons.write[i]);
 	}
-	uspoof_close(sc);
 
 	ERR_FAIL_COND_V_MSG(U_FAILURE(status), -1, u_errorName(status));
 
@@ -6159,19 +6160,18 @@ bool TextServerAdvanced::_spoof_check(const String &p_string) const {
 	UErrorCode status = U_ZERO_ERROR;
 	Char16String utf16 = p_string.utf16();
 
-	USet *allowed = uset_openEmpty();
-	uset_addAll(allowed, uspoof_getRecommendedSet(&status));
-	uset_addAll(allowed, uspoof_getInclusionSet(&status));
+	if (allowed == nullptr) {
+		allowed = uset_openEmpty();
+		uset_addAll(allowed, uspoof_getRecommendedSet(&status));
+		uset_addAll(allowed, uspoof_getInclusionSet(&status));
+	}
+	if (sc_spoof == nullptr) {
+		sc_spoof = uspoof_open(&status);
+		uspoof_setAllowedChars(sc_spoof, allowed, &status);
+		uspoof_setRestrictionLevel(sc_spoof, USPOOF_MODERATELY_RESTRICTIVE);
+	}
 
-	USpoofChecker *sc = uspoof_open(&status);
-	uspoof_setAllowedChars(sc, allowed, &status);
-	uspoof_setRestrictionLevel(sc, USPOOF_MODERATELY_RESTRICTIVE);
-
-	int32_t bitmask = uspoof_check(sc, utf16.get_data(), -1, NULL, &status);
-
-	uspoof_close(sc);
-	uset_close(allowed);
-
+	int32_t bitmask = uspoof_check(sc_spoof, utf16.get_data(), -1, NULL, &status);
 	ERR_FAIL_COND_V_MSG(U_FAILURE(status), false, u_errorName(status));
 
 	return (bitmask != 0);
@@ -6274,7 +6274,7 @@ String TextServerAdvanced::_string_to_lower(const String &p_string, const String
 	return String::utf16(lower.ptr(), len);
 }
 
-PackedInt32Array TextServerAdvanced::_string_get_word_breaks(const String &p_string, const String &p_language, int p_chars_per_line) const {
+PackedInt32Array TextServerAdvanced::_string_get_word_breaks(const String &p_string, const String &p_language, int64_t p_chars_per_line) const {
 	const String lang = (p_language.is_empty()) ? TranslationServer::get_singleton()->get_tool_locale() : p_language;
 	// Convert to UTF-16.
 	Char16String utf16 = p_string.utf16();
@@ -6569,6 +6569,7 @@ TextServerAdvanced::TextServerAdvanced() {
 }
 
 void TextServerAdvanced::_cleanup() {
+	_THREAD_SAFE_METHOD_
 	for (const KeyValue<SystemFontKey, SystemFontCache> &E : system_fonts) {
 		const Vector<SystemFontCacheRec> &sysf_cache = E.value.var;
 		for (const SystemFontCacheRec &F : sysf_cache) {
@@ -6586,5 +6587,17 @@ TextServerAdvanced::~TextServerAdvanced() {
 		FT_Done_FreeType(ft_library);
 	}
 #endif
+	if (sc_spoof != nullptr) {
+		uspoof_close(sc_spoof);
+		sc_spoof = nullptr;
+	}
+	if (sc_conf != nullptr) {
+		uspoof_close(sc_conf);
+		sc_conf = nullptr;
+	}
+	if (allowed != nullptr) {
+		uset_close(allowed);
+		allowed = nullptr;
+	}
 	u_cleanup();
 }

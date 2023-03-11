@@ -1427,7 +1427,14 @@ void SceneTreeDock::_script_open_request(const Ref<Script> &p_script) {
 }
 
 void SceneTreeDock::_push_item(Object *p_object) {
-	EditorNode::get_singleton()->push_item(p_object);
+	Node *node = Object::cast_to<Node>(p_object);
+	if (node || !p_object) {
+		// Assume that null object is a Node.
+		EditorNode::get_singleton()->push_node_item(node);
+	} else {
+		EditorNode::get_singleton()->push_item(p_object);
+	}
+
 	if (p_object == nullptr) {
 		EditorNode::get_singleton()->hide_unused_editors(this);
 	}
@@ -2191,7 +2198,7 @@ void SceneTreeDock::_do_create(Node *p_parent) {
 	ERR_FAIL_COND(!child);
 
 	String new_name = p_parent->validate_child_name(child);
-	if (GLOBAL_GET("editor/node_naming/name_casing").operator int() != NAME_CASING_PASCAL_CASE) {
+	if (GLOBAL_GET("editor/naming/node_name_casing").operator int() != NAME_CASING_PASCAL_CASE) {
 		new_name = adjust_name_casing(new_name);
 	}
 	child->set_name(new_name);
@@ -3613,7 +3620,7 @@ SceneTreeDock::SceneTreeDock(Node *p_scene_root, EditorSelection *p_editor_selec
 	scene_tree->connect("script_dropped", callable_mp(this, &SceneTreeDock::_script_dropped));
 	scene_tree->connect("nodes_dragged", callable_mp(this, &SceneTreeDock::_nodes_drag_begin));
 
-	scene_tree->get_scene_tree()->connect("item_double_clicked", callable_mp(this, &SceneTreeDock::_focus_node));
+	scene_tree->get_scene_tree()->connect("item_icon_double_clicked", callable_mp(this, &SceneTreeDock::_focus_node));
 
 	editor_selection->connect("selection_changed", callable_mp(this, &SceneTreeDock::_selection_changed));
 

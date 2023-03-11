@@ -122,7 +122,8 @@ private:
 	struct Node {
 		Ref<VisualShaderNode> node;
 		Vector2 position;
-		List<int> prev_connected_nodes;
+		LocalVector<int> prev_connected_nodes;
+		LocalVector<int> next_connected_nodes;
 	};
 
 	struct Graph {
@@ -198,6 +199,16 @@ public: // internal methods
 
 	Vector2 get_node_position(Type p_type, int p_id) const;
 	Ref<VisualShaderNode> get_node(Type p_type, int p_id) const;
+
+	_FORCE_INLINE_ Ref<VisualShaderNode> get_node_unchecked(Type p_type, int p_id) const {
+		return graph[p_type].nodes[p_id].node;
+	}
+	_FORCE_INLINE_ void get_next_connected_nodes(Type p_type, int p_id, LocalVector<int> &r_list) const {
+		r_list = graph[p_type].nodes[p_id].next_connected_nodes;
+	}
+	_FORCE_INLINE_ void get_prev_connected_nodes(Type p_type, int p_id, LocalVector<int> &r_list) const {
+		r_list = graph[p_type].nodes[p_id].prev_connected_nodes;
+	}
 
 	Vector<int> get_node_list(Type p_type) const;
 	int get_valid_node_id(Type p_type) const;
@@ -369,12 +380,12 @@ protected:
 	GDVIRTUAL0RC(String, _get_name)
 	GDVIRTUAL0RC(String, _get_description)
 	GDVIRTUAL0RC(String, _get_category)
-	GDVIRTUAL0RC(int, _get_return_icon_type)
+	GDVIRTUAL0RC(PortType, _get_return_icon_type)
 	GDVIRTUAL0RC(int, _get_input_port_count)
-	GDVIRTUAL1RC(int, _get_input_port_type, int)
+	GDVIRTUAL1RC(PortType, _get_input_port_type, int)
 	GDVIRTUAL1RC(String, _get_input_port_name, int)
 	GDVIRTUAL0RC(int, _get_output_port_count)
-	GDVIRTUAL1RC(int, _get_output_port_type, int)
+	GDVIRTUAL1RC(PortType, _get_output_port_type, int)
 	GDVIRTUAL1RC(String, _get_output_port_name, int)
 	GDVIRTUAL4RC(String, _get_code, TypedArray<String>, TypedArray<String>, Shader::Mode, VisualShader::Type)
 	GDVIRTUAL2RC(String, _get_func_code, Shader::Mode, VisualShader::Type)

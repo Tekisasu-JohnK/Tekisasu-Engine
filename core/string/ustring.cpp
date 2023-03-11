@@ -1157,6 +1157,14 @@ Vector<String> String::split_spaces() const {
 
 Vector<String> String::split(const String &p_splitter, bool p_allow_empty, int p_maxsplit) const {
 	Vector<String> ret;
+
+	if (is_empty()) {
+		if (p_allow_empty) {
+			ret.push_back("");
+		}
+		return ret;
+	}
+
 	int from = 0;
 	int len = length();
 
@@ -4342,6 +4350,9 @@ bool String::is_valid_html_color() const {
 	return Color::html_is_valid(*this);
 }
 
+// Changes made to the set of invalid filename characters must also be reflected in the String documentation for is_valid_filename.
+static const char *invalid_filename_characters = ": / \\ ? * \" | % < >";
+
 bool String::is_valid_filename() const {
 	String stripped = strip_edges();
 	if (*this != stripped) {
@@ -4352,7 +4363,22 @@ bool String::is_valid_filename() const {
 		return false;
 	}
 
-	return !(find(":") != -1 || find("/") != -1 || find("\\") != -1 || find("?") != -1 || find("*") != -1 || find("\"") != -1 || find("|") != -1 || find("%") != -1 || find("<") != -1 || find(">") != -1);
+	Vector<String> chars = String(invalid_filename_characters).split(" ");
+	for (const String &ch : chars) {
+		if (contains(ch)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+String String::validate_filename() const {
+	Vector<String> chars = String(invalid_filename_characters).split(" ");
+	String name = strip_edges();
+	for (int i = 0; i < chars.size(); i++) {
+		name = name.replace(chars[i], "_");
+	}
+	return name;
 }
 
 bool String::is_valid_ip_address() const {

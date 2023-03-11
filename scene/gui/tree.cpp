@@ -1775,10 +1775,10 @@ void Tree::draw_item_rect(TreeItem::Cell &p_cell, const Rect2i &p_rect, const Co
 
 	RID ci = get_canvas_item();
 
-	if (rtl) {
+	if (rtl && rect.size.width > 0) {
 		Point2 draw_pos = rect.position;
 		draw_pos.y += Math::floor((rect.size.y - p_cell.text_buf->get_size().y) / 2.0);
-		p_cell.text_buf->set_width(MAX(0, rect.size.width));
+		p_cell.text_buf->set_width(rect.size.width);
 		if (p_ol_size > 0 && p_ol_color.a > 0) {
 			p_cell.text_buf->draw_outline(ci, draw_pos, p_ol_size, p_ol_color);
 		}
@@ -1800,10 +1800,10 @@ void Tree::draw_item_rect(TreeItem::Cell &p_cell, const Rect2i &p_rect, const Co
 		rect.size.x -= bmsize.x + theme_cache.h_separation;
 	}
 
-	if (!rtl) {
+	if (!rtl && rect.size.width > 0) {
 		Point2 draw_pos = rect.position;
 		draw_pos.y += Math::floor((rect.size.y - p_cell.text_buf->get_size().y) / 2.0);
-		p_cell.text_buf->set_width(MAX(0, rect.size.width));
+		p_cell.text_buf->set_width(rect.size.width);
 		if (p_ol_size > 0 && p_ol_color.a > 0) {
 			p_cell.text_buf->draw_outline(ci, draw_pos, p_ol_size, p_ol_color);
 		}
@@ -3554,7 +3554,7 @@ void Tree::gui_input(const Ref<InputEvent> &p_event) {
 								icon_size_x = icon_region.size.width;
 							}
 						}
-						// Icon is treated as if it is outside of the rect so that double clicking on it will emit the item_double_clicked signal.
+						// Icon is treated as if it is outside of the rect so that double clicking on it will emit the item_icon_double_clicked signal.
 						if (rtl) {
 							mpos.x = get_size().width - (mpos.x + icon_size_x);
 						} else {
@@ -3562,10 +3562,10 @@ void Tree::gui_input(const Ref<InputEvent> &p_event) {
 						}
 						if (rect.has_point(mpos)) {
 							if (!edit_selected()) {
-								emit_signal(SNAME("item_double_clicked"));
+								emit_signal(SNAME("item_icon_double_clicked"));
 							}
 						} else {
-							emit_signal(SNAME("item_double_clicked"));
+							emit_signal(SNAME("item_icon_double_clicked"));
 						}
 					}
 					pressing_for_editor = false;
@@ -5256,8 +5256,7 @@ void Tree::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("empty_clicked", PropertyInfo(Variant::VECTOR2, "position"), PropertyInfo(Variant::INT, "mouse_button_index")));
 	ADD_SIGNAL(MethodInfo("item_edited"));
 	ADD_SIGNAL(MethodInfo("custom_item_clicked", PropertyInfo(Variant::INT, "mouse_button_index")));
-	ADD_SIGNAL(MethodInfo("item_custom_button_pressed"));
-	ADD_SIGNAL(MethodInfo("item_double_clicked"));
+	ADD_SIGNAL(MethodInfo("item_icon_double_clicked"));
 	ADD_SIGNAL(MethodInfo("item_collapsed", PropertyInfo(Variant::OBJECT, "item", PROPERTY_HINT_RESOURCE_TYPE, "TreeItem")));
 	ADD_SIGNAL(MethodInfo("check_propagated_to_item", PropertyInfo(Variant::OBJECT, "item", PROPERTY_HINT_RESOURCE_TYPE, "TreeItem"), PropertyInfo(Variant::INT, "column")));
 	ADD_SIGNAL(MethodInfo("button_clicked", PropertyInfo(Variant::OBJECT, "item", PROPERTY_HINT_RESOURCE_TYPE, "TreeItem"), PropertyInfo(Variant::INT, "column"), PropertyInfo(Variant::INT, "id"), PropertyInfo(Variant::INT, "mouse_button_index")));

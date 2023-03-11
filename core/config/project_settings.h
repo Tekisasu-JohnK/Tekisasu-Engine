@@ -37,6 +37,9 @@
 #include "core/templates/local_vector.h"
 #include "core/templates/rb_set.h"
 
+template <typename T>
+class TypedArray;
+
 class ProjectSettings : public Object {
 	GDCLASS(ProjectSettings, Object);
 	_THREAD_SAFE_CLASS_
@@ -92,12 +95,16 @@ protected:
 	String resource_path;
 	HashMap<StringName, PropertyInfo> custom_prop_info;
 	bool using_datapack = false;
+	bool project_loaded = false;
 	List<String> input_presets;
 
 	HashSet<String> custom_features;
 	HashMap<StringName, LocalVector<Pair<StringName, StringName>>> feature_overrides;
 
 	HashMap<StringName, AutoloadInfo> autoloads;
+
+	Array global_class_list;
+	bool is_global_class_list_loaded = false;
 
 	String project_data_dir_name;
 
@@ -141,8 +148,9 @@ public:
 
 	void set_setting(const String &p_setting, const Variant &p_value);
 	Variant get_setting(const String &p_setting, const Variant &p_default_value = Variant()) const;
-	Array get_global_class_list();
+	TypedArray<Dictionary> get_global_class_list();
 	void store_global_class_list(const Array &p_classes);
+	String get_global_class_list_path() const;
 
 	bool has_setting(String p_var) const;
 	String localize_path(const String &p_path) const;
@@ -183,6 +191,7 @@ public:
 	Variant get_setting_with_override(const StringName &p_name) const;
 
 	bool is_using_datapack() const;
+	bool is_project_loaded() const;
 
 	bool has_custom_feature(const String &p_feature) const;
 

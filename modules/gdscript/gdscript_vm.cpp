@@ -47,6 +47,16 @@ static String _get_script_name(const Ref<Script> p_script) {
 	}
 }
 
+static String _get_element_type(Variant::Type builtin_type, const StringName &native_type, const Ref<Script> &script_type) {
+	if (script_type.is_valid() && script_type->is_valid()) {
+		return _get_script_name(script_type);
+	} else if (native_type != StringName()) {
+		return native_type.operator String();
+	} else {
+		return Variant::get_type_name(builtin_type);
+	}
+}
+
 static String _get_var_type(const Variant *p_var) {
 	String basestr;
 
@@ -75,15 +85,8 @@ static String _get_var_type(const Variant *p_var) {
 			basestr = "Array";
 			const Array *p_array = VariantInternal::get_array(p_var);
 			Variant::Type builtin_type = (Variant::Type)p_array->get_typed_builtin();
-			StringName native_type = p_array->get_typed_class_name();
-			Ref<Script> script_type = p_array->get_typed_script();
-
-			if (script_type.is_valid() && script_type->is_valid()) {
-				basestr += "[" + _get_script_name(script_type) + "]";
-			} else if (native_type != StringName()) {
-				basestr += "[" + native_type.operator String() + "]";
-			} else if (builtin_type != Variant::NIL) {
-				basestr += "[" + Variant::get_type_name(builtin_type) + "]";
+			if (builtin_type != Variant::NIL) {
+				basestr += "[" + _get_element_type(builtin_type, p_array->get_typed_class_name(), p_array->get_typed_script()) + "]";
 			}
 		} else {
 			basestr = Variant::get_type_name(p_var->get_type());
@@ -101,10 +104,7 @@ Variant GDScriptFunction::_get_default_variant_for_data_type(const GDScriptDataT
 			// Typed array.
 			if (p_data_type.has_container_element_type()) {
 				const GDScriptDataType &element_type = p_data_type.get_container_element_type();
-				array.set_typed(
-						element_type.kind == GDScriptDataType::BUILTIN ? element_type.builtin_type : Variant::OBJECT,
-						element_type.native_type,
-						element_type.script_type);
+				array.set_typed(element_type.builtin_type, element_type.native_type, element_type.script_type);
 			}
 
 			return array;
@@ -131,6 +131,8 @@ String GDScriptFunction::_get_call_error(const Callable::CallError &p_err, const
 #ifdef DEBUG_ENABLED
 		if (p_err.expected == Variant::OBJECT && argptrs[errorarg]->get_type() == p_err.expected) {
 			err_text = "Invalid type in " + p_where + ". The Object-derived class of argument " + itos(errorarg + 1) + " (" + _get_var_type(argptrs[errorarg]) + ") is not a subclass of the expected argument class.";
+		} else if (p_err.expected == Variant::ARRAY && argptrs[errorarg]->get_type() == p_err.expected) {
+			err_text = "Invalid type in " + p_where + ". The array of argument " + itos(errorarg + 1) + " (" + _get_var_type(argptrs[errorarg]) + ") does not have the same element type as the expected typed array argument.";
 		} else
 #endif // DEBUG_ENABLED
 		{
@@ -199,8 +201,10 @@ void (*type_init_function_table[])(Variant *) = {
 	static const void *switch_table_ops[] = {        \
 		&&OPCODE_OPERATOR,                           \
 		&&OPCODE_OPERATOR_VALIDATED,                 \
-		&&OPCODE_EXTENDS_TEST,                       \
-		&&OPCODE_IS_BUILTIN,                         \
+		&&OPCODE_TYPE_TEST_BUILTIN,                  \
+		&&OPCODE_TYPE_TEST_ARRAY,                    \
+		&&OPCODE_TYPE_TEST_NATIVE,                   \
+		&&OPCODE_TYPE_TEST_SCRIPT,                   \
 		&&OPCODE_SET_KEYED,                          \
 		&&OPCODE_SET_KEYED_VALIDATED,                \
 		&&OPCODE_SET_INDEXED_VALIDATED,              \
@@ -445,6 +449,9 @@ void (*type_init_function_table[])(Variant *) = {
 #define OP_GET_BASIS get_basis
 #define OP_GET_RID get_rid
 
+#define METHOD_CALL_ON_NULL_VALUE_ERROR(method_pointer) "Cannot call method '" + (method_pointer)->get_name() + "' on a null value."
+#define METHOD_CALL_ON_FREED_INSTANCE_ERROR(method_pointer) "Cannot call method '" + (method_pointer)->get_name() + "' on a previously freed instance."
+
 Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_args, int p_argcount, Callable::CallError &r_err, CallState *p_state) {
 	OPCODES_TABLE;
 
@@ -453,6 +460,33 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 	}
 
 	r_err.error = Callable::CallError::CALL_OK;
+
+	static thread_local int call_depth = 0;
+	if (unlikely(++call_depth > MAX_CALL_DEPTH)) {
+		call_depth--;
+#ifdef DEBUG_ENABLED
+		String err_file;
+		if (p_instance && ObjectDB::get_instance(p_instance->owner_id) != nullptr && p_instance->script->is_valid() && !p_instance->script->path.is_empty()) {
+			err_file = p_instance->script->path;
+		} else if (_script) {
+			err_file = _script->path;
+		}
+		if (err_file.is_empty()) {
+			err_file = "<built-in>";
+		}
+		String err_func = name;
+		if (p_instance && ObjectDB::get_instance(p_instance->owner_id) != nullptr && p_instance->script->is_valid() && !p_instance->script->name.is_empty()) {
+			err_func = p_instance->script->name + "." + err_func;
+		}
+		int err_line = _initial_line;
+		const char *err_text = "Stack overflow. Check for infinite recursion in your script.";
+		if (!GDScriptLanguage::get_singleton()->debug_break(err_text, false)) {
+			// Debugger break did not happen.
+			_err_print_error(err_func.utf8().get_data(), err_file.utf8().get_data(), err_line, err_text, false, ERR_HANDLER_SCRIPT);
+		}
+#endif
+		return _get_default_variant_for_data_type(return_type);
+	}
 
 	Variant retvalue;
 	Variant *stack = nullptr;
@@ -488,10 +522,12 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				r_err.error = Callable::CallError::CALL_ERROR_TOO_MANY_ARGUMENTS;
 				r_err.argument = _argument_count;
 
+				call_depth--;
 				return _get_default_variant_for_data_type(return_type);
 			} else if (p_argcount < _argument_count - _default_arg_count) {
 				r_err.error = Callable::CallError::CALL_ERROR_TOO_FEW_ARGUMENTS;
 				r_err.argument = _argument_count - _default_arg_count;
+				call_depth--;
 				return _get_default_variant_for_data_type(return_type);
 			} else {
 				defarg = _argument_count - p_argcount;
@@ -518,7 +554,8 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 			if (!argument_types[i].is_type(*p_args[i], true)) {
 				r_err.error = Callable::CallError::CALL_ERROR_INVALID_ARGUMENT;
 				r_err.argument = i;
-				r_err.expected = argument_types[i].kind == GDScriptDataType::BUILTIN ? argument_types[i].builtin_type : Variant::OBJECT;
+				r_err.expected = argument_types[i].builtin_type;
+				call_depth--;
 				return _get_default_variant_for_data_type(return_type);
 			}
 			if (argument_types[i].kind == GDScriptDataType::BUILTIN) {
@@ -708,91 +745,95 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 			}
 			DISPATCH_OPCODE;
 
-			OPCODE(OPCODE_EXTENDS_TEST) {
+			OPCODE(OPCODE_TYPE_TEST_BUILTIN) {
 				CHECK_SPACE(4);
 
-				GET_VARIANT_PTR(a, 0);
-				GET_VARIANT_PTR(b, 1);
-				GET_VARIANT_PTR(dst, 2);
+				GET_VARIANT_PTR(dst, 0);
+				GET_VARIANT_PTR(value, 1);
 
-#ifdef DEBUG_ENABLED
-				if (b->get_type() != Variant::OBJECT || b->operator Object *() == nullptr) {
-					err_text = "Right operand of 'is' is not a class.";
-					OPCODE_BREAK;
-				}
-#endif
+				Variant::Type builtin_type = (Variant::Type)_code_ptr[ip + 3];
+				GD_ERR_BREAK(builtin_type < 0 || builtin_type >= Variant::VARIANT_MAX);
 
-				bool extends_ok = false;
-				if (a->get_type() == Variant::OBJECT && a->operator Object *() != nullptr) {
-#ifdef DEBUG_ENABLED
-					bool was_freed;
-					Object *obj_A = a->get_validated_object_with_check(was_freed);
-
-					if (was_freed) {
-						err_text = "Left operand of 'is' is a previously freed instance.";
-						OPCODE_BREAK;
-					}
-
-					Object *obj_B = b->get_validated_object_with_check(was_freed);
-
-					if (was_freed) {
-						err_text = "Right operand of 'is' is a previously freed instance.";
-						OPCODE_BREAK;
-					}
-#else
-
-					Object *obj_A = *a;
-					Object *obj_B = *b;
-#endif // DEBUG_ENABLED
-
-					GDScript *scr_B = Object::cast_to<GDScript>(obj_B);
-
-					if (scr_B) {
-						//if B is a script, the only valid condition is that A has an instance which inherits from the script
-						//in other situation, this should return false.
-
-						if (obj_A->get_script_instance() && obj_A->get_script_instance()->get_language() == GDScriptLanguage::get_singleton()) {
-							GDScript *cmp = static_cast<GDScript *>(obj_A->get_script_instance()->get_script().ptr());
-							//bool found=false;
-							while (cmp) {
-								if (cmp == scr_B) {
-									//inherits from script, all ok
-									extends_ok = true;
-									break;
-								}
-
-								cmp = cmp->_base;
-							}
-						}
-
-					} else {
-						GDScriptNativeClass *nc = Object::cast_to<GDScriptNativeClass>(obj_B);
-
-#ifdef DEBUG_ENABLED
-						if (!nc) {
-							err_text = "Right operand of 'is' is not a class (type: '" + obj_B->get_class() + "').";
-							OPCODE_BREAK;
-						}
-#endif
-						extends_ok = ClassDB::is_parent_class(obj_A->get_class_name(), nc->get_name());
-					}
-				}
-
-				*dst = extends_ok;
+				*dst = value->get_type() == builtin_type;
 				ip += 4;
 			}
 			DISPATCH_OPCODE;
 
-			OPCODE(OPCODE_IS_BUILTIN) {
+			OPCODE(OPCODE_TYPE_TEST_ARRAY) {
+				CHECK_SPACE(6);
+
+				GET_VARIANT_PTR(dst, 0);
+				GET_VARIANT_PTR(value, 1);
+
+				GET_VARIANT_PTR(script_type, 2);
+				Variant::Type builtin_type = (Variant::Type)_code_ptr[ip + 4];
+				int native_type_idx = _code_ptr[ip + 5];
+				GD_ERR_BREAK(native_type_idx < 0 || native_type_idx >= _global_names_count);
+				const StringName native_type = _global_names_ptr[native_type_idx];
+
+				bool result = false;
+				if (value->get_type() == Variant::ARRAY) {
+					Array *array = VariantInternal::get_array(value);
+					result = array->get_typed_builtin() == ((uint32_t)builtin_type) && array->get_typed_class_name() == native_type && array->get_typed_script() == *script_type && array->get_typed_class_name() == native_type;
+				}
+
+				*dst = result;
+				ip += 6;
+			}
+			DISPATCH_OPCODE;
+
+			OPCODE(OPCODE_TYPE_TEST_NATIVE) {
 				CHECK_SPACE(4);
 
-				GET_VARIANT_PTR(value, 0);
-				GET_VARIANT_PTR(dst, 1);
-				Variant::Type var_type = (Variant::Type)_code_ptr[ip + 3];
+				GET_VARIANT_PTR(dst, 0);
+				GET_VARIANT_PTR(value, 1);
 
-				GD_ERR_BREAK(var_type < 0 || var_type >= Variant::VARIANT_MAX);
+				int native_type_idx = _code_ptr[ip + 3];
+				GD_ERR_BREAK(native_type_idx < 0 || native_type_idx >= _global_names_count);
+				const StringName native_type = _global_names_ptr[native_type_idx];
 
-				*dst = value->get_type() == var_type;
+				bool was_freed = false;
+				Object *object = value->get_validated_object_with_check(was_freed);
+				if (was_freed) {
+					err_text = "Left operand of 'is' is a previously freed instance.";
+					OPCODE_BREAK;
+				}
+
+				*dst = object && ClassDB::is_parent_class(object->get_class_name(), native_type);
+				ip += 4;
+			}
+			DISPATCH_OPCODE;
+
+			OPCODE(OPCODE_TYPE_TEST_SCRIPT) {
+				CHECK_SPACE(4);
+
+				GET_VARIANT_PTR(dst, 0);
+				GET_VARIANT_PTR(value, 1);
+
+				GET_VARIANT_PTR(type, 2);
+				Script *script_type = Object::cast_to<Script>(type->operator Object *());
+				GD_ERR_BREAK(!script_type);
+
+				bool was_freed = false;
+				Object *object = value->get_validated_object_with_check(was_freed);
+				if (was_freed) {
+					err_text = "Left operand of 'is' is a previously freed instance.";
+					OPCODE_BREAK;
+				}
+
+				bool result = false;
+				if (object && object->get_script_instance()) {
+					Script *script_ptr = object->get_script_instance()->get_script().ptr();
+					while (script_ptr) {
+						if (script_ptr == script_type) {
+							result = true;
+							break;
+						}
+						script_ptr = script_ptr->get_base_script().ptr();
+					}
+				}
+
+				*dst = result;
 				ip += 4;
 			}
 			DISPATCH_OPCODE;
@@ -809,13 +850,22 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 
 #ifdef DEBUG_ENABLED
 				if (!valid) {
+					Object *obj = dst->get_validated_object();
 					String v = index->operator String();
-					if (!v.is_empty()) {
-						v = "'" + v + "'";
-					} else {
-						v = "of type '" + _get_var_type(index) + "'";
+					bool read_only_property = false;
+					if (obj) {
+						read_only_property = ClassDB::has_property(obj->get_class_name(), v) && (ClassDB::get_property_setter(obj->get_class_name(), v) == StringName());
 					}
-					err_text = "Invalid set index " + v + " (on base: '" + _get_var_type(dst) + "') with value of type '" + _get_var_type(value) + "'";
+					if (read_only_property) {
+						err_text = vformat(R"(Cannot set value into property "%s" (on base "%s") because it is read-only.)", v, _get_var_type(dst));
+					} else {
+						if (!v.is_empty()) {
+							v = "'" + v + "'";
+						} else {
+							v = "of type '" + _get_var_type(index) + "'";
+						}
+						err_text = "Invalid set index " + v + " (on base: '" + _get_var_type(dst) + "') with value of type '" + _get_var_type(value) + "'";
+					}
 					OPCODE_BREAK;
 				}
 #endif
@@ -1001,8 +1051,16 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 
 #ifdef DEBUG_ENABLED
 				if (!valid) {
-					String err_type;
-					err_text = "Invalid set index '" + String(*index) + "' (on base: '" + _get_var_type(dst) + "') with value of type '" + _get_var_type(value) + "'.";
+					Object *obj = dst->get_validated_object();
+					bool read_only_property = false;
+					if (obj) {
+						read_only_property = ClassDB::has_property(obj->get_class_name(), *index) && (ClassDB::get_property_setter(obj->get_class_name(), *index) == StringName());
+					}
+					if (read_only_property) {
+						err_text = vformat(R"(Cannot set value into property "%s" (on base "%s") because it is read-only.)", String(*index), _get_var_type(dst));
+					} else {
+						err_text = "Invalid set index '" + String(*index) + "' (on base: '" + _get_var_type(dst) + "') with value of type '" + _get_var_type(value) + "'.";
+					}
 					OPCODE_BREAK;
 				}
 #endif
@@ -1174,27 +1232,37 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 			DISPATCH_OPCODE;
 
 			OPCODE(OPCODE_ASSIGN_TYPED_ARRAY) {
-				CHECK_SPACE(3);
+				CHECK_SPACE(6);
 				GET_VARIANT_PTR(dst, 0);
 				GET_VARIANT_PTR(src, 1);
 
-				Array *dst_arr = VariantInternal::get_array(dst);
+				GET_VARIANT_PTR(script_type, 2);
+				Variant::Type builtin_type = (Variant::Type)_code_ptr[ip + 4];
+				int native_type_idx = _code_ptr[ip + 5];
+				GD_ERR_BREAK(native_type_idx < 0 || native_type_idx >= _global_names_count);
+				const StringName native_type = _global_names_ptr[native_type_idx];
 
 				if (src->get_type() != Variant::ARRAY) {
 #ifdef DEBUG_ENABLED
-					err_text = "Trying to assign value of type '" + Variant::get_type_name(src->get_type()) +
-							"' to a variable of type '" + +"'.";
-#endif
-					OPCODE_BREAK;
-				}
-				if (!dst_arr->typed_assign(*src)) {
-#ifdef DEBUG_ENABLED
-					err_text = "Trying to assign a typed array with an array of different type.'";
-#endif
+					err_text = vformat(R"(Trying to assign a value of type "%s" to a variable of type "Array[%s]".)",
+							_get_var_type(src), _get_element_type(builtin_type, native_type, *script_type));
+#endif // DEBUG_ENABLED
 					OPCODE_BREAK;
 				}
 
-				ip += 3;
+				Array *array = VariantInternal::get_array(src);
+
+				if (array->get_typed_builtin() != ((uint32_t)builtin_type) || array->get_typed_class_name() != native_type || array->get_typed_script() != *script_type || array->get_typed_class_name() != native_type) {
+#ifdef DEBUG_ENABLED
+					err_text = vformat(R"(Trying to assign an array of type "%s" to a variable of type "Array[%s]".)",
+							_get_var_type(src), _get_element_type(builtin_type, native_type, *script_type));
+#endif // DEBUG_ENABLED
+					OPCODE_BREAK;
+				}
+
+				*dst = *src;
+
+				ip += 6;
 			}
 			DISPATCH_OPCODE;
 
@@ -1212,12 +1280,20 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 							"' to a variable of type '" + nc->get_name() + "'.";
 					OPCODE_BREAK;
 				}
-				Object *src_obj = src->operator Object *();
 
-				if (src_obj && !ClassDB::is_parent_class(src_obj->get_class_name(), nc->get_name())) {
-					err_text = "Trying to assign value of type '" + src_obj->get_class_name() +
-							"' to a variable of type '" + nc->get_name() + "'.";
-					OPCODE_BREAK;
+				if (src->get_type() == Variant::OBJECT) {
+					bool was_freed = false;
+					Object *src_obj = src->get_validated_object_with_check(was_freed);
+					if (!src_obj && was_freed) {
+						err_text = "Trying to assign invalid previously freed instance.";
+						OPCODE_BREAK;
+					}
+
+					if (src_obj && !ClassDB::is_parent_class(src_obj->get_class_name(), nc->get_name())) {
+						err_text = "Trying to assign value of type '" + src_obj->get_class_name() +
+								"' to a variable of type '" + nc->get_name() + "'.";
+						OPCODE_BREAK;
+					}
 				}
 #endif // DEBUG_ENABLED
 				*dst = *src;
@@ -1242,29 +1318,38 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 					OPCODE_BREAK;
 				}
 
-				if (src->get_type() != Variant::NIL && src->operator Object *() != nullptr) {
-					ScriptInstance *scr_inst = src->operator Object *()->get_script_instance();
-					if (!scr_inst) {
-						err_text = "Trying to assign value of type '" + src->operator Object *()->get_class_name() +
-								"' to a variable of type '" + base_type->get_path().get_file() + "'.";
+				if (src->get_type() == Variant::OBJECT) {
+					bool was_freed = false;
+					Object *val_obj = src->get_validated_object_with_check(was_freed);
+					if (!val_obj && was_freed) {
+						err_text = "Trying to assign invalid previously freed instance.";
 						OPCODE_BREAK;
 					}
 
-					Script *src_type = src->operator Object *()->get_script_instance()->get_script().ptr();
-					bool valid = false;
-
-					while (src_type) {
-						if (src_type == base_type) {
-							valid = true;
-							break;
+					if (val_obj) { // src is not null
+						ScriptInstance *scr_inst = val_obj->get_script_instance();
+						if (!scr_inst) {
+							err_text = "Trying to assign value of type '" + val_obj->get_class_name() +
+									"' to a variable of type '" + base_type->get_path().get_file() + "'.";
+							OPCODE_BREAK;
 						}
-						src_type = src_type->get_base_script().ptr();
-					}
 
-					if (!valid) {
-						err_text = "Trying to assign value of type '" + src->operator Object *()->get_script_instance()->get_script()->get_path().get_file() +
-								"' to a variable of type '" + base_type->get_path().get_file() + "'.";
-						OPCODE_BREAK;
+						Script *src_type = scr_inst->get_script().ptr();
+						bool valid = false;
+
+						while (src_type) {
+							if (src_type == base_type) {
+								valid = true;
+								break;
+							}
+							src_type = src_type->get_base_script().ptr();
+						}
+
+						if (!valid) {
+							err_text = "Trying to assign value of type '" + val_obj->get_script_instance()->get_script()->get_path().get_file() +
+									"' to a variable of type '" + base_type->get_path().get_file() + "'.";
+							OPCODE_BREAK;
+						}
 					}
 				}
 #endif // DEBUG_ENABLED
@@ -1469,9 +1554,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				const StringName native_type = _global_names_ptr[native_type_idx];
 
 				Array array;
-				array.set_typed(builtin_type, native_type, *script_type);
 				array.resize(argc);
-
 				for (int i = 0; i < argc; i++) {
 					array[i] = *(instruction_args[i]);
 				}
@@ -1479,7 +1562,7 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				GET_INSTRUCTION_ARG(dst, argc);
 				*dst = Variant(); // Clear potential previous typed array.
 
-				*dst = array;
+				*dst = Array(array, builtin_type, native_type, *script_type);
 
 				ip += 4;
 			}
@@ -1648,10 +1731,10 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				bool freed = false;
 				Object *base_obj = base->get_validated_object_with_check(freed);
 				if (freed) {
-					err_text = "Trying to call a function on a previously freed instance.";
+					err_text = METHOD_CALL_ON_FREED_INSTANCE_ERROR(method);
 					OPCODE_BREAK;
 				} else if (!base_obj) {
-					err_text = "Trying to call a function on a null value.";
+					err_text = METHOD_CALL_ON_NULL_VALUE_ERROR(method);
 					OPCODE_BREAK;
 				}
 #else
@@ -1812,10 +1895,10 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 		bool freed = false;                                                          \
 		Object *base_obj = base->get_validated_object_with_check(freed);             \
 		if (freed) {                                                                 \
-			err_text = "Trying to call a function on a previously freed instance.";  \
+			err_text = METHOD_CALL_ON_FREED_INSTANCE_ERROR(method);                  \
 			OPCODE_BREAK;                                                            \
 		} else if (!base_obj) {                                                      \
-			err_text = "Trying to call a function on a null value.";                 \
+			err_text = METHOD_CALL_ON_NULL_VALUE_ERROR(method);                      \
 			OPCODE_BREAK;                                                            \
 		}                                                                            \
 		const void **argptrs = call_args_ptr;                                        \
@@ -1914,10 +1997,10 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				bool freed = false;
 				Object *base_obj = base->get_validated_object_with_check(freed);
 				if (freed) {
-					err_text = "Trying to call a function on a previously freed instance.";
+					err_text = METHOD_CALL_ON_FREED_INSTANCE_ERROR(method);
 					OPCODE_BREAK;
 				} else if (!base_obj) {
-					err_text = "Trying to call a function on a null value.";
+					err_text = METHOD_CALL_ON_NULL_VALUE_ERROR(method);
 					OPCODE_BREAK;
 				}
 #else
@@ -1942,7 +2025,13 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				VariantInternal::initialize(ret, Variant::OBJECT);
 				Object **ret_opaque = VariantInternal::get_object(ret);
 				method->ptrcall(base_obj, argptrs, ret_opaque);
-				VariantInternal::update_object_id(ret);
+				if (method->is_return_type_raw_object_ptr()) {
+					// The Variant has to participate in the ref count since the method returns a raw Object *.
+					VariantInternal::object_assign(ret, *ret_opaque);
+				} else {
+					// The method, in case it returns something, returns an already encapsulated object.
+					VariantInternal::update_object_id(ret);
+				}
 
 #ifdef DEBUG_ENABLED
 				if (GDScriptLanguage::get_singleton()->profiling) {
@@ -1969,10 +2058,10 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 				bool freed = false;
 				Object *base_obj = base->get_validated_object_with_check(freed);
 				if (freed) {
-					err_text = "Trying to call a function on a previously freed instance.";
+					err_text = METHOD_CALL_ON_FREED_INSTANCE_ERROR(method);
 					OPCODE_BREAK;
 				} else if (!base_obj) {
-					err_text = "Trying to call a function on a null value.";
+					err_text = METHOD_CALL_ON_NULL_VALUE_ERROR(method);
 					OPCODE_BREAK;
 				}
 #else
@@ -2486,30 +2575,25 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 
 				if (r->get_type() != Variant::ARRAY) {
 #ifdef DEBUG_ENABLED
-					err_text = vformat(R"(Trying to return value of type "%s" from a function which the return type is "Array[%s]".)",
-							Variant::get_type_name(r->get_type()), Variant::get_type_name(builtin_type));
-#endif
-					OPCODE_BREAK;
-				}
-
-				Array array;
-				array.set_typed(builtin_type, native_type, *script_type);
-
-#ifdef DEBUG_ENABLED
-				bool valid = array.typed_assign(*VariantInternal::get_array(r));
-#else
-				array.typed_assign(*VariantInternal::get_array(r));
+					err_text = vformat(R"(Trying to return a value of type "%s" where expected return type is "Array[%s]".)",
+							_get_var_type(r), _get_element_type(builtin_type, native_type, *script_type));
 #endif // DEBUG_ENABLED
-
-				// Assign the return value anyway since we want it to be the valid type.
-				retvalue = array;
-
-#ifdef DEBUG_ENABLED
-				if (!valid) {
-					err_text = "Trying to return a typed array with an array of different type.'";
 					OPCODE_BREAK;
 				}
 
+				Array *array = VariantInternal::get_array(r);
+
+				if (array->get_typed_builtin() != ((uint32_t)builtin_type) || array->get_typed_class_name() != native_type || array->get_typed_script() != *script_type || array->get_typed_class_name() != native_type) {
+#ifdef DEBUG_ENABLED
+					err_text = vformat(R"(Trying to return an array of type "%s" where expected return type is "Array[%s]".)",
+							_get_var_type(r), _get_element_type(builtin_type, native_type, *script_type));
+#endif // DEBUG_ENABLED
+					OPCODE_BREAK;
+				}
+
+				retvalue = *array;
+
+#ifdef DEBUG_ENABLED
 				exit_ok = true;
 #endif // DEBUG_ENABLED
 				OPCODE_BREAK;
@@ -3405,7 +3489,10 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 					String message_str;
 					if (_code_ptr[ip + 2] != 0) {
 						GET_VARIANT_PTR(message, 1);
-						message_str = *message;
+						Variant message_var = *message;
+						if (message->get_type() != Variant::NIL) {
+							message_str = message_var;
+						}
 					}
 					if (message_str.is_empty()) {
 						err_text = "Assertion failed.";
@@ -3547,6 +3634,8 @@ Variant GDScriptFunction::call(GDScriptInstance *p_instance, const Variant **p_a
 	for (int i = 0; i < 3; i++) {
 		stack[i].~Variant();
 	}
+
+	call_depth--;
 
 	return retvalue;
 }

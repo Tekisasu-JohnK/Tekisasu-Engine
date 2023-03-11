@@ -29,10 +29,7 @@
 /**************************************************************************/
 
 #include "navigation_server_3d.h"
-
-#ifdef DEBUG_ENABLED
 #include "core/config/project_settings.h"
-#endif // DEBUG_ENABLED
 
 NavigationServer3D *NavigationServer3D::singleton = nullptr;
 
@@ -90,10 +87,10 @@ void NavigationServer3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("link_is_bidirectional", "link"), &NavigationServer3D::link_is_bidirectional);
 	ClassDB::bind_method(D_METHOD("link_set_navigation_layers", "link", "navigation_layers"), &NavigationServer3D::link_set_navigation_layers);
 	ClassDB::bind_method(D_METHOD("link_get_navigation_layers", "link"), &NavigationServer3D::link_get_navigation_layers);
-	ClassDB::bind_method(D_METHOD("link_set_start_location", "link", "location"), &NavigationServer3D::link_set_start_location);
-	ClassDB::bind_method(D_METHOD("link_get_start_location", "link"), &NavigationServer3D::link_get_start_location);
-	ClassDB::bind_method(D_METHOD("link_set_end_location", "link", "location"), &NavigationServer3D::link_set_end_location);
-	ClassDB::bind_method(D_METHOD("link_get_end_location", "link"), &NavigationServer3D::link_get_end_location);
+	ClassDB::bind_method(D_METHOD("link_set_start_position", "link", "position"), &NavigationServer3D::link_set_start_position);
+	ClassDB::bind_method(D_METHOD("link_get_start_position", "link"), &NavigationServer3D::link_get_start_position);
+	ClassDB::bind_method(D_METHOD("link_set_end_position", "link", "position"), &NavigationServer3D::link_set_end_position);
+	ClassDB::bind_method(D_METHOD("link_get_end_position", "link"), &NavigationServer3D::link_get_end_position);
 	ClassDB::bind_method(D_METHOD("link_set_enter_cost", "link", "enter_cost"), &NavigationServer3D::link_set_enter_cost);
 	ClassDB::bind_method(D_METHOD("link_get_enter_cost", "link"), &NavigationServer3D::link_get_enter_cost);
 	ClassDB::bind_method(D_METHOD("link_set_travel_cost", "link", "travel_cost"), &NavigationServer3D::link_set_travel_cost);
@@ -113,12 +110,14 @@ void NavigationServer3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("agent_set_target_velocity", "agent", "target_velocity"), &NavigationServer3D::agent_set_target_velocity);
 	ClassDB::bind_method(D_METHOD("agent_set_position", "agent", "position"), &NavigationServer3D::agent_set_position);
 	ClassDB::bind_method(D_METHOD("agent_is_map_changed", "agent"), &NavigationServer3D::agent_is_map_changed);
-	ClassDB::bind_method(D_METHOD("agent_set_callback", "agent", "object_id", "method", "userdata"), &NavigationServer3D::agent_set_callback, DEFVAL(Variant()));
+	ClassDB::bind_method(D_METHOD("agent_set_callback", "agent", "callback"), &NavigationServer3D::agent_set_callback);
 
 	ClassDB::bind_method(D_METHOD("free_rid", "rid"), &NavigationServer3D::free);
 
 	ClassDB::bind_method(D_METHOD("set_active", "active"), &NavigationServer3D::set_active);
-	ClassDB::bind_method(D_METHOD("process", "delta_time"), &NavigationServer3D::process);
+
+	ClassDB::bind_method(D_METHOD("set_debug_enabled", "enabled"), &NavigationServer3D::set_debug_enabled);
+	ClassDB::bind_method(D_METHOD("get_debug_enabled"), &NavigationServer3D::get_debug_enabled);
 
 	ADD_SIGNAL(MethodInfo("map_changed", PropertyInfo(Variant::RID, "map")));
 
@@ -145,6 +144,14 @@ NavigationServer3D::NavigationServer3D() {
 	ERR_FAIL_COND(singleton != nullptr);
 	singleton = this;
 
+	GLOBAL_DEF("navigation/2d/default_cell_size", 1);
+	GLOBAL_DEF("navigation/2d/default_edge_connection_margin", 1);
+	GLOBAL_DEF("navigation/2d/default_link_connection_radius", 4);
+
+	GLOBAL_DEF("navigation/3d/default_cell_size", 0.25);
+	GLOBAL_DEF("navigation/3d/default_edge_connection_margin", 0.25);
+	GLOBAL_DEF("navigation/3d/default_link_connection_radius", 1.0);
+
 #ifdef DEBUG_ENABLED
 	debug_navigation_edge_connection_color = GLOBAL_DEF("debug/shapes/navigation/edge_connection_color", Color(1.0, 0.0, 1.0, 1.0));
 	debug_navigation_geometry_edge_color = GLOBAL_DEF("debug/shapes/navigation/geometry_edge_color", Color(0.5, 1.0, 1.0, 1.0));
@@ -153,6 +160,7 @@ NavigationServer3D::NavigationServer3D() {
 	debug_navigation_geometry_face_disabled_color = GLOBAL_DEF("debug/shapes/navigation/geometry_face_disabled_color", Color(0.5, 0.5, 0.5, 0.4));
 	debug_navigation_link_connection_color = GLOBAL_DEF("debug/shapes/navigation/link_connection_color", Color(1.0, 0.5, 1.0, 1.0));
 	debug_navigation_link_connection_disabled_color = GLOBAL_DEF("debug/shapes/navigation/link_connection_disabled_color", Color(0.5, 0.5, 0.5, 1.0));
+	debug_navigation_agent_path_color = GLOBAL_DEF("debug/shapes/navigation/agent_path_color", Color(1.0, 0.0, 0.0, 1.0));
 
 	debug_navigation_enable_edge_connections = GLOBAL_DEF("debug/shapes/navigation/enable_edge_connections", true);
 	debug_navigation_enable_edge_connections_xray = GLOBAL_DEF("debug/shapes/navigation/enable_edge_connections_xray", true);
@@ -161,6 +169,11 @@ NavigationServer3D::NavigationServer3D() {
 	debug_navigation_enable_geometry_face_random_color = GLOBAL_DEF("debug/shapes/navigation/enable_geometry_face_random_color", true);
 	debug_navigation_enable_link_connections = GLOBAL_DEF("debug/shapes/navigation/enable_link_connections", true);
 	debug_navigation_enable_link_connections_xray = GLOBAL_DEF("debug/shapes/navigation/enable_link_connections_xray", true);
+
+	debug_navigation_enable_agent_paths = GLOBAL_DEF("debug/shapes/navigation/enable_agent_paths", true);
+	debug_navigation_enable_agent_paths_xray = GLOBAL_DEF("debug/shapes/navigation/enable_agent_paths_xray", true);
+
+	debug_navigation_agent_path_point_size = GLOBAL_DEF("debug/shapes/navigation/agent_path_point_size", 4.0);
 
 	if (Engine::get_singleton()->is_editor_hint()) {
 		// enable NavigationServer3D when in Editor or else navigation mesh edge connections are invisible
@@ -174,15 +187,22 @@ NavigationServer3D::~NavigationServer3D() {
 	singleton = nullptr;
 }
 
-NavigationServer3DCallback NavigationServer3DManager::create_callback = nullptr;
+void NavigationServer3D::set_debug_enabled(bool p_enabled) {
+#ifdef DEBUG_ENABLED
+	if (debug_enabled != p_enabled) {
+		debug_dirty = true;
+	}
 
-void NavigationServer3DManager::set_default_server(NavigationServer3DCallback p_callback) {
-	create_callback = p_callback;
+	debug_enabled = p_enabled;
+
+	if (debug_dirty) {
+		call_deferred("_emit_navigation_debug_changed_signal");
+	}
+#endif // DEBUG_ENABLED
 }
 
-NavigationServer3D *NavigationServer3DManager::new_default_server() {
-	ERR_FAIL_COND_V(create_callback == nullptr, nullptr);
-	return create_callback();
+bool NavigationServer3D::get_debug_enabled() const {
+	return debug_enabled;
 }
 
 #ifdef DEBUG_ENABLED
@@ -323,6 +343,42 @@ Ref<StandardMaterial3D> NavigationServer3D::get_debug_navigation_link_connection
 	return debug_navigation_link_connections_disabled_material;
 }
 
+Ref<StandardMaterial3D> NavigationServer3D::get_debug_navigation_agent_path_line_material() {
+	if (debug_navigation_agent_path_line_material.is_valid()) {
+		return debug_navigation_agent_path_line_material;
+	}
+
+	Ref<StandardMaterial3D> material = Ref<StandardMaterial3D>(memnew(StandardMaterial3D));
+	material->set_shading_mode(StandardMaterial3D::SHADING_MODE_UNSHADED);
+	material->set_albedo(debug_navigation_agent_path_color);
+	if (debug_navigation_enable_agent_paths_xray) {
+		material->set_flag(StandardMaterial3D::FLAG_DISABLE_DEPTH_TEST, true);
+	}
+	material->set_render_priority(StandardMaterial3D::RENDER_PRIORITY_MAX - 2);
+
+	debug_navigation_agent_path_line_material = material;
+	return debug_navigation_agent_path_line_material;
+}
+
+Ref<StandardMaterial3D> NavigationServer3D::get_debug_navigation_agent_path_point_material() {
+	if (debug_navigation_agent_path_point_material.is_valid()) {
+		return debug_navigation_agent_path_point_material;
+	}
+
+	Ref<StandardMaterial3D> material = Ref<StandardMaterial3D>(memnew(StandardMaterial3D));
+	material->set_shading_mode(StandardMaterial3D::SHADING_MODE_UNSHADED);
+	material->set_albedo(debug_navigation_agent_path_color);
+	material->set_flag(StandardMaterial3D::FLAG_USE_POINT_SIZE, true);
+	material->set_point_size(debug_navigation_agent_path_point_size);
+	if (debug_navigation_enable_agent_paths_xray) {
+		material->set_flag(StandardMaterial3D::FLAG_DISABLE_DEPTH_TEST, true);
+	}
+	material->set_render_priority(StandardMaterial3D::RENDER_PRIORITY_MAX - 2);
+
+	debug_navigation_agent_path_point_material = material;
+	return debug_navigation_agent_path_point_material;
+}
+
 void NavigationServer3D::set_debug_navigation_edge_connection_color(const Color &p_color) {
 	debug_navigation_edge_connection_color = p_color;
 	if (debug_navigation_edge_connections_material.is_valid()) {
@@ -400,6 +456,31 @@ Color NavigationServer3D::get_debug_navigation_link_connection_disabled_color() 
 	return debug_navigation_link_connection_disabled_color;
 }
 
+void NavigationServer3D::set_debug_navigation_agent_path_point_size(float p_point_size) {
+	debug_navigation_agent_path_point_size = MAX(0.1, p_point_size);
+	if (debug_navigation_agent_path_point_material.is_valid()) {
+		debug_navigation_agent_path_point_material->set_point_size(debug_navigation_agent_path_point_size);
+	}
+}
+
+float NavigationServer3D::get_debug_navigation_agent_path_point_size() const {
+	return debug_navigation_agent_path_point_size;
+}
+
+void NavigationServer3D::set_debug_navigation_agent_path_color(const Color &p_color) {
+	debug_navigation_agent_path_color = p_color;
+	if (debug_navigation_agent_path_line_material.is_valid()) {
+		debug_navigation_agent_path_line_material->set_albedo(debug_navigation_agent_path_color);
+	}
+	if (debug_navigation_agent_path_point_material.is_valid()) {
+		debug_navigation_agent_path_point_material->set_albedo(debug_navigation_agent_path_color);
+	}
+}
+
+Color NavigationServer3D::get_debug_navigation_agent_path_color() const {
+	return debug_navigation_agent_path_color;
+}
+
 void NavigationServer3D::set_debug_navigation_enable_edge_connections(const bool p_value) {
 	debug_navigation_enable_edge_connections = p_value;
 	debug_dirty = true;
@@ -473,24 +554,37 @@ bool NavigationServer3D::get_debug_navigation_enable_link_connections_xray() con
 	return debug_navigation_enable_link_connections_xray;
 }
 
-void NavigationServer3D::set_debug_enabled(bool p_enabled) {
-	if (debug_enabled != p_enabled) {
+void NavigationServer3D::set_debug_navigation_enable_agent_paths(const bool p_value) {
+	if (debug_navigation_enable_agent_paths != p_value) {
 		debug_dirty = true;
 	}
 
-	debug_enabled = p_enabled;
+	debug_navigation_enable_agent_paths = p_value;
 
 	if (debug_dirty) {
 		call_deferred("_emit_navigation_debug_changed_signal");
 	}
 }
 
-bool NavigationServer3D::get_debug_enabled() const {
-	return debug_enabled;
+bool NavigationServer3D::get_debug_navigation_enable_agent_paths() const {
+	return debug_navigation_enable_agent_paths;
 }
-#endif // DEBUG_ENABLED
 
-///////////////////////////////////////////////////////
+void NavigationServer3D::set_debug_navigation_enable_agent_paths_xray(const bool p_value) {
+	debug_navigation_enable_agent_paths_xray = p_value;
+	if (debug_navigation_agent_path_line_material.is_valid()) {
+		debug_navigation_agent_path_line_material->set_flag(StandardMaterial3D::FLAG_DISABLE_DEPTH_TEST, debug_navigation_enable_agent_paths_xray);
+	}
+	if (debug_navigation_agent_path_point_material.is_valid()) {
+		debug_navigation_agent_path_point_material->set_flag(StandardMaterial3D::FLAG_DISABLE_DEPTH_TEST, debug_navigation_enable_agent_paths_xray);
+	}
+}
+
+bool NavigationServer3D::get_debug_navigation_enable_agent_paths_xray() const {
+	return debug_navigation_enable_agent_paths_xray;
+}
+
+#endif // DEBUG_ENABLED
 
 void NavigationServer3D::query_path(const Ref<NavigationPathQueryParameters3D> &p_query_parameters, Ref<NavigationPathQueryResult3D> p_query_result) const {
 	ERR_FAIL_COND(!p_query_parameters.is_valid());
@@ -502,4 +596,20 @@ void NavigationServer3D::query_path(const Ref<NavigationPathQueryParameters3D> &
 	p_query_result->set_path_types(_query_result.path_types);
 	p_query_result->set_path_rids(_query_result.path_rids);
 	p_query_result->set_path_owner_ids(_query_result.path_owner_ids);
+}
+
+///////////////////////////////////////////////////////
+
+NavigationServer3DCallback NavigationServer3DManager::create_callback = nullptr;
+
+void NavigationServer3DManager::set_default_server(NavigationServer3DCallback p_callback) {
+	create_callback = p_callback;
+}
+
+NavigationServer3D *NavigationServer3DManager::new_default_server() {
+	if (create_callback == nullptr) {
+		return nullptr;
+	}
+
+	return create_callback();
 }

@@ -159,6 +159,9 @@ class TextServerAdvanced : public TextServerExtension {
 	// ICU support data.
 
 	bool icu_data_loaded = false;
+	mutable USet *allowed = nullptr;
+	mutable USpoofChecker *sc_spoof = nullptr;
+	mutable USpoofChecker *sc_conf = nullptr;
 
 	// Font cache data.
 
@@ -466,7 +469,7 @@ class TextServerAdvanced : public TextServerExtension {
 			int pos = 0;
 			InlineAlignment inline_align = INLINE_ALIGNMENT_CENTER;
 			Rect2 rect;
-			float baseline = 0;
+			double baseline = 0;
 		};
 		HashMap<Variant, EmbeddedObject, VariantHasher, VariantComparator> objects;
 
@@ -868,8 +871,8 @@ public:
 	MODBIND2RC(int64_t, shaped_text_get_spacing, const RID &, SpacingType);
 
 	MODBIND7R(bool, shaped_text_add_string, const RID &, const String &, const TypedArray<RID> &, int64_t, const Dictionary &, const String &, const Variant &);
-	MODBIND6R(bool, shaped_text_add_object, const RID &, const Variant &, const Size2 &, InlineAlignment, int64_t, float);
-	MODBIND5R(bool, shaped_text_resize_object, const RID &, const Variant &, const Size2 &, InlineAlignment, float);
+	MODBIND6R(bool, shaped_text_add_object, const RID &, const Variant &, const Size2 &, InlineAlignment, int64_t, double);
+	MODBIND5R(bool, shaped_text_resize_object, const RID &, const Variant &, const Size2 &, InlineAlignment, double);
 
 	MODBIND1RC(int64_t, shaped_get_span_count, const RID &);
 	MODBIND2RC(Variant, shaped_get_span_meta, const RID &, int64_t);
@@ -914,7 +917,7 @@ public:
 	MODBIND2RC(String, parse_number, const String &, const String &);
 	MODBIND1RC(String, percent_sign, const String &);
 
-	MODBIND3RC(PackedInt32Array, string_get_word_breaks, const String &, const String &, int);
+	MODBIND3RC(PackedInt32Array, string_get_word_breaks, const String &, const String &, int64_t);
 
 	MODBIND2RC(int64_t, is_confusable, const String &, const PackedStringArray &);
 	MODBIND1RC(bool, spoof_check, const String &);

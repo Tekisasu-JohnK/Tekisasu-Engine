@@ -253,6 +253,11 @@ void RendererSceneRenderRD::_render_buffers_copy_screen_texture(const RenderData
 	Ref<RenderSceneBuffersRD> rb = p_render_data->render_buffers;
 	ERR_FAIL_COND(rb.is_null());
 
+	if (!rb->has_internal_texture()) {
+		// We're likely rendering reflection probes where we can't use our backbuffers.
+		return;
+	}
+
 	RD::get_singleton()->draw_command_begin_label("Copy screen texture");
 
 	rb->allocate_blur_textures();
@@ -275,7 +280,7 @@ void RendererSceneRenderRD::_render_buffers_copy_screen_texture(const RenderData
 		for (int i = 1; i < mipmaps; i++) {
 			RID source = dest;
 			dest = rb->get_texture_slice(RB_SCOPE_BUFFERS, RB_TEX_BLUR_0, v, i);
-			Size2i msize = rb->get_texture_slice_size(RB_SCOPE_BUFFERS, RB_TEX_BLUR_0, v, i);
+			Size2i msize = rb->get_texture_slice_size(RB_SCOPE_BUFFERS, RB_TEX_BLUR_0, i);
 
 			if (can_use_storage) {
 				copy_effects->make_mipmap(source, dest, msize);
@@ -291,6 +296,11 @@ void RendererSceneRenderRD::_render_buffers_copy_screen_texture(const RenderData
 void RendererSceneRenderRD::_render_buffers_copy_depth_texture(const RenderDataRD *p_render_data) {
 	Ref<RenderSceneBuffersRD> rb = p_render_data->render_buffers;
 	ERR_FAIL_COND(rb.is_null());
+
+	if (!rb->has_depth_texture()) {
+		// We're likely rendering reflection probes where we can't use our backbuffers.
+		return;
+	}
 
 	RD::get_singleton()->draw_command_begin_label("Copy depth texture");
 
@@ -321,8 +331,12 @@ void RendererSceneRenderRD::_render_buffers_copy_depth_texture(const RenderDataR
 void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const RenderDataRD *p_render_data) {
 	RendererRD::TextureStorage *texture_storage = RendererRD::TextureStorage::get_singleton();
 
+	ERR_FAIL_NULL(p_render_data);
+
 	Ref<RenderSceneBuffersRD> rb = p_render_data->render_buffers;
 	ERR_FAIL_COND(rb.is_null());
+
+	ERR_FAIL_COND_MSG(p_render_data->reflection_probe.is_valid(), "Post processes should not be applied on reflection probes.");
 
 	// Glow, auto exposure and DoF (if enabled).
 
@@ -434,7 +448,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
 		float luminance_multiplier = _render_buffers_get_luminance_multiplier();
 		for (uint32_t l = 0; l < rb->get_view_count(); l++) {
 			for (int i = 0; i < (max_glow_level + 1); i++) {
-				Size2i vp_size = rb->get_texture_slice_size(RB_SCOPE_BUFFERS, RB_TEX_BLUR_1, l, i);
+				Size2i vp_size = rb->get_texture_slice_size(RB_SCOPE_BUFFERS, RB_TEX_BLUR_1, i);
 
 				if (i == 0) {
 					RID luminance_texture;
@@ -488,7 +502,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
 				tonemap.glow_levels[i] = environment_get_glow_levels(p_render_data->environment)[i];
 			}
 
-			Size2i msize = rb->get_texture_slice_size(RB_SCOPE_BUFFERS, RB_TEX_BLUR_1, 0, 0);
+			Size2i msize = rb->get_texture_slice_size(RB_SCOPE_BUFFERS, RB_TEX_BLUR_1, 0);
 			tonemap.glow_texture_size.x = msize.width;
 			tonemap.glow_texture_size.y = msize.height;
 			tonemap.glow_use_bicubic_upscale = glow_bicubic_upscale;
@@ -918,11 +932,9 @@ void RendererSceneRenderRD::render_scene(const Ref<RenderSceneBuffers> &p_render
 	RendererRD::TextureStorage *texture_storage = RendererRD::TextureStorage::get_singleton();
 
 	// getting this here now so we can direct call a bunch of things more easily
-	Ref<RenderSceneBuffersRD> rb;
-	if (p_render_buffers.is_valid()) {
-		rb = p_render_buffers; // cast it...
-		ERR_FAIL_COND(rb.is_null());
-	}
+	ERR_FAIL_COND(p_render_buffers.is_null());
+	Ref<RenderSceneBuffersRD> rb = p_render_buffers;
+	ERR_FAIL_COND(rb.is_null());
 
 	// setup scene data
 	RenderSceneDataRD scene_data;
@@ -1098,6 +1110,8 @@ float RendererSceneRenderRD::screen_space_roughness_limiter_get_limit() const {
 }
 
 TypedArray<Image> RendererSceneRenderRD::bake_render_uv2(RID p_base, const TypedArray<RID> &p_material_overrides, const Size2i &p_image_size) {
+	ERR_FAIL_COND_V_MSG(p_image_size.width <= 0, TypedArray<Image>(), "Image width must be greater than 0.");
+	ERR_FAIL_COND_V_MSG(p_image_size.height <= 0, TypedArray<Image>(), "Image height must be greater than 0.");
 	RD::TextureFormat tf;
 	tf.format = RD::DATA_FORMAT_R8G8B8A8_UNORM;
 	tf.width = p_image_size.width; // Always 64x64

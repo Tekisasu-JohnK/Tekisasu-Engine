@@ -896,15 +896,16 @@ void CanvasItemEditor::_snap_changed() {
 }
 
 void CanvasItemEditor::_selection_result_pressed(int p_result) {
-	if (selection_results.size() <= p_result) {
+	if (selection_results_menu.size() <= p_result) {
 		return;
 	}
 
-	CanvasItem *item = selection_results[p_result].item;
+	CanvasItem *item = selection_results_menu[p_result].item;
 
 	if (item) {
 		_select_click_on_item(item, Point2(), selection_menu_additive_selection);
 	}
+	selection_results_menu.clear();
 }
 
 void CanvasItemEditor::_selection_menu_hide() {
@@ -1259,57 +1260,25 @@ bool CanvasItemEditor::_gui_input_zoom_or_pan(const Ref<InputEvent> &p_event, bo
 		}
 	}
 
-	Ref<InputEventMagnifyGesture> magnify_gesture = p_event;
-	if (magnify_gesture.is_valid() && !p_already_accepted) {
-		// Zoom gesture
-		_zoom_on_position(zoom * magnify_gesture->get_factor(), magnify_gesture->get_position());
-		return true;
-	}
-
-	Ref<InputEventPanGesture> pan_gesture = p_event;
-	if (pan_gesture.is_valid() && !p_already_accepted) {
-		// If ctrl key pressed, then zoom instead of pan.
-		if (pan_gesture->is_ctrl_pressed()) {
-			const real_t factor = pan_gesture->get_delta().y;
-
-			zoom_widget->set_zoom_by_increments(1);
-			if (factor != 1.f) {
-				zoom_widget->set_zoom(zoom * ((zoom_widget->get_zoom() / zoom - 1.f) * factor + 1.f));
-			}
-			_zoom_on_position(zoom_widget->get_zoom(), pan_gesture->get_position());
-
-			return true;
-		}
-
-		// Pan gesture
-		const Vector2 delta = (pan_speed / zoom) * pan_gesture->get_delta();
-		view_offset.x += delta.x;
-		view_offset.y += delta.y;
-		update_viewport();
-		return true;
-	}
-
 	return false;
 }
 
-void CanvasItemEditor::_scroll_callback(Vector2 p_scroll_vec, bool p_alt) {
-	_pan_callback(-p_scroll_vec * pan_speed);
-}
-
-void CanvasItemEditor::_pan_callback(Vector2 p_scroll_vec) {
+void CanvasItemEditor::_pan_callback(Vector2 p_scroll_vec, Ref<InputEvent> p_event) {
 	view_offset.x -= p_scroll_vec.x / zoom;
 	view_offset.y -= p_scroll_vec.y / zoom;
 	update_viewport();
 }
 
-void CanvasItemEditor::_zoom_callback(Vector2 p_scroll_vec, Vector2 p_origin, bool p_alt) {
-	int scroll_sign = (int)SIGN(p_scroll_vec.y);
-	// Inverted so that scrolling up (-1) zooms in, scrolling down (+1) zooms out.
-	zoom_widget->set_zoom_by_increments(-scroll_sign, p_alt);
-	if (!Math::is_equal_approx(ABS(p_scroll_vec.y), (real_t)1.0)) {
-		// Handle high-precision (analog) scrolling.
-		zoom_widget->set_zoom(zoom * ((zoom_widget->get_zoom() / zoom - 1.f) * ABS(p_scroll_vec.y) + 1.f));
+void CanvasItemEditor::_zoom_callback(float p_zoom_factor, Vector2 p_origin, Ref<InputEvent> p_event) {
+	Ref<InputEventMouseButton> mb = p_event;
+	if (mb.is_valid()) {
+		// Special behvior for scroll events, as the zoom_by_increment method can smartly end up on powers of two.
+		int increment = p_zoom_factor > 1.0 ? 1 : -1;
+		zoom_widget->set_zoom_by_increments(increment, mb->is_alt_pressed());
+	} else {
+		zoom_widget->set_zoom(zoom_widget->get_zoom() * p_zoom_factor);
 	}
+
 	_zoom_on_position(zoom_widget->get_zoom(), p_origin);
 }
 
@@ -2279,6 +2248,7 @@ bool CanvasItemEditor::_gui_input_select(const Ref<InputEvent> &p_event) {
 					selection_menu->set_item_tooltip(i, String(item->get_name()) + "\nType: " + item->get_class() + "\nPath: " + node_path);
 				}
 
+				selection_results_menu = selection_results;
 				selection_menu_additive_selection = b->is_shift_pressed();
 				selection_menu->set_position(viewport->get_screen_transform().xform(b->get_position()));
 				selection_menu->reset_size();
@@ -3868,7 +3838,7 @@ void CanvasItemEditor::_update_editor_settings() {
 	context_menu_panel->add_theme_style_override("panel", get_theme_stylebox(SNAME("ContextualToolbar"), SNAME("EditorStyles")));
 
 	panner->setup((ViewPanner::ControlScheme)EDITOR_GET("editors/panning/2d_editor_panning_scheme").operator int(), ED_GET_SHORTCUT("canvas_item_editor/pan_view"), bool(EDITOR_GET("editors/panning/simple_panning")));
-	pan_speed = int(EDITOR_GET("editors/panning/2d_editor_pan_speed"));
+	panner->set_scroll_speed(EDITOR_GET("editors/panning/2d_editor_pan_speed"));
 	warped_panning = bool(EDITOR_GET("editors/panning/warped_mouse_panning"));
 }
 
@@ -4596,11 +4566,11 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 			_focus_selection(p_op);
 
 		} break;
-case DISABLE_CANVAS_SCALE: {
-  			bool disable = view_menu->get_popup()->is_item_checked(view_menu->get_popup()->get_item_index(DISABLE_CANVAS_SCALE));
-  			disable = !disable;
-  			RS::get_singleton()->canvas_set_disable_scale(disable);
-  			view_menu->get_popup()->set_item_checked(view_menu->get_popup()->get_item_index(DISABLE_CANVAS_SCALE), disable);
+		case PREVIEW_CANVAS_SCALE: {
+			bool preview = view_menu->get_popup()->is_item_checked(view_menu->get_popup()->get_item_index(PREVIEW_CANVAS_SCALE));
+			preview = !preview;
+			RS::get_singleton()->canvas_set_disable_scale(!preview);
+			view_menu->get_popup()->set_item_checked(view_menu->get_popup()->get_item_index(PREVIEW_CANVAS_SCALE), preview);
 
 		} break;
 		case SKELETON_MAKE_BONES: {
@@ -5059,7 +5029,7 @@ CanvasItemEditor::CanvasItemEditor() {
 	zoom_widget->connect("zoom_changed", callable_mp(this, &CanvasItemEditor::_update_zoom));
 
 	panner.instantiate();
-	panner->set_callbacks(callable_mp(this, &CanvasItemEditor::_scroll_callback), callable_mp(this, &CanvasItemEditor::_pan_callback), callable_mp(this, &CanvasItemEditor::_zoom_callback));
+	panner->set_callbacks(callable_mp(this, &CanvasItemEditor::_pan_callback), callable_mp(this, &CanvasItemEditor::_zoom_callback));
 
 	viewport = memnew(CanvasItemEditorViewport(this));
 	viewport_scrollable->add_child(viewport);
@@ -5312,7 +5282,7 @@ CanvasItemEditor::CanvasItemEditor() {
 	p->add_shortcut(ED_SHORTCUT("canvas_item_editor/frame_selection", TTR("Frame Selection"), KeyModifierMask::SHIFT | Key::F), VIEW_FRAME_TO_SELECTION);
 	p->add_shortcut(ED_SHORTCUT("canvas_item_editor/clear_guides", TTR("Clear Guides")), CLEAR_GUIDES);
 	p->add_separator();
-	p->add_check_shortcut(ED_SHORTCUT("canvas_item_editor/disable_canvas_scale", TTR("Disable Canvas Scale")), DISABLE_CANVAS_SCALE);
+	p->add_check_shortcut(ED_SHORTCUT("canvas_item_editor/preview_canvas_scale", TTR("Preview Canvas Scale")), PREVIEW_CANVAS_SCALE);
 
 	main_menu_hbox->add_child(memnew(VSeparator));
 
@@ -5433,11 +5403,13 @@ void CanvasItemEditorPlugin::make_visible(bool p_visible) {
 		canvas_item_editor->show();
 		canvas_item_editor->set_physics_process(true);
 		RenderingServer::get_singleton()->viewport_set_disable_2d(EditorNode::get_singleton()->get_scene_root()->get_viewport_rid(), false);
+		RenderingServer::get_singleton()->viewport_set_environment_mode(EditorNode::get_singleton()->get_scene_root()->get_viewport_rid(), RS::VIEWPORT_ENVIRONMENT_ENABLED);
 
 	} else {
 		canvas_item_editor->hide();
 		canvas_item_editor->set_physics_process(false);
 		RenderingServer::get_singleton()->viewport_set_disable_2d(EditorNode::get_singleton()->get_scene_root()->get_viewport_rid(), true);
+		RenderingServer::get_singleton()->viewport_set_environment_mode(EditorNode::get_singleton()->get_scene_root()->get_viewport_rid(), RS::VIEWPORT_ENVIRONMENT_DISABLED);
 	}
 }
 
@@ -5962,6 +5934,8 @@ CanvasItemEditorViewport::CanvasItemEditorViewport(CanvasItemEditor *p_canvas_it
 	label_desc->add_theme_constant_override("line_spacing", 0);
 	label_desc->hide();
 	canvas_item_editor->get_controls_container()->add_child(label_desc);
+
+	RS::get_singleton()->canvas_set_disable_scale(true);
 }
 
 CanvasItemEditorViewport::~CanvasItemEditorViewport() {

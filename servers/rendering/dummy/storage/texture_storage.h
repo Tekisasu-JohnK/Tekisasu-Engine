@@ -134,7 +134,7 @@ public:
 	virtual void decal_initialize(RID p_rid) override {}
 	virtual void decal_free(RID p_rid) override{};
 
-	virtual void decal_set_extents(RID p_decal, const Vector3 &p_extents) override {}
+	virtual void decal_set_size(RID p_decal, const Vector3 &p_size) override {}
 	virtual void decal_set_texture(RID p_decal, RS::DecalTexture p_type, RID p_texture) override {}
 	virtual void decal_set_emission_energy(RID p_decal, float p_energy) override {}
 	virtual void decal_set_albedo_mix(RID p_decal, float p_mix) override {}
@@ -145,6 +145,7 @@ public:
 	virtual void decal_set_normal_fade(RID p_decal, float p_fade) override {}
 
 	virtual AABB decal_get_aabb(RID p_decal) const override { return AABB(); }
+	virtual uint32_t decal_get_cull_mask(RID p_decal) const override { return 0; }
 
 	virtual void texture_add_to_decal_atlas(RID p_texture, bool p_panorama_to_dp = false) override {}
 	virtual void texture_remove_from_decal_atlas(RID p_texture, bool p_panorama_to_dp = false) override {}

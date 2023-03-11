@@ -146,6 +146,25 @@ uint32_t SurfaceTool::VertexHasher::hash(const Vertex &p_vtx) {
 	return h;
 }
 
+bool SurfaceTool::SmoothGroupVertex::operator==(const SmoothGroupVertex &p_vertex) const {
+	if (vertex != p_vertex.vertex) {
+		return false;
+	}
+
+	if (smooth_group != p_vertex.smooth_group) {
+		return false;
+	}
+
+	return true;
+}
+
+uint32_t SurfaceTool::SmoothGroupVertexHasher::hash(const SmoothGroupVertex &p_vtx) {
+	uint32_t h = hash_djb2_buffer((const uint8_t *)&p_vtx.vertex, sizeof(real_t) * 3);
+	h = hash_murmur3_one_32(p_vtx.smooth_group, h);
+	h = hash_fmix32(h);
+	return h;
+}
+
 uint32_t SurfaceTool::TriangleHasher::hash(const int *p_triangle) {
 	int t0 = p_triangle[0];
 	int t1 = p_triangle[1];
@@ -629,7 +648,7 @@ Array SurfaceTool::commit_to_arrays() {
 				for (uint32_t idx = 0; idx < vertex_array.size(); idx++) {
 					const Vertex &v = vertex_array[idx];
 
-					if (v.bones.size() > count) {
+					if (v.bones.size() != count) {
 						ERR_PRINT_ONCE(vformat("Invalid bones size %d vs count %d", v.bones.size(), count));
 						continue;
 					}
@@ -653,7 +672,7 @@ Array SurfaceTool::commit_to_arrays() {
 				for (uint32_t idx = 0; idx < vertex_array.size(); idx++) {
 					const Vertex &v = vertex_array[idx];
 
-					if (v.weights.size() > count) {
+					if (v.weights.size() != count) {
 						ERR_PRINT_ONCE(vformat("Invalid weight size %d vs count %d", v.weights.size(), count));
 						continue;
 					}
@@ -1152,7 +1171,7 @@ void SurfaceTool::generate_normals(bool p_flip) {
 
 	ERR_FAIL_COND((vertex_array.size() % 3) != 0);
 
-	HashMap<Vertex, Vector3, VertexHasher> vertex_hash;
+	HashMap<SmoothGroupVertex, Vector3, SmoothGroupVertexHasher> smooth_hash;
 
 	for (uint32_t vi = 0; vi < vertex_array.size(); vi += 3) {
 		Vertex *v = &vertex_array[vi];
@@ -1165,21 +1184,28 @@ void SurfaceTool::generate_normals(bool p_flip) {
 		}
 
 		for (int i = 0; i < 3; i++) {
-			Vector3 *lv = vertex_hash.getptr(v[i]);
-			if (!lv) {
-				vertex_hash.insert(v[i], normal);
+			// Add face normal to smooth vertex influence if vertex is member of a smoothing group
+			if (v[i].smooth_group != UINT32_MAX) {
+				Vector3 *lv = smooth_hash.getptr(v[i]);
+				if (!lv) {
+					smooth_hash.insert(v[i], normal);
+				} else {
+					(*lv) += normal;
+				}
 			} else {
-				(*lv) += normal;
+				v[i].normal = normal;
 			}
 		}
 	}
 
 	for (Vertex &vertex : vertex_array) {
-		Vector3 *lv = vertex_hash.getptr(vertex);
-		if (!lv) {
-			vertex.normal = Vector3();
-		} else {
-			vertex.normal = lv->normalized();
+		if (vertex.smooth_group != UINT32_MAX) {
+			Vector3 *lv = smooth_hash.getptr(vertex);
+			if (!lv) {
+				vertex.normal = Vector3();
+			} else {
+				vertex.normal = lv->normalized();
+			}
 		}
 	}
 
@@ -1281,7 +1307,8 @@ Vector<int> SurfaceTool::generate_lod(float p_threshold, int p_target_index_coun
 	}
 
 	float error;
-	uint32_t index_count = simplify_func((unsigned int *)lod.ptrw(), (unsigned int *)index_array.ptr(), index_array.size(), vertices.ptr(), vertex_array.size(), sizeof(float) * 3, p_target_index_count, p_threshold, &error);
+	const int simplify_options = SIMPLIFY_LOCK_BORDER;
+	uint32_t index_count = simplify_func((unsigned int *)lod.ptrw(), (unsigned int *)index_array.ptr(), index_array.size(), vertices.ptr(), vertex_array.size(), sizeof(float) * 3, p_target_index_count, p_threshold, simplify_options, &error);
 	ERR_FAIL_COND_V(index_count == 0, lod);
 	lod.resize(index_count);
 

@@ -201,7 +201,7 @@ void InputEventConfigurationDialog::_on_listen_input_changed(const Ref<InputEven
 	}
 
 	if (k.is_valid()) {
-		k->set_pressed(false); // To avoid serialisation of 'pressed' property - doesn't matter for actions anyway.
+		k->set_pressed(false); // To avoid serialization of 'pressed' property - doesn't matter for actions anyway.
 		if (key_mode->get_selected_id() == KEYMODE_KEYCODE) {
 			k->set_physical_keycode(Key::NONE);
 			k->set_key_label(Key::NONE);
@@ -538,6 +538,8 @@ void InputEventConfigurationDialog::_notification(int p_what) {
 			icon_cache.joypad_button = get_theme_icon(SNAME("JoyButton"), SNAME("EditorIcons"));
 			icon_cache.joypad_axis = get_theme_icon(SNAME("JoyAxis"), SNAME("EditorIcons"));
 
+			event_as_text->add_theme_font_override("font", get_theme_font(SNAME("bold"), SNAME("EditorFonts")));
+
 			_update_input_list();
 		} break;
 	}
@@ -591,7 +593,6 @@ InputEventConfigurationDialog::InputEventConfigurationDialog() {
 	event_as_text = memnew(Label);
 	event_as_text->set_autowrap_mode(TextServer::AUTOWRAP_WORD_SMART);
 	event_as_text->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER);
-	event_as_text->add_theme_font_override("font", get_theme_font(SNAME("bold"), SNAME("EditorFonts")));
 	event_as_text->add_theme_font_size_override("font_size", 18 * EDSCALE);
 	main_vbox->add_child(event_as_text);
 
@@ -685,9 +686,9 @@ InputEventConfigurationDialog::InputEventConfigurationDialog() {
 	// Key Mode Selection
 
 	key_mode = memnew(OptionButton);
-	key_mode->add_item("Keycode (Latin equvialent)", KEYMODE_KEYCODE);
-	key_mode->add_item("Physical Keycode (poistion of US QWERTY keyboard)", KEYMODE_PHY_KEYCODE);
-	key_mode->add_item("Unicode (case-insencetive)", KEYMODE_UNICODE);
+	key_mode->add_item(TTR("Keycode (Latin Equivalent)"), KEYMODE_KEYCODE);
+	key_mode->add_item(TTR("Physical Keycode (Position on US QWERTY Keyboard)"), KEYMODE_PHY_KEYCODE);
+	key_mode->add_item(TTR("Key Label (Unicode, Case-Insensitive)"), KEYMODE_UNICODE);
 	key_mode->connect("item_selected", callable_mp(this, &InputEventConfigurationDialog::_key_mode_selected));
 	key_mode->hide();
 	additional_options_container->add_child(key_mode);

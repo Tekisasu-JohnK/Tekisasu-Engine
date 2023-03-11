@@ -586,6 +586,8 @@ void MeshStorage::mesh_set_custom_aabb(RID p_mesh, const AABB &p_aabb) {
 	Mesh *mesh = mesh_owner.get_or_null(p_mesh);
 	ERR_FAIL_COND(!mesh);
 	mesh->custom_aabb = p_aabb;
+
+	mesh->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_AABB);
 }
 
 AABB MeshStorage::mesh_get_custom_aabb(RID p_mesh) const {
@@ -842,7 +844,7 @@ void MeshStorage::mesh_instance_set_blend_shape_weight(RID p_mesh_instance, int 
 }
 
 void MeshStorage::_mesh_instance_clear(MeshInstance *mi) {
-	for (const RendererRD::MeshStorage::MeshInstance::Surface surface : mi->surfaces) {
+	for (const RendererRD::MeshStorage::MeshInstance::Surface &surface : mi->surfaces) {
 		if (surface.versions) {
 			for (uint32_t j = 0; j < surface.version_count; j++) {
 				RD::get_singleton()->free(surface.versions[j].vertex_array);
@@ -930,6 +932,11 @@ void MeshStorage::mesh_instance_check_for_update(RID p_mesh_instance) {
 	}
 }
 
+void MeshStorage::mesh_instance_set_canvas_item_transform(RID p_mesh_instance, const Transform2D &p_transform) {
+	MeshInstance *mi = mesh_instance_owner.get_or_null(p_mesh_instance);
+	mi->canvas_item_transform_2d = p_transform;
+}
+
 void MeshStorage::update_mesh_instances() {
 	while (dirty_mesh_instance_weights.first()) {
 		MeshInstance *mi = dirty_mesh_instance_weights.first()->self();
@@ -980,6 +987,25 @@ void MeshStorage::update_mesh_instances() {
 			push_constant.vertex_stride = (mi->mesh->surfaces[i]->vertex_buffer_size / mi->mesh->surfaces[i]->vertex_count) / 4;
 			push_constant.skin_stride = (mi->mesh->surfaces[i]->skin_buffer_size / mi->mesh->surfaces[i]->vertex_count) / 4;
 			push_constant.skin_weight_offset = (mi->mesh->surfaces[i]->format & RS::ARRAY_FLAG_USE_8_BONE_WEIGHTS) ? 4 : 2;
+
+			Transform2D transform = Transform2D();
+			if (sk && sk->use_2d) {
+				transform = mi->canvas_item_transform_2d.affine_inverse() * sk->base_transform_2d;
+			}
+			push_constant.skeleton_transform_x[0] = transform.columns[0][0];
+			push_constant.skeleton_transform_x[1] = transform.columns[0][1];
+			push_constant.skeleton_transform_y[0] = transform.columns[1][0];
+			push_constant.skeleton_transform_y[1] = transform.columns[1][1];
+			push_constant.skeleton_transform_offset[0] = transform.columns[2][0];
+			push_constant.skeleton_transform_offset[1] = transform.columns[2][1];
+
+			Transform2D inverse_transform = transform.affine_inverse();
+			push_constant.inverse_transform_x[0] = inverse_transform.columns[0][0];
+			push_constant.inverse_transform_x[1] = inverse_transform.columns[0][1];
+			push_constant.inverse_transform_y[0] = inverse_transform.columns[1][0];
+			push_constant.inverse_transform_y[1] = inverse_transform.columns[1][1];
+			push_constant.inverse_transform_offset[0] = inverse_transform.columns[2][0];
+			push_constant.inverse_transform_offset[1] = inverse_transform.columns[2][1];
 
 			push_constant.blend_shape_count = mi->mesh->blend_shape_count;
 			push_constant.normalized_blend_shapes = mi->mesh->blend_shape_mode == RS::BLEND_SHAPE_MODE_NORMALIZED;
@@ -1779,8 +1805,12 @@ void MeshStorage::multimesh_set_visible_instances(RID p_multimesh, int p_visible
 	}
 
 	if (multimesh->data_cache.size()) {
-		//there is a data cache..
+		// There is a data cache, but we may need to update some sections.
 		_multimesh_mark_all_dirty(multimesh, false, true);
+		int start = multimesh->visible_instances >= 0 ? multimesh->visible_instances : multimesh->instances;
+		for (int i = start; i < p_visible; i++) {
+			_multimesh_mark_dirty(multimesh, i, true);
+		}
 	}
 
 	multimesh->visible_instances = p_visible;

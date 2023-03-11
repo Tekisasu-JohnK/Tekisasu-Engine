@@ -644,8 +644,10 @@ Rect2 Control::get_parent_anchorable_rect() const {
 		parent_rect = data.parent_canvas_item->get_anchorable_rect();
 	} else {
 #ifdef TOOLS_ENABLED
-		Node *edited_root = get_tree()->get_edited_scene_root();
-		if (edited_root && (this == edited_root || edited_root->is_ancestor_of(this))) {
+		Node *edited_scene_root = get_tree()->get_edited_scene_root();
+		Node *scene_root_parent = edited_scene_root ? edited_scene_root->get_parent() : nullptr;
+
+		if (scene_root_parent && get_viewport() == scene_root_parent->get_viewport()) {
 			parent_rect.size = Size2(GLOBAL_GET("display/window/size/viewport_width"), GLOBAL_GET("display/window/size/viewport_height"));
 		} else {
 			parent_rect = get_viewport()->get_visible_rect();
@@ -690,6 +692,12 @@ Transform2D Control::get_transform() const {
 	Transform2D xform = _get_internal_transform();
 	xform[2] += get_position();
 	return xform;
+}
+
+void Control::_top_level_changed_on_parent() {
+	// Update root control status.
+	_notification(NOTIFICATION_EXIT_CANVAS);
+	_notification(NOTIFICATION_ENTER_CANVAS);
 }
 
 /// Anchors and offsets.
@@ -1387,13 +1395,7 @@ Point2 Control::get_global_position() const {
 
 Point2 Control::get_screen_position() const {
 	ERR_FAIL_COND_V(!is_inside_tree(), Point2());
-	Point2 global_pos = get_global_transform_with_canvas().get_origin();
-	Window *w = Object::cast_to<Window>(get_viewport());
-	if (w && !w->is_embedding_subwindows()) {
-		global_pos += w->get_position();
-	}
-
-	return global_pos;
+	return get_screen_transform().get_origin();
 }
 
 void Control::_set_size(const Size2 &p_size) {
@@ -1444,24 +1446,20 @@ void Control::set_rect(const Rect2 &p_rect) {
 }
 
 Rect2 Control::get_rect() const {
-	return Rect2(get_position(), get_size());
+	Transform2D xform = get_transform();
+	return Rect2(xform.get_origin(), xform.get_scale() * get_size());
 }
 
 Rect2 Control::get_global_rect() const {
-	return Rect2(get_global_position(), get_size());
+	Transform2D xform = get_global_transform();
+	return Rect2(xform.get_origin(), xform.get_scale() * get_size());
 }
 
 Rect2 Control::get_screen_rect() const {
 	ERR_FAIL_COND_V(!is_inside_tree(), Rect2());
 
-	Rect2 r(get_global_position(), get_size());
-
-	Window *w = Object::cast_to<Window>(get_viewport());
-	if (w && !w->is_embedding_subwindows()) {
-		r.position += w->get_position();
-	}
-
-	return r;
+	Transform2D xform = get_screen_transform();
+	return Rect2(xform.get_origin(), xform.get_scale() * get_size());
 }
 
 Rect2 Control::get_anchorable_rect() const {
@@ -3394,7 +3392,7 @@ void Control::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("minimum_size_changed"));
 	ADD_SIGNAL(MethodInfo("theme_changed"));
 
-	GDVIRTUAL_BIND(_has_point, "position");
+	GDVIRTUAL_BIND(_has_point, "point");
 	GDVIRTUAL_BIND(_structured_text_parser, "args", "text");
 	GDVIRTUAL_BIND(_get_minimum_size);
 

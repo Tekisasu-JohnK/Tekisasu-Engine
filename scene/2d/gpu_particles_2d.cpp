@@ -143,6 +143,7 @@ void GPUParticles2D::set_trail_enabled(bool p_enabled) {
 	trail_enabled = p_enabled;
 	RS::get_singleton()->particles_set_trails(particles, trail_enabled, trail_lifetime);
 	queue_redraw();
+	update_configuration_warnings();
 
 	RS::get_singleton()->particles_set_transform_align(particles, p_enabled ? RS::PARTICLES_TRANSFORM_ALIGN_Y_TO_VELOCITY : RS::PARTICLES_TRANSFORM_ALIGN_DISABLED);
 }
@@ -312,6 +313,10 @@ PackedStringArray GPUParticles2D::get_configuration_warnings() const {
 				warnings.push_back(RTR("Particles2D animation requires the usage of a CanvasItemMaterial with \"Particles Animation\" enabled."));
 			}
 		}
+	}
+
+	if (trail_enabled && OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
+		warnings.push_back(RTR("Particle trails are only available when using the Forward+ or Mobile rendering backends."));
 	}
 
 	return warnings;
@@ -638,7 +643,7 @@ void GPUParticles2D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "interpolate"), "set_interpolate", "get_interpolate");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "fract_delta"), "set_fractional_delta", "get_fractional_delta");
 	ADD_GROUP("Collision", "collision_");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_base_size", PROPERTY_HINT_RANGE, "0,128,0.01,or_greater,suffix:px"), "set_collision_base_size", "get_collision_base_size");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_base_size", PROPERTY_HINT_RANGE, "0,128,0.01,or_greater"), "set_collision_base_size", "get_collision_base_size");
 	ADD_GROUP("Drawing", "");
 	ADD_PROPERTY(PropertyInfo(Variant::RECT2, "visibility_rect", PROPERTY_HINT_NONE, "suffix:px"), "set_visibility_rect", "get_visibility_rect");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "local_coords"), "set_use_local_coordinates", "get_use_local_coordinates");

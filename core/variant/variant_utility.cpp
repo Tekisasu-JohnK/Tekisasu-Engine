@@ -543,6 +543,13 @@ struct VariantUtilityFunctions {
 		Variant base = *p_args[0];
 		Variant ret;
 		for (int i = 1; i < p_argcount; i++) {
+			Variant::Type arg_type = p_args[i]->get_type();
+			if (arg_type != Variant::INT && arg_type != Variant::FLOAT) {
+				r_error.error = Callable::CallError::CALL_ERROR_INVALID_ARGUMENT;
+				r_error.expected = Variant::FLOAT;
+				r_error.argument = i;
+				return Variant();
+			}
 			bool valid;
 			Variant::evaluate(Variant::OP_LESS, base, *p_args[i], ret, valid);
 			if (!valid) {
@@ -576,6 +583,13 @@ struct VariantUtilityFunctions {
 		Variant base = *p_args[0];
 		Variant ret;
 		for (int i = 1; i < p_argcount; i++) {
+			Variant::Type arg_type = p_args[i]->get_type();
+			if (arg_type != Variant::INT && arg_type != Variant::FLOAT) {
+				r_error.error = Callable::CallError::CALL_ERROR_INVALID_ARGUMENT;
+				r_error.expected = Variant::FLOAT;
+				r_error.argument = i;
+				return Variant();
+			}
 			bool valid;
 			Variant::evaluate(Variant::OP_GREATER, base, *p_args[i], ret, valid);
 			if (!valid) {
@@ -1007,8 +1021,13 @@ struct VariantUtilityFunctions {
 	static inline uint64_t rid_allocate_id() {
 		return RID_AllocBase::_gen_id();
 	}
+
 	static inline RID rid_from_int64(uint64_t p_base) {
 		return RID::from_uint64(p_base);
+	}
+
+	static inline bool is_same(const Variant &p_a, const Variant &p_b) {
+		return p_a.identity_compare(p_b);
 	}
 };
 
@@ -1601,6 +1620,8 @@ void Variant::_register_variant_utility_functions() {
 
 	FUNCBINDR(rid_allocate_id, Vector<String>(), Variant::UTILITY_FUNC_TYPE_GENERAL);
 	FUNCBINDR(rid_from_int64, sarray("base"), Variant::UTILITY_FUNC_TYPE_GENERAL);
+
+	FUNCBINDR(is_same, sarray("a", "b"), Variant::UTILITY_FUNC_TYPE_GENERAL);
 }
 
 void Variant::_unregister_variant_utility_functions() {

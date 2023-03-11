@@ -362,7 +362,7 @@ TextureStorage::TextureStorage() {
 		}
 	}
 
-	{ //create default array
+	{ //create default array white
 
 		RD::TextureFormat tformat;
 		tformat.format = RD::DATA_FORMAT_R8G8B8A8_UNORM;
@@ -385,6 +385,82 @@ TextureStorage::TextureStorage() {
 			Vector<Vector<uint8_t>> vpv;
 			vpv.push_back(pv);
 			default_rd_textures[DEFAULT_RD_TEXTURE_2D_ARRAY_WHITE] = RD::get_singleton()->texture_create(tformat, RD::TextureView(), vpv);
+		}
+	}
+
+	{ //create default array black
+
+		RD::TextureFormat tformat;
+		tformat.format = RD::DATA_FORMAT_R8G8B8A8_UNORM;
+		tformat.width = 4;
+		tformat.height = 4;
+		tformat.array_layers = 1;
+		tformat.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_CAN_UPDATE_BIT;
+		tformat.texture_type = RD::TEXTURE_TYPE_2D_ARRAY;
+
+		Vector<uint8_t> pv;
+		pv.resize(16 * 4);
+		for (int i = 0; i < 16; i++) {
+			pv.set(i * 4 + 0, 0);
+			pv.set(i * 4 + 1, 0);
+			pv.set(i * 4 + 2, 0);
+			pv.set(i * 4 + 3, 0);
+		}
+
+		{
+			Vector<Vector<uint8_t>> vpv;
+			vpv.push_back(pv);
+			default_rd_textures[DEFAULT_RD_TEXTURE_2D_ARRAY_BLACK] = RD::get_singleton()->texture_create(tformat, RD::TextureView(), vpv);
+		}
+	}
+
+	{ //create default array normal
+
+		RD::TextureFormat tformat;
+		tformat.format = RD::DATA_FORMAT_R8G8B8A8_UNORM;
+		tformat.width = 4;
+		tformat.height = 4;
+		tformat.array_layers = 1;
+		tformat.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_CAN_UPDATE_BIT;
+		tformat.texture_type = RD::TEXTURE_TYPE_2D_ARRAY;
+
+		Vector<uint8_t> pv;
+		pv.resize(16 * 4);
+		for (int i = 0; i < 16; i++) {
+			pv.set(i * 4 + 0, 128);
+			pv.set(i * 4 + 1, 128);
+			pv.set(i * 4 + 2, 255);
+			pv.set(i * 4 + 3, 255);
+		}
+
+		{
+			Vector<Vector<uint8_t>> vpv;
+			vpv.push_back(pv);
+			default_rd_textures[DEFAULT_RD_TEXTURE_2D_ARRAY_NORMAL] = RD::get_singleton()->texture_create(tformat, RD::TextureView(), vpv);
+		}
+	}
+
+	{ //create default array depth
+
+		RD::TextureFormat tformat;
+		tformat.format = RD::DATA_FORMAT_D16_UNORM;
+		tformat.width = 4;
+		tformat.height = 4;
+		tformat.array_layers = 1;
+		tformat.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_CAN_UPDATE_BIT | RD::TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		tformat.texture_type = RD::TEXTURE_TYPE_2D_ARRAY;
+
+		Vector<uint8_t> sv;
+		sv.resize(16 * 2);
+		uint16_t *ptr = (uint16_t *)sv.ptrw();
+		for (int i = 0; i < 16; i++) {
+			ptr[i] = Math::make_half_float(1.0f);
+		}
+
+		{
+			Vector<Vector<uint8_t>> vsv;
+			vsv.push_back(sv);
+			default_rd_textures[DEFAULT_RD_TEXTURE_2D_ARRAY_DEPTH] = RD::get_singleton()->texture_create(tformat, RD::TextureView(), vsv);
 		}
 	}
 
@@ -1853,10 +1929,10 @@ void TextureStorage::decal_free(RID p_rid) {
 	decal_owner.free(p_rid);
 }
 
-void TextureStorage::decal_set_extents(RID p_decal, const Vector3 &p_extents) {
+void TextureStorage::decal_set_size(RID p_decal, const Vector3 &p_size) {
 	Decal *decal = decal_owner.get_or_null(p_decal);
 	ERR_FAIL_COND(!decal);
-	decal->extents = p_extents;
+	decal->size = p_size;
 	decal->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_AABB);
 }
 
@@ -1906,7 +1982,7 @@ void TextureStorage::decal_set_cull_mask(RID p_decal, uint32_t p_layers) {
 	Decal *decal = decal_owner.get_or_null(p_decal);
 	ERR_FAIL_COND(!decal);
 	decal->cull_mask = p_layers;
-	decal->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_AABB);
+	decal->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_DECAL);
 }
 
 void TextureStorage::decal_set_distance_fade(RID p_decal, bool p_enabled, float p_begin, float p_length) {
@@ -1949,7 +2025,14 @@ AABB TextureStorage::decal_get_aabb(RID p_decal) const {
 	Decal *decal = decal_owner.get_or_null(p_decal);
 	ERR_FAIL_COND_V(!decal, AABB());
 
-	return AABB(-decal->extents, decal->extents * 2.0);
+	return AABB(-decal->size / 2, decal->size);
+}
+
+uint32_t TextureStorage::decal_get_cull_mask(RID p_decal) const {
+	Decal *decal = decal_owner.get_or_null(p_decal);
+	ERR_FAIL_COND_V(!decal, 0);
+
+	return decal->cull_mask;
 }
 
 Dependency *TextureStorage::decal_get_dependency(RID p_decal) {
@@ -2312,7 +2395,7 @@ void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const 
 
 		DecalData &dd = decals[i];
 
-		Vector3 decal_extents = decal->extents;
+		Vector3 decal_extents = decal->size / 2;
 
 		Transform3D scale_xform;
 		scale_xform.basis.scale(decal_extents);

@@ -31,18 +31,38 @@
 #ifndef PROJECT_CONVERTER_3_TO_4_H
 #define PROJECT_CONVERTER_3_TO_4_H
 
-#include "core/io/file_access.h"
-#include "core/object/ref_counted.h"
+#ifndef DISABLE_DEPRECATED
+
+#include "modules/modules_enabled.gen.h" // For regex.
+
+#ifndef MODULE_REGEX_ENABLED
+
+#include "core/error/error_macros.h"
+
+class ProjectConverter3To4 {
+public:
+	ProjectConverter3To4(int, int) {}
+
+	bool validate_conversion() {
+		ERR_FAIL_V_MSG(false, "Can't validate conversion for Godot 3.x projects, because RegEx module is disabled.");
+	}
+
+	bool convert() {
+		ERR_FAIL_V_MSG(false, "Can't run converter for Godot 3.x projects, because RegEx module is disabled.");
+	}
+};
+
+#else // Has regex.
+
 #include "core/string/ustring.h"
 #include "core/templates/local_vector.h"
+#include "core/templates/vector.h"
 
 class RegEx;
 
 class ProjectConverter3To4 {
-public:
 	class RegExContainer;
 
-private:
 	uint64_t maximum_file_size;
 	uint64_t maximum_line_length;
 
@@ -93,8 +113,12 @@ private:
 
 public:
 	ProjectConverter3To4(int, int);
-	int validate_conversion();
-	int convert();
+	bool validate_conversion();
+	bool convert();
 };
+
+#endif // MODULE_REGEX_ENABLED
+
+#endif // DISABLE_DEPRECATED
 
 #endif // PROJECT_CONVERTER_3_TO_4_H

@@ -8,7 +8,7 @@ namespace Godot
     /// </summary>
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public struct Vector4i : IEquatable<Vector4i>
+    public struct Vector4I : IEquatable<Vector4I>
     {
         /// <summary>
         /// Enumerated index values for the axes.
@@ -37,22 +37,22 @@ namespace Godot
         /// <summary>
         /// The vector's X component. Also accessible by using the index position <c>[0]</c>.
         /// </summary>
-        public int x;
+        public int X;
 
         /// <summary>
         /// The vector's Y component. Also accessible by using the index position <c>[1]</c>.
         /// </summary>
-        public int y;
+        public int Y;
 
         /// <summary>
         /// The vector's Z component. Also accessible by using the index position <c>[2]</c>.
         /// </summary>
-        public int z;
+        public int Z;
 
         /// <summary>
         /// The vector's W component. Also accessible by using the index position <c>[3]</c>.
         /// </summary>
-        public int w;
+        public int W;
 
         /// <summary>
         /// Access vector components using their <paramref name="index"/>.
@@ -61,10 +61,10 @@ namespace Godot
         /// <paramref name="index"/> is not 0, 1, 2 or 3.
         /// </exception>
         /// <value>
-        /// <c>[0]</c> is equivalent to <see cref="x"/>,
-        /// <c>[1]</c> is equivalent to <see cref="y"/>,
-        /// <c>[2]</c> is equivalent to <see cref="z"/>.
-        /// <c>[3]</c> is equivalent to <see cref="w"/>.
+        /// <c>[0]</c> is equivalent to <see cref="X"/>,
+        /// <c>[1]</c> is equivalent to <see cref="Y"/>,
+        /// <c>[2]</c> is equivalent to <see cref="Z"/>.
+        /// <c>[3]</c> is equivalent to <see cref="W"/>.
         /// </value>
         public int this[int index]
         {
@@ -73,13 +73,13 @@ namespace Godot
                 switch (index)
                 {
                     case 0:
-                        return x;
+                        return X;
                     case 1:
-                        return y;
+                        return Y;
                     case 2:
-                        return z;
+                        return Z;
                     case 3:
-                        return w;
+                        return W;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(index));
                 }
@@ -89,16 +89,16 @@ namespace Godot
                 switch (index)
                 {
                     case 0:
-                        x = value;
+                        X = value;
                         return;
                     case 1:
-                        y = value;
+                        Y = value;
                         return;
                     case 2:
-                        z = value;
+                        Z = value;
                         return;
                     case 3:
-                        w = value;
+                        W = value;
                         return;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(index));
@@ -111,19 +111,19 @@ namespace Godot
         /// </summary>
         public readonly void Deconstruct(out int x, out int y, out int z, out int w)
         {
-            x = this.x;
-            y = this.y;
-            z = this.z;
-            w = this.w;
+            x = X;
+            y = Y;
+            z = Z;
+            w = W;
         }
 
         /// <summary>
         /// Returns a new vector with all components in absolute values (i.e. positive).
         /// </summary>
         /// <returns>A vector with <see cref="Mathf.Abs(int)"/> called on each component.</returns>
-        public readonly Vector4i Abs()
+        public readonly Vector4I Abs()
         {
-            return new Vector4i(Mathf.Abs(x), Mathf.Abs(y), Mathf.Abs(z), Mathf.Abs(w));
+            return new Vector4I(Mathf.Abs(X), Mathf.Abs(Y), Mathf.Abs(Z), Mathf.Abs(W));
         }
 
         /// <summary>
@@ -134,14 +134,14 @@ namespace Godot
         /// <param name="min">The vector with minimum allowed values.</param>
         /// <param name="max">The vector with maximum allowed values.</param>
         /// <returns>The vector with all components clamped.</returns>
-        public readonly Vector4i Clamp(Vector4i min, Vector4i max)
+        public readonly Vector4I Clamp(Vector4I min, Vector4I max)
         {
-            return new Vector4i
+            return new Vector4I
             (
-                Mathf.Clamp(x, min.x, max.x),
-                Mathf.Clamp(y, min.y, max.y),
-                Mathf.Clamp(z, min.z, max.z),
-                Mathf.Clamp(w, min.w, max.w)
+                Mathf.Clamp(X, min.X, max.X),
+                Mathf.Clamp(Y, min.Y, max.Y),
+                Mathf.Clamp(Z, min.Z, max.Z),
+                Mathf.Clamp(W, min.W, max.W)
             );
         }
 
@@ -152,10 +152,10 @@ namespace Godot
         /// <returns>The length of this vector.</returns>
         public readonly real_t Length()
         {
-            int x2 = x * x;
-            int y2 = y * y;
-            int z2 = z * z;
-            int w2 = w * w;
+            int x2 = X * X;
+            int y2 = Y * Y;
+            int z2 = Z * Z;
+            int w2 = W * W;
 
             return Mathf.Sqrt(x2 + y2 + z2 + w2);
         }
@@ -168,10 +168,10 @@ namespace Godot
         /// <returns>The squared length of this vector.</returns>
         public readonly int LengthSquared()
         {
-            int x2 = x * x;
-            int y2 = y * y;
-            int z2 = z * z;
-            int w2 = w * w;
+            int x2 = X * X;
+            int y2 = Y * Y;
+            int z2 = Z * Z;
+            int w2 = W * W;
 
             return x2 + y2 + z2 + w2;
         }
@@ -184,7 +184,7 @@ namespace Godot
         public readonly Axis MaxAxisIndex()
         {
             int max_index = 0;
-            int max_value = x;
+            int max_value = X;
             for (int i = 1; i < 4; i++)
             {
                 if (this[i] > max_value)
@@ -204,7 +204,7 @@ namespace Godot
         public readonly Axis MinAxisIndex()
         {
             int min_index = 0;
-            int min_value = x;
+            int min_value = X;
             for (int i = 1; i < 4; i++)
             {
                 if (this[i] <= min_value)
@@ -222,213 +222,217 @@ namespace Godot
         /// by calling <see cref="Mathf.Sign(int)"/> on each component.
         /// </summary>
         /// <returns>A vector with all components as either <c>1</c>, <c>-1</c>, or <c>0</c>.</returns>
-        public readonly Vector4i Sign()
+        public readonly Vector4I Sign()
         {
-            return new Vector4i(Mathf.Sign(x), Mathf.Sign(y), Mathf.Sign(z), Mathf.Sign(w));
+            return new Vector4I(Mathf.Sign(X), Mathf.Sign(Y), Mathf.Sign(Z), Mathf.Sign(W));
         }
 
         // Constants
-        private static readonly Vector4i _zero = new Vector4i(0, 0, 0, 0);
-        private static readonly Vector4i _one = new Vector4i(1, 1, 1, 1);
+        private static readonly Vector4I _zero = new Vector4I(0, 0, 0, 0);
+        private static readonly Vector4I _one = new Vector4I(1, 1, 1, 1);
 
         /// <summary>
         /// Zero vector, a vector with all components set to <c>0</c>.
         /// </summary>
-        /// <value>Equivalent to <c>new Vector4i(0, 0, 0, 0)</c>.</value>
-        public static Vector4i Zero { get { return _zero; } }
+        /// <value>Equivalent to <c>new Vector4I(0, 0, 0, 0)</c>.</value>
+        public static Vector4I Zero { get { return _zero; } }
         /// <summary>
         /// One vector, a vector with all components set to <c>1</c>.
         /// </summary>
-        /// <value>Equivalent to <c>new Vector4i(1, 1, 1, 1)</c>.</value>
-        public static Vector4i One { get { return _one; } }
+        /// <value>Equivalent to <c>new Vector4I(1, 1, 1, 1)</c>.</value>
+        public static Vector4I One { get { return _one; } }
 
         /// <summary>
-        /// Constructs a new <see cref="Vector4i"/> with the given components.
+        /// Constructs a new <see cref="Vector4I"/> with the given components.
         /// </summary>
         /// <param name="x">The vector's X component.</param>
         /// <param name="y">The vector's Y component.</param>
         /// <param name="z">The vector's Z component.</param>
         /// <param name="w">The vector's W component.</param>
-        public Vector4i(int x, int y, int z, int w)
+        public Vector4I(int x, int y, int z, int w)
         {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.w = w;
+            X = x;
+            Y = y;
+            Z = z;
+            W = w;
         }
 
         /// <summary>
-        /// Adds each component of the <see cref="Vector4i"/>
-        /// with the components of the given <see cref="Vector4i"/>.
+        /// Adds each component of the <see cref="Vector4I"/>
+        /// with the components of the given <see cref="Vector4I"/>.
         /// </summary>
         /// <param name="left">The left vector.</param>
         /// <param name="right">The right vector.</param>
         /// <returns>The added vector.</returns>
-        public static Vector4i operator +(Vector4i left, Vector4i right)
+        public static Vector4I operator +(Vector4I left, Vector4I right)
         {
-            left.x += right.x;
-            left.y += right.y;
-            left.z += right.z;
-            left.w += right.w;
+            left.X += right.X;
+            left.Y += right.Y;
+            left.Z += right.Z;
+            left.W += right.W;
             return left;
         }
 
         /// <summary>
-        /// Subtracts each component of the <see cref="Vector4i"/>
-        /// by the components of the given <see cref="Vector4i"/>.
+        /// Subtracts each component of the <see cref="Vector4I"/>
+        /// by the components of the given <see cref="Vector4I"/>.
         /// </summary>
         /// <param name="left">The left vector.</param>
         /// <param name="right">The right vector.</param>
         /// <returns>The subtracted vector.</returns>
-        public static Vector4i operator -(Vector4i left, Vector4i right)
+        public static Vector4I operator -(Vector4I left, Vector4I right)
         {
-            left.x -= right.x;
-            left.y -= right.y;
-            left.z -= right.z;
-            left.w -= right.w;
+            left.X -= right.X;
+            left.Y -= right.Y;
+            left.Z -= right.Z;
+            left.W -= right.W;
             return left;
         }
 
         /// <summary>
-        /// Returns the negative value of the <see cref="Vector4i"/>.
-        /// This is the same as writing <c>new Vector4i(-v.x, -v.y, -v.z, -v.w)</c>.
+        /// Returns the negative value of the <see cref="Vector4I"/>.
+        /// This is the same as writing <c>new Vector4I(-v.X, -v.Y, -v.Z, -v.W)</c>.
         /// This operation flips the direction of the vector while
         /// keeping the same magnitude.
         /// </summary>
         /// <param name="vec">The vector to negate/flip.</param>
         /// <returns>The negated/flipped vector.</returns>
-        public static Vector4i operator -(Vector4i vec)
+        public static Vector4I operator -(Vector4I vec)
         {
-            vec.x = -vec.x;
-            vec.y = -vec.y;
-            vec.z = -vec.z;
-            vec.w = -vec.w;
+            vec.X = -vec.X;
+            vec.Y = -vec.Y;
+            vec.Z = -vec.Z;
+            vec.W = -vec.W;
             return vec;
         }
 
         /// <summary>
-        /// Multiplies each component of the <see cref="Vector4i"/>
+        /// Multiplies each component of the <see cref="Vector4I"/>
         /// by the given <see langword="int"/>.
         /// </summary>
         /// <param name="vec">The vector to multiply.</param>
         /// <param name="scale">The scale to multiply by.</param>
         /// <returns>The multiplied vector.</returns>
-        public static Vector4i operator *(Vector4i vec, int scale)
+        public static Vector4I operator *(Vector4I vec, int scale)
         {
-            vec.x *= scale;
-            vec.y *= scale;
-            vec.z *= scale;
-            vec.w *= scale;
+            vec.X *= scale;
+            vec.Y *= scale;
+            vec.Z *= scale;
+            vec.W *= scale;
             return vec;
         }
 
         /// <summary>
-        /// Multiplies each component of the <see cref="Vector4i"/>
+        /// Multiplies each component of the <see cref="Vector4I"/>
         /// by the given <see langword="int"/>.
         /// </summary>
         /// <param name="scale">The scale to multiply by.</param>
         /// <param name="vec">The vector to multiply.</param>
         /// <returns>The multiplied vector.</returns>
-        public static Vector4i operator *(int scale, Vector4i vec)
+        public static Vector4I operator *(int scale, Vector4I vec)
         {
-            vec.x *= scale;
-            vec.y *= scale;
-            vec.z *= scale;
-            vec.w *= scale;
+            vec.X *= scale;
+            vec.Y *= scale;
+            vec.Z *= scale;
+            vec.W *= scale;
             return vec;
         }
 
         /// <summary>
-        /// Multiplies each component of the <see cref="Vector4i"/>
-        /// by the components of the given <see cref="Vector4i"/>.
+        /// Multiplies each component of the <see cref="Vector4I"/>
+        /// by the components of the given <see cref="Vector4I"/>.
         /// </summary>
         /// <param name="left">The left vector.</param>
         /// <param name="right">The right vector.</param>
         /// <returns>The multiplied vector.</returns>
-        public static Vector4i operator *(Vector4i left, Vector4i right)
+        public static Vector4I operator *(Vector4I left, Vector4I right)
         {
-            left.x *= right.x;
-            left.y *= right.y;
-            left.z *= right.z;
-            left.w *= right.w;
+            left.X *= right.X;
+            left.Y *= right.Y;
+            left.Z *= right.Z;
+            left.W *= right.W;
             return left;
         }
 
         /// <summary>
-        /// Divides each component of the <see cref="Vector4i"/>
+        /// Divides each component of the <see cref="Vector4I"/>
         /// by the given <see langword="int"/>.
         /// </summary>
         /// <param name="vec">The dividend vector.</param>
         /// <param name="divisor">The divisor value.</param>
         /// <returns>The divided vector.</returns>
-        public static Vector4i operator /(Vector4i vec, int divisor)
+        public static Vector4I operator /(Vector4I vec, int divisor)
         {
-            vec.x /= divisor;
-            vec.y /= divisor;
-            vec.z /= divisor;
-            vec.w /= divisor;
+            vec.X /= divisor;
+            vec.Y /= divisor;
+            vec.Z /= divisor;
+            vec.W /= divisor;
             return vec;
         }
 
         /// <summary>
-        /// Divides each component of the <see cref="Vector4i"/>
-        /// by the components of the given <see cref="Vector4i"/>.
+        /// Divides each component of the <see cref="Vector4I"/>
+        /// by the components of the given <see cref="Vector4I"/>.
         /// </summary>
         /// <param name="vec">The dividend vector.</param>
         /// <param name="divisorv">The divisor vector.</param>
         /// <returns>The divided vector.</returns>
-        public static Vector4i operator /(Vector4i vec, Vector4i divisorv)
+        public static Vector4I operator /(Vector4I vec, Vector4I divisorv)
         {
-            vec.x /= divisorv.x;
-            vec.y /= divisorv.y;
-            vec.z /= divisorv.z;
-            vec.w /= divisorv.w;
+            vec.X /= divisorv.X;
+            vec.Y /= divisorv.Y;
+            vec.Z /= divisorv.Z;
+            vec.W /= divisorv.W;
             return vec;
         }
 
         /// <summary>
-        /// Gets the remainder of each component of the <see cref="Vector4i"/>
+        /// Gets the remainder of each component of the <see cref="Vector4I"/>
         /// with the components of the given <see langword="int"/>.
         /// This operation uses truncated division, which is often not desired
         /// as it does not work well with negative numbers.
+        /// Consider using <see cref="Mathf.PosMod(int, int)"/> instead
+        /// if you want to handle negative numbers.
         /// </summary>
         /// <example>
         /// <code>
-        /// GD.Print(new Vecto43i(10, -20, 30, -40) % 7); // Prints "(3, -6, 2, -5)"
+        /// GD.Print(new Vector4I(10, -20, 30, -40) % 7); // Prints "(3, -6, 2, -5)"
         /// </code>
         /// </example>
         /// <param name="vec">The dividend vector.</param>
         /// <param name="divisor">The divisor value.</param>
         /// <returns>The remainder vector.</returns>
-        public static Vector4i operator %(Vector4i vec, int divisor)
+        public static Vector4I operator %(Vector4I vec, int divisor)
         {
-            vec.x %= divisor;
-            vec.y %= divisor;
-            vec.z %= divisor;
-            vec.w %= divisor;
+            vec.X %= divisor;
+            vec.Y %= divisor;
+            vec.Z %= divisor;
+            vec.W %= divisor;
             return vec;
         }
 
         /// <summary>
-        /// Gets the remainder of each component of the <see cref="Vector4i"/>
-        /// with the components of the given <see cref="Vector4i"/>.
+        /// Gets the remainder of each component of the <see cref="Vector4I"/>
+        /// with the components of the given <see cref="Vector4I"/>.
         /// This operation uses truncated division, which is often not desired
         /// as it does not work well with negative numbers.
+        /// Consider using <see cref="Mathf.PosMod(int, int)"/> instead
+        /// if you want to handle negative numbers.
         /// </summary>
         /// <example>
         /// <code>
-        /// GD.Print(new Vector4i(10, -20, 30, -40) % new Vector4i(6, 7, 8, 9)); // Prints "(4, -6, 6, -4)"
+        /// GD.Print(new Vector4I(10, -20, 30, -40) % new Vector4I(6, 7, 8, 9)); // Prints "(4, -6, 6, -4)"
         /// </code>
         /// </example>
         /// <param name="vec">The dividend vector.</param>
         /// <param name="divisorv">The divisor vector.</param>
         /// <returns>The remainder vector.</returns>
-        public static Vector4i operator %(Vector4i vec, Vector4i divisorv)
+        public static Vector4I operator %(Vector4I vec, Vector4I divisorv)
         {
-            vec.x %= divisorv.x;
-            vec.y %= divisorv.y;
-            vec.z %= divisorv.z;
-            vec.w %= divisorv.w;
+            vec.X %= divisorv.X;
+            vec.Y %= divisorv.Y;
+            vec.Z %= divisorv.Z;
+            vec.W %= divisorv.W;
             return vec;
         }
 
@@ -438,7 +442,7 @@ namespace Godot
         /// <param name="left">The left vector.</param>
         /// <param name="right">The right vector.</param>
         /// <returns>Whether or not the vectors are equal.</returns>
-        public static bool operator ==(Vector4i left, Vector4i right)
+        public static bool operator ==(Vector4I left, Vector4I right)
         {
             return left.Equals(right);
         }
@@ -449,13 +453,13 @@ namespace Godot
         /// <param name="left">The left vector.</param>
         /// <param name="right">The right vector.</param>
         /// <returns>Whether or not the vectors are not equal.</returns>
-        public static bool operator !=(Vector4i left, Vector4i right)
+        public static bool operator !=(Vector4I left, Vector4I right)
         {
             return !left.Equals(right);
         }
 
         /// <summary>
-        /// Compares two <see cref="Vector4i"/> vectors by first checking if
+        /// Compares two <see cref="Vector4I"/> vectors by first checking if
         /// the X value of the <paramref name="left"/> vector is less than
         /// the X value of the <paramref name="right"/> vector.
         /// If the X values are exactly equal, then it repeats this check
@@ -465,25 +469,25 @@ namespace Godot
         /// <param name="left">The left vector.</param>
         /// <param name="right">The right vector.</param>
         /// <returns>Whether or not the left is less than the right.</returns>
-        public static bool operator <(Vector4i left, Vector4i right)
+        public static bool operator <(Vector4I left, Vector4I right)
         {
-            if (left.x == right.x)
+            if (left.X == right.X)
             {
-                if (left.y == right.y)
+                if (left.Y == right.Y)
                 {
-                    if (left.z == right.z)
+                    if (left.Z == right.Z)
                     {
-                        return left.w < right.w;
+                        return left.W < right.W;
                     }
-                    return left.z < right.z;
+                    return left.Z < right.Z;
                 }
-                return left.y < right.y;
+                return left.Y < right.Y;
             }
-            return left.x < right.x;
+            return left.X < right.X;
         }
 
         /// <summary>
-        /// Compares two <see cref="Vector4i"/> vectors by first checking if
+        /// Compares two <see cref="Vector4I"/> vectors by first checking if
         /// the X value of the <paramref name="left"/> vector is greater than
         /// the X value of the <paramref name="right"/> vector.
         /// If the X values are exactly equal, then it repeats this check
@@ -493,25 +497,25 @@ namespace Godot
         /// <param name="left">The left vector.</param>
         /// <param name="right">The right vector.</param>
         /// <returns>Whether or not the left is greater than the right.</returns>
-        public static bool operator >(Vector4i left, Vector4i right)
+        public static bool operator >(Vector4I left, Vector4I right)
         {
-            if (left.x == right.x)
+            if (left.X == right.X)
             {
-                if (left.y == right.y)
+                if (left.Y == right.Y)
                 {
-                    if (left.z == right.z)
+                    if (left.Z == right.Z)
                     {
-                        return left.w > right.w;
+                        return left.W > right.W;
                     }
-                    return left.z > right.z;
+                    return left.Z > right.Z;
                 }
-                return left.y > right.y;
+                return left.Y > right.Y;
             }
-            return left.x > right.x;
+            return left.X > right.X;
         }
 
         /// <summary>
-        /// Compares two <see cref="Vector4i"/> vectors by first checking if
+        /// Compares two <see cref="Vector4I"/> vectors by first checking if
         /// the X value of the <paramref name="left"/> vector is less than
         /// or equal to the X value of the <paramref name="right"/> vector.
         /// If the X values are exactly equal, then it repeats this check
@@ -521,25 +525,25 @@ namespace Godot
         /// <param name="left">The left vector.</param>
         /// <param name="right">The right vector.</param>
         /// <returns>Whether or not the left is less than or equal to the right.</returns>
-        public static bool operator <=(Vector4i left, Vector4i right)
+        public static bool operator <=(Vector4I left, Vector4I right)
         {
-            if (left.x == right.x)
+            if (left.X == right.X)
             {
-                if (left.y == right.y)
+                if (left.Y == right.Y)
                 {
-                    if (left.z == right.z)
+                    if (left.Z == right.Z)
                     {
-                        return left.w <= right.w;
+                        return left.W <= right.W;
                     }
-                    return left.z < right.z;
+                    return left.Z < right.Z;
                 }
-                return left.y < right.y;
+                return left.Y < right.Y;
             }
-            return left.x < right.x;
+            return left.X < right.X;
         }
 
         /// <summary>
-        /// Compares two <see cref="Vector4i"/> vectors by first checking if
+        /// Compares two <see cref="Vector4I"/> vectors by first checking if
         /// the X value of the <paramref name="left"/> vector is greater than
         /// or equal to the X value of the <paramref name="right"/> vector.
         /// If the X values are exactly equal, then it repeats this check
@@ -549,43 +553,43 @@ namespace Godot
         /// <param name="left">The left vector.</param>
         /// <param name="right">The right vector.</param>
         /// <returns>Whether or not the left is greater than or equal to the right.</returns>
-        public static bool operator >=(Vector4i left, Vector4i right)
+        public static bool operator >=(Vector4I left, Vector4I right)
         {
-            if (left.x == right.x)
+            if (left.X == right.X)
             {
-                if (left.y == right.y)
+                if (left.Y == right.Y)
                 {
-                    if (left.z == right.z)
+                    if (left.Z == right.Z)
                     {
-                        return left.w >= right.w;
+                        return left.W >= right.W;
                     }
-                    return left.z > right.z;
+                    return left.Z > right.Z;
                 }
-                return left.y > right.y;
+                return left.Y > right.Y;
             }
-            return left.x > right.x;
+            return left.X > right.X;
         }
 
         /// <summary>
-        /// Converts this <see cref="Vector4i"/> to a <see cref="Vector4"/>.
+        /// Converts this <see cref="Vector4I"/> to a <see cref="Vector4"/>.
         /// </summary>
         /// <param name="value">The vector to convert.</param>
-        public static implicit operator Vector4(Vector4i value)
+        public static implicit operator Vector4(Vector4I value)
         {
-            return new Vector4(value.x, value.y, value.z, value.w);
+            return new Vector4(value.X, value.Y, value.Z, value.W);
         }
 
         /// <summary>
-        /// Converts a <see cref="Vector4"/> to a <see cref="Vector4i"/>.
+        /// Converts a <see cref="Vector4"/> to a <see cref="Vector4I"/>.
         /// </summary>
         /// <param name="value">The vector to convert.</param>
-        public static explicit operator Vector4i(Vector4 value)
+        public static explicit operator Vector4I(Vector4 value)
         {
-            return new Vector4i(
-                Mathf.RoundToInt(value.x),
-                Mathf.RoundToInt(value.y),
-                Mathf.RoundToInt(value.z),
-                Mathf.RoundToInt(value.w)
+            return new Vector4I(
+                Mathf.RoundToInt(value.X),
+                Mathf.RoundToInt(value.Y),
+                Mathf.RoundToInt(value.Z),
+                Mathf.RoundToInt(value.W)
             );
         }
 
@@ -597,7 +601,7 @@ namespace Godot
         /// <returns>Whether or not the vector and the object are equal.</returns>
         public override readonly bool Equals(object obj)
         {
-            return obj is Vector4i other && Equals(other);
+            return obj is Vector4I other && Equals(other);
         }
 
         /// <summary>
@@ -605,36 +609,36 @@ namespace Godot
         /// </summary>
         /// <param name="other">The other vector.</param>
         /// <returns>Whether or not the vectors are equal.</returns>
-        public readonly bool Equals(Vector4i other)
+        public readonly bool Equals(Vector4I other)
         {
-            return x == other.x && y == other.y && z == other.z && w == other.w;
+            return X == other.X && Y == other.Y && Z == other.Z && W == other.W;
         }
 
         /// <summary>
-        /// Serves as the hash function for <see cref="Vector4i"/>.
+        /// Serves as the hash function for <see cref="Vector4I"/>.
         /// </summary>
         /// <returns>A hash code for this vector.</returns>
         public override readonly int GetHashCode()
         {
-            return y.GetHashCode() ^ x.GetHashCode() ^ z.GetHashCode() ^ w.GetHashCode();
+            return Y.GetHashCode() ^ X.GetHashCode() ^ Z.GetHashCode() ^ W.GetHashCode();
         }
 
         /// <summary>
-        /// Converts this <see cref="Vector4i"/> to a string.
+        /// Converts this <see cref="Vector4I"/> to a string.
         /// </summary>
         /// <returns>A string representation of this vector.</returns>
         public override readonly string ToString()
         {
-            return $"({x}, {y}, {z}, {w})";
+            return $"({X}, {Y}, {Z}, {W})";
         }
 
         /// <summary>
-        /// Converts this <see cref="Vector4i"/> to a string with the given <paramref name="format"/>.
+        /// Converts this <see cref="Vector4I"/> to a string with the given <paramref name="format"/>.
         /// </summary>
         /// <returns>A string representation of this vector.</returns>
         public readonly string ToString(string format)
         {
-            return $"({x.ToString(format)}, {y.ToString(format)}, {z.ToString(format)}), {w.ToString(format)})";
+            return $"({X.ToString(format)}, {Y.ToString(format)}, {Z.ToString(format)}), {W.ToString(format)})";
         }
     }
 }

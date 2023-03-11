@@ -31,6 +31,7 @@
 #ifndef RENDERING_SERVER_DEFAULT_H
 #define RENDERING_SERVER_DEFAULT_H
 
+#include "core/os/thread.h"
 #include "core/templates/command_queue_mt.h"
 #include "core/templates/hash_map.h"
 #include "renderer_canvas_cull.h"
@@ -387,7 +388,7 @@ public:
 	FUNC2(reflection_probe_set_ambient_energy, RID, float)
 	FUNC2(reflection_probe_set_ambient_mode, RID, ReflectionProbeAmbientMode)
 	FUNC2(reflection_probe_set_max_distance, RID, float)
-	FUNC2(reflection_probe_set_extents, RID, const Vector3 &)
+	FUNC2(reflection_probe_set_size, RID, const Vector3 &)
 	FUNC2(reflection_probe_set_origin_offset, RID, const Vector3 &)
 	FUNC2(reflection_probe_set_as_interior, RID, bool)
 	FUNC2(reflection_probe_set_enable_box_projection, RID, bool)
@@ -428,7 +429,7 @@ public:
 
 	FUNCRIDSPLIT(decal)
 
-	FUNC2(decal_set_extents, RID, const Vector3 &)
+	FUNC2(decal_set_size, RID, const Vector3 &)
 	FUNC3(decal_set_texture, RID, DecalTexture, RID)
 	FUNC2(decal_set_emission_energy, RID, float)
 	FUNC2(decal_set_albedo_mix, RID, float)
@@ -540,7 +541,7 @@ public:
 	FUNCRIDSPLIT(fog_volume)
 
 	FUNC2(fog_volume_set_shape, RID, FogVolumeShape)
-	FUNC2(fog_volume_set_extents, RID, const Vector3 &)
+	FUNC2(fog_volume_set_size, RID, const Vector3 &)
 	FUNC2(fog_volume_set_material, RID, RID)
 
 	/* VISIBILITY_NOTIFIER */
@@ -608,7 +609,7 @@ public:
 	FUNC1RC(RID, viewport_get_texture, RID)
 
 	FUNC2(viewport_set_disable_2d, RID, bool)
-	FUNC2(viewport_set_disable_environment, RID, bool)
+	FUNC2(viewport_set_environment_mode, RID, ViewportEnvironmentMode)
 	FUNC2(viewport_set_disable_3d, RID, bool)
 
 	FUNC2(viewport_set_canvas_cull_mask, RID, uint32_t)

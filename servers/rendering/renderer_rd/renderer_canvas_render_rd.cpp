@@ -919,7 +919,7 @@ void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_rend
 			} break;
 			case Item::Command::TYPE_ANIMATION_SLICE: {
 				const Item::CommandAnimationSlice *as = static_cast<const Item::CommandAnimationSlice *>(c);
-				double current_time = RendererCompositorRD::singleton->get_total_time();
+				double current_time = RendererCompositorRD::get_singleton()->get_total_time();
 				double local_time = Math::fposmod(current_time - as->offset, as->animation_length);
 				skipping = !(local_time >= as->slice_begin && local_time < as->slice_end);
 
@@ -1252,13 +1252,12 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 				l = l->next_ptr;
 				ERR_CONTINUE(!clight);
 			}
-			Transform2D to_light_xform = (p_canvas_transform * l->light_shader_xform).affine_inverse();
 
 			Vector2 canvas_light_pos = p_canvas_transform.xform(l->xform.get_origin()); //convert light position to canvas coordinates, as all computation is done in canvas coords to avoid precision loss
 			state.light_uniforms[index].position[0] = canvas_light_pos.x;
 			state.light_uniforms[index].position[1] = canvas_light_pos.y;
 
-			_update_transform_2d_to_mat2x4(to_light_xform, state.light_uniforms[index].matrix);
+			_update_transform_2d_to_mat2x4(l->light_shader_xform.affine_inverse(), state.light_uniforms[index].matrix);
 			_update_transform_2d_to_mat2x4(l->xform_cache.affine_inverse(), state.light_uniforms[index].shadow_matrix);
 
 			state.light_uniforms[index].height = l->height * (p_canvas_transform.columns[0].length() + p_canvas_transform.columns[1].length()) * 0.5; //approximate height conversion to the canvas size, since all calculations are done in canvas coords to avoid precision loss
@@ -1431,6 +1430,7 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 					const Item::CommandMesh *cm = static_cast<const Item::CommandMesh *>(c);
 					if (cm->mesh_instance.is_valid()) {
 						mesh_storage->mesh_instance_check_for_update(cm->mesh_instance);
+						mesh_storage->mesh_instance_set_canvas_item_transform(cm->mesh_instance, canvas_transform_inverse * ci->final_transform);
 						update_skeletons = true;
 					}
 				}
@@ -1549,6 +1549,9 @@ void RendererCanvasRenderRD::light_set_texture(RID p_rid, RID p_texture) {
 	if (cl->texture == p_texture) {
 		return;
 	}
+
+	ERR_FAIL_COND(p_texture.is_valid() && !texture_storage->owns_texture(p_texture));
+
 	if (cl->texture.is_valid()) {
 		texture_storage->texture_remove_from_decal_atlas(cl->texture);
 	}
@@ -2630,6 +2633,7 @@ RendererCanvasRenderRD::RendererCanvasRenderRD() {
 // Default CanvasGroup shader.
 
 shader_type canvas_item;
+render_mode unshaded;
 
 uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;
 
@@ -2657,6 +2661,7 @@ void fragment() {
 // Default clip children shader.
 
 shader_type canvas_item;
+render_mode unshaded;
 
 uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;
 

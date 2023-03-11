@@ -90,17 +90,18 @@ private:
 		FILE_DUPLICATE,
 		FILE_REIMPORT,
 		FILE_INFO,
-		FILE_NEW_FOLDER,
-		FILE_NEW_SCRIPT,
-		FILE_NEW_SCENE,
+		FILE_NEW,
 		FILE_SHOW_IN_EXPLORER,
 		FILE_OPEN_EXTERNAL,
 		FILE_COPY_PATH,
 		FILE_COPY_UID,
-		FILE_NEW_RESOURCE,
-		FILE_NEW_TEXTFILE,
 		FOLDER_EXPAND_ALL,
 		FOLDER_COLLAPSE_ALL,
+		FILE_NEW_RESOURCE,
+		FILE_NEW_TEXTFILE,
+		FILE_NEW_FOLDER,
+		FILE_NEW_SCRIPT,
+		FILE_NEW_SCENE,
 	};
 
 	FileSortOption file_sort = FILE_SORT_NAME;
@@ -227,6 +228,7 @@ private:
 	void _update_favorites_list_after_move(const HashMap<String, String> &p_files_renames, const HashMap<String, String> &p_folders_renames) const;
 	void _update_project_settings_after_move(const HashMap<String, String> &p_renames) const;
 
+	void _resource_removed(const Ref<Resource> &p_resource);
 	void _file_removed(String p_file);
 	void _folder_removed(String p_folder);
 

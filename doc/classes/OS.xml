@@ -498,7 +498,7 @@
 			<description>
 				Returns [code]true[/code] if the Godot binary used to run the project is a [i]debug[/i] export template, or when running in the editor.
 				Returns [code]false[/code] if the Godot binary used to run the project is a [i]release[/i] export template.
-				To check whether the Godot binary used to run the project is an export template (debug or release), use [code]OS.has_feature("standalone")[/code] instead.
+				To check whether the Godot binary used to run the project is an export template (debug or release), use [code]OS.has_feature("template")[/code] instead.
 			</description>
 		</method>
 		<method name="is_keycode_unicode" qualifiers="const">
@@ -553,11 +553,11 @@
 				[b]Note:[/b] If the user has disabled the recycle bin on their system, the file will be permanently deleted instead.
 				[codeblocks]
 				[gdscript]
-				var file_to_remove = "user://slot1.sav"
+				var file_to_remove = "user://slot1.save"
 				OS.move_to_trash(ProjectSettings.globalize_path(file_to_remove))
 				[/gdscript]
 				[csharp]
-				var fileToRemove = "user://slot1.sav";
+				var fileToRemove = "user://slot1.save";
 				OS.MoveToTrash(ProjectSettings.GlobalizePath(fileToRemove));
 				[/csharp]
 				[/codeblocks]

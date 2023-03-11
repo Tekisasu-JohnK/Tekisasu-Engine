@@ -346,6 +346,10 @@ public:
 	bool is_one() const;
 	bool is_null() const;
 
+	// Make sure Variant is not implicitly cast when accessing it with bracket notation (GH-49469).
+	Variant &operator[](const Variant &p_key) = delete;
+	const Variant &operator[](const Variant &p_key) const = delete;
+
 	operator bool() const;
 	operator signed int() const;
 	operator unsigned int() const; // this is the real one
@@ -748,6 +752,7 @@ public:
 	uint32_t recursive_hash(int recursion_count) const;
 
 	bool hash_compare(const Variant &p_variant, int recursion_count = 0) const;
+	bool identity_compare(const Variant &p_variant) const;
 	bool booleanize() const;
 	String stringify(int recursion_count = 0) const;
 	String to_json_string() const;
