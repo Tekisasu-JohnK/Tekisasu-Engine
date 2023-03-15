@@ -2682,10 +2682,11 @@ ProjectManager::ProjectManager() {
 		AcceptDialog::set_swap_cancel_ok(swap_cancel_ok == 2);
 	}
 
+	EditorColorMap::create();
 	Ref<Theme> theme = create_custom_theme();
-	set_theme(theme);
 	DisplayServer::set_early_window_clear_color_override(true, theme->get_color(SNAME("background"), SNAME("Editor")));
 
+	set_theme(theme);
 	set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 
 	Panel *panel = memnew(Panel);
@@ -2974,7 +2975,7 @@ ProjectManager::ProjectManager() {
 		ask_update_settings = memnew(ConfirmationDialog);
 		ask_update_settings->set_autowrap(true);
 		ask_update_settings->get_ok_button()->connect("pressed", callable_mp(this, &ProjectManager::_confirm_update_settings));
-		full_convert_button = ask_update_settings->add_button("Convert Full Project", !GLOBAL_GET("gui/common/swap_cancel_ok"));
+		full_convert_button = ask_update_settings->add_button(TTR("Convert Full Project"), !GLOBAL_GET("gui/common/swap_cancel_ok"));
 		full_convert_button->connect("pressed", callable_mp(this, &ProjectManager::_full_convert_button_pressed));
 		add_child(ask_update_settings);
 
