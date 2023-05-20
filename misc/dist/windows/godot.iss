@@ -1,8 +1,8 @@
-#define MyAppName "Godot Engine"
-#define MyAppVersion "4.0.3"
-#define MyAppPublisher "Godot Engine contributors"
-#define MyAppURL "https://godotengine.org/"
-#define MyAppExeName "godot.exe"
+#define MyAppName "Tekisasu Engine"
+#define MyAppVersion "4.0.dev"
+#define MyAppPublisher "Tekisasu"
+#define MyAppURL "https://dev.tekisasu.com/"
+#define MyAppExeName "Tekisasu-Engine.exe"
 
 [Setup]
 AppId={{60D07AAA-400E-40F5-B073-A796C34D9D78}
@@ -15,9 +15,9 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-AppComments=Godot Engine editor
+AppComments=Tekisasu Engine editor
 ChangesEnvironment=yes
-DefaultDirName={localappdata}\Godot
+DefaultDirName={localappdata}\Tekisasu-Engine
 DefaultGroupName=Godot Engine
 AllowNoIcons=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
