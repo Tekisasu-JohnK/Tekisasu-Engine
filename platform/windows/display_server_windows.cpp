@@ -264,15 +264,15 @@ BitField<MouseButtonMask> DisplayServerWindows::mouse_get_button_state() const {
 void DisplayServerWindows::clipboard_set(const String &p_text) {
 	_THREAD_SAFE_METHOD_
 
-	if (!windows.has(last_focused_window)) {
-		return; // No focused window?
+	if (!windows.has(MAIN_WINDOW_ID)) {
+		return;
 	}
 
 	// Convert LF line endings to CRLF in clipboard content.
 	// Otherwise, line endings won't be visible when pasted in other software.
 	String text = p_text.replace("\r\n", "\n").replace("\n", "\r\n"); // Avoid \r\r\n.
 
-	if (!OpenClipboard(windows[last_focused_window].hWnd)) {
+	if (!OpenClipboard(windows[MAIN_WINDOW_ID].hWnd)) {
 		ERR_FAIL_MSG("Unable to open clipboard.");
 	}
 	EmptyClipboard();
@@ -305,12 +305,12 @@ void DisplayServerWindows::clipboard_set(const String &p_text) {
 String DisplayServerWindows::clipboard_get() const {
 	_THREAD_SAFE_METHOD_
 
-	if (!windows.has(last_focused_window)) {
-		return String(); // No focused window?
+	if (!windows.has(MAIN_WINDOW_ID)) {
+		return String();
 	}
 
 	String ret;
-	if (!OpenClipboard(windows[last_focused_window].hWnd)) {
+	if (!OpenClipboard(windows[MAIN_WINDOW_ID].hWnd)) {
 		ERR_FAIL_V_MSG("", "Unable to open clipboard.");
 	}
 
@@ -3418,9 +3418,6 @@ LRESULT DisplayServerWindows::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 					gr_mem = alt_mem;
 				}
 			}
-			if (wParam == VK_LWIN || wParam == VK_RWIN) {
-				meta_mem = (uMsg == WM_KEYDOWN || uMsg == WM_SYSKEYDOWN);
-			}
 
 			if (windows[window_id].ime_suppress_next_keyup && (uMsg == WM_KEYUP || uMsg == WM_SYSKEYUP)) {
 				windows[window_id].ime_suppress_next_keyup = false;
@@ -3870,12 +3867,6 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 	{
 		WindowData &wd = windows[id];
 
-		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
-		#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
-		#define DWMWA_USE_IMMERSIVE_DARK_MODE 19
-		#endif
-		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */
-
 		wd.hWnd = CreateWindowExW(
 				dwExStyle,
 				L"Engine", L"",
@@ -3893,7 +3884,6 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 				// lifetime is ensured because we are still on the stack when this is
 				// processed in the window proc
 				reinterpret_cast<void *>(&wd));
-		
 		if (!wd.hWnd) {
 			MessageBoxW(nullptr, L"Window Creation Error.", L"ERROR", MB_OK | MB_ICONEXCLAMATION);
 			windows.erase(id);
@@ -3909,10 +3899,10 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 			wd.pre_fs_valid = true;
 		}
 
-		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
-		BOOL value = TRUE;
-		::DwmSetWindowAttribute(wd.hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
-		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */	
+		if (is_dark_mode_supported() && dark_title_available) {
+			BOOL value = is_dark_mode();
+			::DwmSetWindowAttribute(wd.hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+		}
 
 #ifdef VULKAN_ENABLED
 		if (context_vulkan) {
@@ -4139,9 +4129,6 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 		if (os_ver.dwBuildNumber >= 22000) {
 			dark_title_available = true;
 		}
-
-		// Tekisasu Force dark_title_available to true
-		dark_title_available = true;
 	}
 
 	// Note: Wacom WinTab driver API for pen input, for devices incompatible with Windows Ink.
@@ -4401,5 +4388,4 @@ DisplayServerWindows::~DisplayServerWindows() {
 	if (tts) {
 		memdelete(tts);
 	}
-	CoUninitialize();
 }

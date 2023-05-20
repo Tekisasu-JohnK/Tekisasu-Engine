@@ -1510,7 +1510,7 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["LIGHT_VERTEX"] = "light_vertex";
 		actions.renames["SHADOW_VERTEX"] = "shadow_vertex";
 		actions.renames["UV"] = "uv";
-		actions.renames["POINT_SIZE"] = "gl_PointSize";
+		actions.renames["POINT_SIZE"] = "point_size";
 
 		actions.renames["MODEL_MATRIX"] = "model_matrix";
 		actions.renames["CANVAS_MATRIX"] = "canvas_transform";
@@ -1591,7 +1591,7 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["UV"] = "uv_interp";
 		actions.renames["UV2"] = "uv2_interp";
 		actions.renames["COLOR"] = "color_interp";
-		actions.renames["POINT_SIZE"] = "gl_PointSize";
+		actions.renames["POINT_SIZE"] = "point_size";
 		actions.renames["INSTANCE_ID"] = "gl_InstanceID";
 		actions.renames["VERTEX_ID"] = "gl_VertexID";
 
@@ -1651,7 +1651,7 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["CAMERA_POSITION_WORLD"] = "scene_data.inv_view_matrix[3].xyz";
 		actions.renames["CAMERA_DIRECTION_WORLD"] = "scene_data.view_matrix[3].xyz";
 		actions.renames["CAMERA_VISIBLE_LAYERS"] = "scene_data.camera_visible_layers";
-		actions.renames["NODE_POSITION_VIEW"] = "(model_matrix * scene_data.view_matrix)[3].xyz";
+		actions.renames["NODE_POSITION_VIEW"] = "(scene_data.view_matrix * model_matrix)[3].xyz";
 
 		actions.renames["VIEW_INDEX"] = "ViewIndex";
 		actions.renames["VIEW_MONO_LEFT"] = "uint(0)";

@@ -59,6 +59,9 @@ class ViewportTexture : public Texture2D {
 
 	friend class Viewport;
 	Viewport *vp = nullptr;
+	bool vp_pending = false;
+
+	void _setup_local_to_scene(const Node *p_loc_scene);
 
 	mutable RID proxy_ph;
 	mutable RID proxy;
@@ -784,6 +787,7 @@ public:
 	virtual Transform2D get_screen_transform_internal(bool p_absolute_position = false) const override;
 	virtual Transform2D get_popup_base_transform() const override;
 
+	void _validate_property(PropertyInfo &p_property) const;
 	SubViewport();
 	~SubViewport();
 };

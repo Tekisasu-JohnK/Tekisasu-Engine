@@ -1276,7 +1276,7 @@ void TextEdit::_notification(int p_what) {
 								if (glyphs[j].font_rid != RID()) {
 									TS->font_draw_glyph(glyphs[j].font_rid, ci, glyphs[j].font_size, Vector2(char_margin + char_ofs + ofs_x + glyphs[j].x_off, ofs_y + glyphs[j].y_off), glyphs[j].index, gl_color);
 									had_glyphs_drawn = true;
-								} else if ((glyphs[j].flags & TextServer::GRAPHEME_IS_VIRTUAL) != TextServer::GRAPHEME_IS_VIRTUAL) {
+								} else if (((glyphs[j].flags & TextServer::GRAPHEME_IS_VIRTUAL) != TextServer::GRAPHEME_IS_VIRTUAL) && ((glyphs[j].flags & TextServer::GRAPHEME_IS_EMBEDDED_OBJECT) != TextServer::GRAPHEME_IS_EMBEDDED_OBJECT)) {
 									TS->draw_hex_code_box(ci, glyphs[j].font_size, Vector2(char_margin + char_ofs + ofs_x + glyphs[j].x_off, ofs_y + glyphs[j].y_off), glyphs[j].index, gl_color);
 									had_glyphs_drawn = true;
 								}
@@ -1385,7 +1385,7 @@ void TextEdit::_notification(int p_what) {
 													ts_caret.l_caret.position.y += ts_caret.l_caret.size.y;
 													ts_caret.l_caret.size.y = caret_width;
 												}
-												if (ts_caret.l_caret.position.x >= TS->shaped_text_get_size(rid).x) {
+												if (Math::ceil(ts_caret.l_caret.position.x) >= TS->shaped_text_get_size(rid).x) {
 													ts_caret.l_caret.size.x = font->get_char_size('m', font_size).x;
 												} else {
 													ts_caret.l_caret.size.x = 3 * caret_width;
@@ -1480,7 +1480,11 @@ void TextEdit::_notification(int p_what) {
 			if (has_focus()) {
 				if (get_viewport()->get_window_id() != DisplayServer::INVALID_WINDOW_ID && DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_IME)) {
 					DisplayServer::get_singleton()->window_set_ime_active(true, get_viewport()->get_window_id());
-					DisplayServer::get_singleton()->window_set_ime_position(get_global_position() + get_caret_draw_pos(), get_viewport()->get_window_id());
+					Point2 pos = get_global_position() + get_caret_draw_pos();
+					if (get_window()->get_embedder()) {
+						pos += get_viewport()->get_popup_base_transform().get_origin();
+					}
+					DisplayServer::get_singleton()->window_set_ime_position(pos, get_viewport()->get_window_id());
 				}
 			}
 		} break;
@@ -1494,7 +1498,11 @@ void TextEdit::_notification(int p_what) {
 
 			if (get_viewport()->get_window_id() != DisplayServer::INVALID_WINDOW_ID && DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_IME)) {
 				DisplayServer::get_singleton()->window_set_ime_active(true, get_viewport()->get_window_id());
-				DisplayServer::get_singleton()->window_set_ime_position(get_global_position() + get_caret_draw_pos(), get_viewport()->get_window_id());
+				Point2 pos = get_global_position() + get_caret_draw_pos();
+				if (get_window()->get_embedder()) {
+					pos += get_viewport()->get_popup_base_transform().get_origin();
+				}
+				DisplayServer::get_singleton()->window_set_ime_position(pos, get_viewport()->get_window_id());
 			}
 
 			if (DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_VIRTUAL_KEYBOARD) && virtual_keyboard_enabled) {
@@ -1839,23 +1847,28 @@ void TextEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
 				Point2i pos = get_line_column_at_pos(mpos);
 				int row = pos.y;
 				int col = pos.x;
-				int caret = carets.size() - 1;
 
+				bool selection_clicked = false;
 				if (is_move_caret_on_right_click_enabled()) {
-					if (has_selection(caret)) {
-						int from_line = get_selection_from_line(caret);
-						int to_line = get_selection_to_line(caret);
-						int from_column = get_selection_from_column(caret);
-						int to_column = get_selection_to_column(caret);
+					if (has_selection()) {
+						for (int i = 0; i < get_caret_count(); i++) {
+							int from_line = get_selection_from_line(i);
+							int to_line = get_selection_to_line(i);
+							int from_column = get_selection_from_column(i);
+							int to_column = get_selection_to_column(i);
 
-						if (row < from_line || row > to_line || (row == from_line && col < from_column) || (row == to_line && col > to_column)) {
-							// Right click is outside the selected text.
-							deselect(caret);
+							if (row >= from_line && row <= to_line && (row != from_line || col >= from_column) && (row != to_line || col <= to_column)) {
+								// Right click in one of the selected text
+								selection_clicked = true;
+								break;
+							}
 						}
 					}
-					if (!has_selection(caret)) {
-						set_caret_line(row, true, false, 0, caret);
-						set_caret_column(col, true, caret);
+					if (!selection_clicked) {
+						deselect();
+						remove_secondary_carets();
+						set_caret_line(row, false, false);
+						set_caret_column(col);
 					}
 					merge_overlapping_carets();
 				}
@@ -3027,6 +3040,11 @@ bool TextEdit::is_text_field() const {
 }
 
 Variant TextEdit::get_drag_data(const Point2 &p_point) {
+	Variant ret = Control::get_drag_data(p_point);
+	if (ret != Variant()) {
+		return ret;
+	}
+
 	if (has_selection() && selection_drag_attempt) {
 		String t = get_selected_text();
 		Label *l = memnew(Label);

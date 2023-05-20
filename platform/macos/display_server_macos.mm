@@ -1839,9 +1839,9 @@ Error DisplayServerMacOS::dialog_show(String p_title, String p_description, Vect
 	if (!p_callback.is_null()) {
 		Variant button = button_pressed;
 		Variant *buttonp = &button;
-		Variant ret;
+		Variant fun_ret;
 		Callable::CallError ce;
-		p_callback.callp((const Variant **)&buttonp, 1, ret, ce);
+		p_callback.callp((const Variant **)&buttonp, 1, fun_ret, ce);
 	}
 
 	return OK;
@@ -1871,9 +1871,9 @@ Error DisplayServerMacOS::dialog_input_text(String p_title, String p_description
 	if (!p_callback.is_null()) {
 		Variant text = ret;
 		Variant *textp = &text;
-		Variant ret;
+		Variant fun_ret;
 		Callable::CallError ce;
-		p_callback.callp((const Variant **)&textp, 1, ret, ce);
+		p_callback.callp((const Variant **)&textp, 1, fun_ret, ce);
 	}
 
 	return OK;
@@ -1896,7 +1896,7 @@ void DisplayServerMacOS::mouse_set_mode(MouseMode p_mode) {
 	bool previously_shown = (mouse_mode == MOUSE_MODE_VISIBLE || mouse_mode == MOUSE_MODE_CONFINED);
 
 	if (show_cursor && !previously_shown) {
-		WindowID window_id = get_window_at_screen_position(mouse_get_position());
+		window_id = get_window_at_screen_position(mouse_get_position());
 		if (window_id != INVALID_WINDOW_ID) {
 			send_window_event(windows[window_id], WINDOW_EVENT_MOUSE_ENTER);
 		}
@@ -3491,14 +3491,16 @@ void DisplayServerMacOS::process_events() {
 	}
 
 	// Process "menu_callback"s.
-	for (MenuCall &E : deferred_menu_calls) {
-		Variant tag = E.tag;
+	while (List<MenuCall>::Element *call_p = deferred_menu_calls.front()) {
+		MenuCall call = call_p->get();
+		deferred_menu_calls.pop_front(); // Remove before call to avoid infinite loop in case callback is using `process_events` (e.g. EditorProgress).
+
+		Variant tag = call.tag;
 		Variant *tagp = &tag;
 		Variant ret;
 		Callable::CallError ce;
-		E.callback.callp((const Variant **)&tagp, 1, ret, ce);
+		call.callback.callp((const Variant **)&tagp, 1, ret, ce);
 	}
-	deferred_menu_calls.clear();
 
 	if (!drop_events) {
 		_process_key_events();

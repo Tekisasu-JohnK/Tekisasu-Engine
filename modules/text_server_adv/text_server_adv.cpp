@@ -386,6 +386,8 @@ int64_t TextServerAdvanced::_get_features() const {
 void TextServerAdvanced::_free_rid(const RID &p_rid) {
 	_THREAD_SAFE_METHOD_
 	if (font_owner.owns(p_rid)) {
+		MutexLock ftlock(ft_mutex);
+
 		FontAdvanced *fd = font_owner.get_or_null(p_rid);
 		{
 			MutexLock lock(fd->mutex);
@@ -1321,45 +1323,48 @@ _FORCE_INLINE_ bool TextServerAdvanced::_ensure_cache_for_size(FontAdvanced *p_f
 		// Init dynamic font.
 #ifdef MODULE_FREETYPE_ENABLED
 		int error = 0;
-		if (!ft_library) {
-			error = FT_Init_FreeType(&ft_library);
-			if (error != 0) {
-				memdelete(fd);
-				ERR_FAIL_V_MSG(false, "FreeType: Error initializing library: '" + String(FT_Error_String(error)) + "'.");
-			}
+		{
+			MutexLock ftlock(ft_mutex);
+			if (!ft_library) {
+				error = FT_Init_FreeType(&ft_library);
+				if (error != 0) {
+					memdelete(fd);
+					ERR_FAIL_V_MSG(false, "FreeType: Error initializing library: '" + String(FT_Error_String(error)) + "'.");
+				}
 #ifdef MODULE_SVG_ENABLED
-			FT_Property_Set(ft_library, "ot-svg", "svg-hooks", get_tvg_svg_in_ot_hooks());
+				FT_Property_Set(ft_library, "ot-svg", "svg-hooks", get_tvg_svg_in_ot_hooks());
 #endif
-		}
+			}
 
-		memset(&fd->stream, 0, sizeof(FT_StreamRec));
-		fd->stream.base = (unsigned char *)p_font_data->data_ptr;
-		fd->stream.size = p_font_data->data_size;
-		fd->stream.pos = 0;
+			memset(&fd->stream, 0, sizeof(FT_StreamRec));
+			fd->stream.base = (unsigned char *)p_font_data->data_ptr;
+			fd->stream.size = p_font_data->data_size;
+			fd->stream.pos = 0;
 
-		FT_Open_Args fargs;
-		memset(&fargs, 0, sizeof(FT_Open_Args));
-		fargs.memory_base = (unsigned char *)p_font_data->data_ptr;
-		fargs.memory_size = p_font_data->data_size;
-		fargs.flags = FT_OPEN_MEMORY;
-		fargs.stream = &fd->stream;
+			FT_Open_Args fargs;
+			memset(&fargs, 0, sizeof(FT_Open_Args));
+			fargs.memory_base = (unsigned char *)p_font_data->data_ptr;
+			fargs.memory_size = p_font_data->data_size;
+			fargs.flags = FT_OPEN_MEMORY;
+			fargs.stream = &fd->stream;
 
-		int max_index = 0;
-		FT_Face tmp_face = nullptr;
-		error = FT_Open_Face(ft_library, &fargs, -1, &tmp_face);
-		if (tmp_face && error == 0) {
-			max_index = tmp_face->num_faces - 1;
-		}
-		if (tmp_face) {
-			FT_Done_Face(tmp_face);
-		}
+			int max_index = 0;
+			FT_Face tmp_face = nullptr;
+			error = FT_Open_Face(ft_library, &fargs, -1, &tmp_face);
+			if (tmp_face && error == 0) {
+				max_index = tmp_face->num_faces - 1;
+			}
+			if (tmp_face) {
+				FT_Done_Face(tmp_face);
+			}
 
-		error = FT_Open_Face(ft_library, &fargs, CLAMP(p_font_data->face_index, 0, max_index), &fd->face);
-		if (error) {
-			FT_Done_Face(fd->face);
-			fd->face = nullptr;
-			memdelete(fd);
-			ERR_FAIL_V_MSG(false, "FreeType: Error loading font: '" + String(FT_Error_String(error)) + "'.");
+			error = FT_Open_Face(ft_library, &fargs, CLAMP(p_font_data->face_index, 0, max_index), &fd->face);
+			if (error) {
+				FT_Done_Face(fd->face);
+				fd->face = nullptr;
+				memdelete(fd);
+				ERR_FAIL_V_MSG(false, "FreeType: Error loading font: '" + String(FT_Error_String(error)) + "'.");
+			}
 		}
 
 		if (p_font_data->msdf) {
@@ -1788,6 +1793,8 @@ _FORCE_INLINE_ bool TextServerAdvanced::_ensure_cache_for_size(FontAdvanced *p_f
 }
 
 _FORCE_INLINE_ void TextServerAdvanced::_font_clear_cache(FontAdvanced *p_font_data) {
+	MutexLock ftlock(ft_mutex);
+
 	for (const KeyValue<Vector2i, FontForSizeAdvanced *> &E : p_font_data->cache) {
 		memdelete(E.value);
 	}
@@ -1893,6 +1900,8 @@ int64_t TextServerAdvanced::_font_get_face_count(const RID &p_font_rid) const {
 		fargs.memory_size = fd->data_size;
 		fargs.flags = FT_OPEN_MEMORY;
 		fargs.stream = &stream;
+
+		MutexLock ftlock(ft_mutex);
 
 		FT_Face tmp_face = nullptr;
 		error = FT_Open_Face(ft_library, &fargs, -1, &tmp_face);
@@ -2285,6 +2294,7 @@ void TextServerAdvanced::_font_clear_size_cache(const RID &p_font_rid) {
 	ERR_FAIL_COND(!fd);
 
 	MutexLock lock(fd->mutex);
+	MutexLock ftlock(ft_mutex);
 	for (const KeyValue<Vector2i, FontForSizeAdvanced *> &E : fd->cache) {
 		memdelete(E.value);
 	}
@@ -2296,6 +2306,7 @@ void TextServerAdvanced::_font_remove_size_cache(const RID &p_font_rid, const Ve
 	ERR_FAIL_COND(!fd);
 
 	MutexLock lock(fd->mutex);
+	MutexLock ftlock(ft_mutex);
 	if (fd->cache.has(p_size)) {
 		memdelete(fd->cache[p_size]);
 		fd->cache.erase(p_size);
@@ -4094,6 +4105,7 @@ RID TextServerAdvanced::_shaped_text_substr(const RID &p_shaped, int64_t p_start
 	new_sd->direction = sd->direction;
 	new_sd->custom_punct = sd->custom_punct;
 	new_sd->para_direction = sd->para_direction;
+	new_sd->base_para_direction = sd->base_para_direction;
 	for (int i = 0; i < TextServer::SPACING_MAX; i++) {
 		new_sd->extra_spacing[i] = sd->extra_spacing[i];
 	}
@@ -4138,22 +4150,61 @@ bool TextServerAdvanced::_shape_substr(ShapedTextDataAdvanced *p_new_sd, const S
 			ERR_FAIL_COND_V_MSG((start < 0 || end - start > p_new_sd->utf16.length()), false, "Invalid BiDi override range.");
 
 			// Create temporary line bidi & shape.
-			UBiDi *bidi_iter = ubidi_openSized(end - start, 0, &err);
-			ERR_FAIL_COND_V_MSG(U_FAILURE(err), false, u_errorName(err));
-			ubidi_setLine(p_sd->bidi_iter[ov], start, end, bidi_iter, &err);
-			if (U_FAILURE(err)) {
-				ubidi_close(bidi_iter);
-				ERR_FAIL_V_MSG(false, u_errorName(err));
+			UBiDi *bidi_iter = nullptr;
+			if (p_sd->bidi_iter[ov]) {
+				bidi_iter = ubidi_openSized(end - start, 0, &err);
+				if (U_SUCCESS(err)) {
+					ubidi_setLine(p_sd->bidi_iter[ov], start, end, bidi_iter, &err);
+					if (U_FAILURE(err)) {
+						// Line BiDi failed (string contains incompatible control characters), try full paragraph BiDi instead.
+						err = U_ZERO_ERROR;
+						const UChar *data = p_sd->utf16.get_data();
+						switch (static_cast<TextServer::Direction>(p_sd->bidi_override[ov].z)) {
+							case DIRECTION_LTR: {
+								ubidi_setPara(bidi_iter, data + start, end - start, UBIDI_LTR, nullptr, &err);
+							} break;
+							case DIRECTION_RTL: {
+								ubidi_setPara(bidi_iter, data + start, end - start, UBIDI_RTL, nullptr, &err);
+							} break;
+							case DIRECTION_INHERITED: {
+								ubidi_setPara(bidi_iter, data + start, end - start, p_sd->base_para_direction, nullptr, &err);
+							} break;
+							case DIRECTION_AUTO: {
+								UBiDiDirection direction = ubidi_getBaseDirection(data + start, end - start);
+								if (direction != UBIDI_NEUTRAL) {
+									ubidi_setPara(bidi_iter, data + start, end - start, direction, nullptr, &err);
+								} else {
+									ubidi_setPara(bidi_iter, data + start, end - start, p_sd->base_para_direction, nullptr, &err);
+								}
+							} break;
+						}
+						if (U_FAILURE(err)) {
+							ubidi_close(bidi_iter);
+							bidi_iter = nullptr;
+							ERR_PRINT(vformat("BiDi reordering for the line failed: %s", u_errorName(err)));
+						}
+					}
+				} else {
+					bidi_iter = nullptr;
+					ERR_PRINT(vformat("BiDi iterator allocation for the line failed: %s", u_errorName(err)));
+				}
 			}
 			p_new_sd->bidi_iter.push_back(bidi_iter);
 
 			err = U_ZERO_ERROR;
-			int bidi_run_count = ubidi_countRuns(bidi_iter, &err);
-			ERR_FAIL_COND_V_MSG(U_FAILURE(err), false, u_errorName(err));
+			int bidi_run_count = 1;
+			if (bidi_iter) {
+				bidi_run_count = ubidi_countRuns(bidi_iter, &err);
+				if (U_FAILURE(err)) {
+					ERR_PRINT(u_errorName(err));
+				}
+			}
 			for (int i = 0; i < bidi_run_count; i++) {
 				int32_t _bidi_run_start = 0;
-				int32_t _bidi_run_length = 0;
-				ubidi_getVisualRun(bidi_iter, i, &_bidi_run_start, &_bidi_run_length);
+				int32_t _bidi_run_length = end - start;
+				if (bidi_iter) {
+					ubidi_getVisualRun(bidi_iter, i, &_bidi_run_start, &_bidi_run_length);
+				}
 
 				int32_t bidi_run_start = _convert_pos(p_sd, ov_start + start + _bidi_run_start);
 				int32_t bidi_run_end = _convert_pos(p_sd, ov_start + start + _bidi_run_start + _bidi_run_length);
@@ -5560,25 +5611,25 @@ bool TextServerAdvanced::_shaped_text_shape(const RID &p_shaped) {
 		sd->script_iter = memnew(ScriptIterator(sd->text, 0, sd->text.length()));
 	}
 
-	int base_para_direction = UBIDI_DEFAULT_LTR;
+	sd->base_para_direction = UBIDI_DEFAULT_LTR;
 	switch (sd->direction) {
 		case DIRECTION_LTR: {
 			sd->para_direction = DIRECTION_LTR;
-			base_para_direction = UBIDI_LTR;
+			sd->base_para_direction = UBIDI_LTR;
 		} break;
 		case DIRECTION_RTL: {
 			sd->para_direction = DIRECTION_RTL;
-			base_para_direction = UBIDI_RTL;
+			sd->base_para_direction = UBIDI_RTL;
 		} break;
 		case DIRECTION_INHERITED:
 		case DIRECTION_AUTO: {
 			UBiDiDirection direction = ubidi_getBaseDirection(data, sd->utf16.length());
 			if (direction != UBIDI_NEUTRAL) {
 				sd->para_direction = (direction == UBIDI_RTL) ? DIRECTION_RTL : DIRECTION_LTR;
-				base_para_direction = direction;
+				sd->base_para_direction = direction;
 			} else {
 				sd->para_direction = DIRECTION_LTR;
-				base_para_direction = UBIDI_DEFAULT_LTR;
+				sd->base_para_direction = UBIDI_DEFAULT_LTR;
 			}
 		} break;
 	}
@@ -5598,38 +5649,53 @@ bool TextServerAdvanced::_shaped_text_shape(const RID &p_shaped) {
 
 		UErrorCode err = U_ZERO_ERROR;
 		UBiDi *bidi_iter = ubidi_openSized(end - start, 0, &err);
-		ERR_FAIL_COND_V_MSG(U_FAILURE(err), false, u_errorName(err));
-
-		switch (static_cast<TextServer::Direction>(sd->bidi_override[ov].z)) {
-			case DIRECTION_LTR: {
-				ubidi_setPara(bidi_iter, data + start, end - start, UBIDI_LTR, nullptr, &err);
-			} break;
-			case DIRECTION_RTL: {
-				ubidi_setPara(bidi_iter, data + start, end - start, UBIDI_RTL, nullptr, &err);
-			} break;
-			case DIRECTION_INHERITED: {
-				ubidi_setPara(bidi_iter, data + start, end - start, base_para_direction, nullptr, &err);
-			} break;
-			case DIRECTION_AUTO: {
-				UBiDiDirection direction = ubidi_getBaseDirection(data + start, end - start);
-				if (direction != UBIDI_NEUTRAL) {
-					ubidi_setPara(bidi_iter, data + start, end - start, direction, nullptr, &err);
-				} else {
-					ubidi_setPara(bidi_iter, data + start, end - start, base_para_direction, nullptr, &err);
-				}
-			} break;
+		if (U_SUCCESS(err)) {
+			switch (static_cast<TextServer::Direction>(sd->bidi_override[ov].z)) {
+				case DIRECTION_LTR: {
+					ubidi_setPara(bidi_iter, data + start, end - start, UBIDI_LTR, nullptr, &err);
+				} break;
+				case DIRECTION_RTL: {
+					ubidi_setPara(bidi_iter, data + start, end - start, UBIDI_RTL, nullptr, &err);
+				} break;
+				case DIRECTION_INHERITED: {
+					ubidi_setPara(bidi_iter, data + start, end - start, sd->base_para_direction, nullptr, &err);
+				} break;
+				case DIRECTION_AUTO: {
+					UBiDiDirection direction = ubidi_getBaseDirection(data + start, end - start);
+					if (direction != UBIDI_NEUTRAL) {
+						ubidi_setPara(bidi_iter, data + start, end - start, direction, nullptr, &err);
+					} else {
+						ubidi_setPara(bidi_iter, data + start, end - start, sd->base_para_direction, nullptr, &err);
+					}
+				} break;
+			}
+			if (U_FAILURE(err)) {
+				ubidi_close(bidi_iter);
+				bidi_iter = nullptr;
+				ERR_PRINT(vformat("BiDi reordering for the paragraph failed: %s", u_errorName(err)));
+			}
+		} else {
+			bidi_iter = nullptr;
+			ERR_PRINT(vformat("BiDi iterator allocation for the paragraph failed: %s", u_errorName(err)));
 		}
-		ERR_FAIL_COND_V_MSG(U_FAILURE(err), false, u_errorName(err));
 		sd->bidi_iter.push_back(bidi_iter);
 
 		err = U_ZERO_ERROR;
-		int bidi_run_count = ubidi_countRuns(bidi_iter, &err);
-		ERR_FAIL_COND_V_MSG(U_FAILURE(err), false, u_errorName(err));
+		int bidi_run_count = 1;
+		if (bidi_iter) {
+			bidi_run_count = ubidi_countRuns(bidi_iter, &err);
+			if (U_FAILURE(err)) {
+				ERR_PRINT(u_errorName(err));
+			}
+		}
 		for (int i = 0; i < bidi_run_count; i++) {
 			int32_t _bidi_run_start = 0;
-			int32_t _bidi_run_length = 0;
+			int32_t _bidi_run_length = end - start;
+			bool is_rtl = false;
 			hb_direction_t bidi_run_direction = HB_DIRECTION_INVALID;
-			bool is_rtl = (ubidi_getVisualRun(bidi_iter, i, &_bidi_run_start, &_bidi_run_length) == UBIDI_LTR);
+			if (bidi_iter) {
+				is_rtl = (ubidi_getVisualRun(bidi_iter, i, &_bidi_run_start, &_bidi_run_length) == UBIDI_LTR);
+			}
 			switch (sd->orientation) {
 				case ORIENTATION_HORIZONTAL: {
 					if (is_rtl) {
@@ -5686,7 +5752,7 @@ bool TextServerAdvanced::_shaped_text_shape(const RID &p_shaped) {
 							gl.start = span.start;
 							gl.end = span.end;
 							gl.count = 1;
-							gl.flags = GRAPHEME_IS_VALID | GRAPHEME_IS_VIRTUAL;
+							gl.flags = GRAPHEME_IS_VALID | GRAPHEME_IS_EMBEDDED_OBJECT;
 							if (sd->orientation == ORIENTATION_HORIZONTAL) {
 								gl.advance = sd->objects[span.embedded_key].rect.size.x;
 							} else {

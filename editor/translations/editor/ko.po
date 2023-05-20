@@ -45,13 +45,18 @@
 # 이정희 <daemul72@gmail.com>, 2023.
 # nulta <un5450@naver.com>, 2023.
 # jaehun choe <jayden.choe@gmail.com>, 2023.
+# 설동훈 <tjfehdgns@gmail.com>, 2023.
+# Rocream <kbg4660@gmail.com>, 2023.
+# Seania Twix <admin@ez.is>, 2023.
+# coolkid <newtype20050831@gmail.com>, 2023.
+# asdfer-1234 <sh__lv@naver.com>, 2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: Godot Engine editor interface\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2023-03-05 01:38+0000\n"
-"Last-Translator: jaehun choe <jayden.choe@gmail.com>\n"
+"PO-Revision-Date: 2023-05-17 00:52+0000\n"
+"Last-Translator: asdfer-1234 <sh__lv@naver.com>\n"
 "Language-Team: Korean <https://hosted.weblate.org/projects/godot-engine/"
 "godot/ko/>\n"
 "Language: ko\n"
@@ -59,7 +64,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.16.2-dev\n"
+"X-Generator: Weblate 4.18-dev\n"
 
 msgid "Unset"
 msgstr "설정 해제"
@@ -314,6 +319,9 @@ msgstr "삭제"
 
 msgid "Delete Word"
 msgstr "단어 삭제"
+
+msgid "Caret Right"
+msgstr "^ 오른쪽"
 
 msgid "Caret Add Above"
 msgstr "위에 캐럿 추가"
@@ -844,6 +852,9 @@ msgstr "복사할 트랙 선택"
 msgid "Select All/None"
 msgstr "모두 선택/해제"
 
+msgid "Animation Change Keyframe Time"
+msgstr "애니메이션 키 프레임 시간 바꾸기"
+
 msgid "Add Audio Track Clip"
 msgstr "오디오 트랙 클립 추가"
 
@@ -865,6 +876,10 @@ msgstr "%d개 찾아 바꿈."
 msgid "%d match"
 msgid_plural "%d matches"
 msgstr[0] "%d개 일치"
+
+msgid "%d of %d match"
+msgid_plural "%d of %d matches"
+msgstr[0] "%d 중 %d 일치"
 
 msgid "Match Case"
 msgstr "대소문자 구분"
@@ -2080,7 +2095,7 @@ msgid "(Re)Importing Assets"
 msgstr "애셋 (다시) 가져오는 중"
 
 msgid "Experimental"
-msgstr "실험적"
+msgstr "실험적인"
 
 msgid "This method supports a variable number of arguments."
 msgstr "이 메서드는 다양한 인수를 지원합니다."
@@ -2201,8 +2216,14 @@ msgstr ""
 "현재 이 속성의 설명이 없습니다. [color=$color][url=$url]관련 정보를 기여하여"
 "[/url][/color] 개선할 수 있도록 도와주세요!"
 
+msgid "Constructor Descriptions"
+msgstr "생성자 설명"
+
 msgid "Method Descriptions"
 msgstr "메서드 설명"
+
+msgid "Operator Descriptions"
+msgstr "연산자 설명"
 
 msgid "%d match."
 msgstr "%d개 일치."
@@ -3531,6 +3552,9 @@ msgstr ""
 "모든 사전 설정에는 모두 내보내기가 작동하도록 정의된 내보내기 경로가 있어야 "
 "합니다."
 
+msgid "Resources to export:"
+msgstr "내보내는 리소스:"
+
 msgid "Delete preset '%s'?"
 msgstr "'%s' 프리셋을 삭제하시겠습니까?"
 
@@ -3579,9 +3603,6 @@ msgstr "전용 서버로 내보내기"
 
 msgid "Export Mode:"
 msgstr "내보내기 모드:"
-
-msgid "Resources to export:"
-msgstr "내보내는 리소스:"
 
 msgid ""
 "\"Strip Visuals\" will replace the following resources with placeholders:"
@@ -5988,6 +6009,9 @@ msgstr "오버드로 표시"
 msgid "Display Unshaded"
 msgstr "셰이더 없음 표시"
 
+msgid "Normal Buffer"
+msgstr "방출 소스:"
+
 msgid "View Environment"
 msgstr "환경 보기"
 
@@ -7411,6 +7435,9 @@ msgstr "수평으로 뒤집기"
 
 msgid "Flip Vertically"
 msgstr "수직으로 뒤집기"
+
+msgid "Tiles"
+msgstr "타일"
 
 msgid "Yes"
 msgstr "예"
@@ -9041,6 +9068,9 @@ msgstr "지오메트리 분석 중..."
 msgid "Done!"
 msgstr "완료!"
 
+msgid "Pose"
+msgstr "자세"
+
 msgid "Package name is missing."
 msgstr "패키지 이름이 누락되어 있습니다."
 
@@ -9551,9 +9581,6 @@ msgstr ""
 "Hint Tooltip은 Control의 Mouse Filter가 \"Ignore\"으로 설정되어 있기 때문에 "
 "보이지 않습니다. 해결하려면 Mouse Filter를 \"Stop\"이나 \"Pass\"로 설정하세"
 "요."
-
-msgid "Theme Overrides"
-msgstr "테마 오버라이드"
 
 msgid "Alert!"
 msgstr "경고!"

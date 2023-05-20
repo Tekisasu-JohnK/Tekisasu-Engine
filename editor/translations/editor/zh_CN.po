@@ -90,12 +90,13 @@
 # 赵不一 <279631638@qq.com>, 2023.
 # WangYi13 <wyi13@outlook.com>, 2023.
 # matrixant <yuan545@hotmail.com>, 2023.
+# GarliCat <phoenixkaze@live.com>, 2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: Chinese (Simplified) (Godot Engine)\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: 2018-01-20 12:15+0200\n"
-"PO-Revision-Date: 2023-03-12 02:43+0000\n"
+"PO-Revision-Date: 2023-05-12 16:04+0000\n"
 "Last-Translator: Haoyu Qiu <timothyqiu32@gmail.com>\n"
 "Language-Team: Chinese (Simplified) <https://hosted.weblate.org/projects/"
 "godot-engine/godot/zh_Hans/>\n"
@@ -104,7 +105,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.16.2-dev\n"
+"X-Generator: Weblate 4.18-dev\n"
 
 msgid "Unset"
 msgstr "未设置"
@@ -2784,6 +2785,21 @@ msgstr "将值固定会强制保存这个值，即便它与默认值相等。"
 msgid "Open Documentation"
 msgstr "打开文档"
 
+msgid "Add element to property array with prefix %s."
+msgstr "向前缀为 %s 的属性数组添加元素。"
+
+msgid "Remove element %d from property array with prefix %s."
+msgstr "移除元素 %d，属性数组前缀为 %s。"
+
+msgid "Move element %d to position %d in property array with prefix %s."
+msgstr "将元素 %d 移动至 %d 位置，属性数组前缀为 %s。"
+
+msgid "Clear property array with prefix %s."
+msgstr "清空前缀为 %s 的属性数组。"
+
+msgid "Resize property array with prefix %s."
+msgstr "调整前缀为 %s 的属性数组的大小。"
+
 msgid "Element %d: %s%d*"
 msgstr "元素 %d：%s%d*"
 
@@ -2867,6 +2883,9 @@ msgstr "复制属性路径"
 
 msgid "Select existing layout:"
 msgstr "选择现存布局："
+
+msgid "Or enter new layout name"
+msgstr "或者输入新的布局名称"
 
 msgid "Changed Locale Language Filter"
 msgstr "修改区域设置语言筛选"
@@ -4361,6 +4380,12 @@ msgstr "为定义的每一个预设导出该项目。"
 msgid "All presets must have an export path defined for Export All to work."
 msgstr "所有预设必须都定义导出路径，才能进行“全部导出”。"
 
+msgid "Resources to exclude:"
+msgstr "排除的资源："
+
+msgid "Resources to export:"
+msgstr "导出的资源："
+
 msgid "Delete preset '%s'?"
 msgstr "是否删除预设 “%s”？"
 
@@ -4415,9 +4440,6 @@ msgstr "导出为专用服务器"
 
 msgid "Export Mode:"
 msgstr "导出模式："
-
-msgid "Resources to export:"
-msgstr "导出的资源："
 
 msgid ""
 "\"Strip Visuals\" will replace the following resources with placeholders:"
@@ -4523,6 +4545,21 @@ msgstr "管理导出模板"
 
 msgid "Export With Debug"
 msgstr "使用调试导出"
+
+msgid "Disable FBX & Restart"
+msgstr "禁用 FBX 并重启"
+
+msgid ""
+"Canceling this dialog will disable the FBX importer.\n"
+"You can re-enable it in the Project Settings under Filesystem > Import > FBX "
+"> Enabled.\n"
+"\n"
+"The editor will restart as importers are registered when the editor starts."
+msgstr ""
+"取消这个对话框会禁用 FBX 导入器。\n"
+"你可以在“项目设置”的“文件系统 > 导入 > FBX > 启用”中重新启用。\n"
+"\n"
+"编辑器即将重启，因为导入器是在编辑器启动时注册的。"
 
 msgid "Path to FBX2glTF executable is empty."
 msgstr "FBX2glTF 可执行文件的路径为空。"
@@ -5082,8 +5119,17 @@ msgstr "选择导入时保存网格资源的文件夹"
 msgid "Select folder where animations will save on import"
 msgstr "选择导入时保存动画的文件夹"
 
+msgid "Warning: File exists"
+msgstr "警告：文件已存在"
+
 msgid "Existing file with the same name will be replaced."
 msgstr "已存在的同名文件将被替换。"
+
+msgid "Will create new file"
+msgstr "将创建新文件"
+
+msgid "Already External"
+msgstr "已为外部"
 
 msgid ""
 "This material already references an external file, no action will be taken.\n"
@@ -5091,6 +5137,9 @@ msgid ""
 msgstr ""
 "该材质已引用一个外部文件，故不采取任何操作。\n"
 "禁用该外部属性以再次提取它。"
+
+msgid "No import ID"
+msgstr "无导入 ID"
 
 msgid ""
 "Material has no name nor any other way to identify on re-import.\n"
@@ -5105,12 +5154,18 @@ msgstr "提取材质到资源文件"
 msgid "Extract"
 msgstr "提取"
 
+msgid "Already Saving"
+msgstr "已在保存"
+
 msgid ""
 "This mesh already saves to an external resource, no action will be taken."
 msgstr "这个网格已经保存到一个外部资源，故不采取任何行动。"
 
 msgid "Existing file with the same name will be replaced on import."
 msgstr "现有的同名文件将在导入时被替换。"
+
+msgid "Will save to new file"
+msgstr "将保存至新文件"
 
 msgid ""
 "Mesh has no name nor any other way to identify on re-import.\n"
@@ -5716,7 +5771,7 @@ msgstr "无法保存此动画库，因为它不属于编辑的场景。请先唯
 msgid ""
 "This animation library can't be saved because it was imported from another "
 "file. Make it unique first."
-msgstr "无法保存此动画库，因为它是从另一个文件导入的。请先唯一化它。"
+msgstr "无法保存此动画库，因为它是从其他文件导入的。请先将其唯一化。"
 
 msgid "Save Library"
 msgstr "保存库"
@@ -5732,7 +5787,7 @@ msgstr "无法保存此动画，因为它不属于已编辑的场景。请先唯
 msgid ""
 "This animation can't be saved because it was imported from another file. "
 "Make it unique first."
-msgstr "无法保存此动画，因为它是从另一个文件导入的。请先唯一化。"
+msgstr "无法保存此动画，因为它是从其他文件导入的。请先将其唯一化。"
 
 msgid "Save Animation"
 msgstr "保存动画"
@@ -9574,7 +9629,7 @@ msgstr "从可用类型列表中选择该变种的基础类型。"
 msgid ""
 "A type associated with a built-in class cannot be marked as a variation of "
 "another type."
-msgstr "与内置类关联的类型无法被标记为另一个类型的变种。"
+msgstr "与内置类关联的类型无法被标记为其他类型的变种。"
 
 msgid "Theme:"
 msgstr "主题："
@@ -9814,6 +9869,9 @@ msgstr "包含无效场景的图块"
 
 msgid "Delete tiles"
 msgstr "删除图块"
+
+msgid "Drawing Rect:"
+msgstr "绘制矩形："
 
 msgid "Change selection"
 msgstr "修改选中项"
@@ -11500,6 +11558,11 @@ msgid "This directory already contains a Godot project."
 msgstr "该目录已经包含 Godot 项目。"
 
 msgid ""
+"You cannot save a project in the selected path. Please make a new folder or "
+"choose a new path."
+msgstr "不能在选定的路径中保存项目。请新建文件夹或选择其他路径。"
+
+msgid ""
 "The selected path is not empty. Choosing an empty folder is highly "
 "recommended."
 msgstr "所选路径不为空。强烈建议选择一个空文件夹。"
@@ -11902,6 +11965,9 @@ msgstr "移除全部"
 
 msgid "Also delete project contents (no undo!)"
 msgstr "同时删除项目内容（无法撤销！）"
+
+msgid "Convert Full Project"
+msgstr "转换完整项目"
 
 msgid ""
 "This option will perform full project conversion, updating scenes, resources "
@@ -12949,6 +13015,9 @@ msgstr "正在获取纹理"
 msgid "Class name can't be a reserved keyword"
 msgstr "类名不能是保留关键字"
 
+msgid "Class name must be a valid identifier"
+msgstr "类名必须是有效的标识符"
+
 msgid "Build Solution"
 msgstr "构建解决方案"
 
@@ -13274,7 +13343,7 @@ msgid "Select device from the list"
 msgstr "从列表中选择设备"
 
 msgid "Running on %s"
-msgstr "正运行于 %d"
+msgstr "正运行于 %s"
 
 msgid "Exporting APK..."
 msgstr "正在导出 APK……"
@@ -14808,6 +14877,12 @@ msgid ""
 "set to true."
 msgstr "ButtonGroup 的目的是只用于那些将 toggle_mode 设置为 true 的按钮。"
 
+msgid "Copy this constructor in a script."
+msgstr "复制这个脚本中的构造函数。"
+
+msgid "Enter a hex code (\"#ff0000\") or named color (\"red\")."
+msgstr "输入十六进制码（\"#ff0000\"）或颜色名称（\"red\"）。"
+
 msgid ""
 "Color: #%s\n"
 "LMB: Apply color\n"
@@ -14836,6 +14911,9 @@ msgstr "选择选取器模式。"
 msgid "Switch between hexadecimal and code values."
 msgstr "在十六进制值和代码值之间切换。"
 
+msgid "Hex code or named color"
+msgstr "十六进制码或颜色名称"
+
 msgid "Add current color as a preset."
 msgstr "将当前颜色添加为预设。"
 
@@ -14858,9 +14936,6 @@ msgid ""
 "Changing the Z index of a control only affects the drawing order, not the "
 "input event handling order."
 msgstr "改变控件的Z索引只影响绘图顺序，不影响输入事件的处理顺序。"
-
-msgid "Theme Overrides"
-msgstr "主题覆盖"
 
 msgid "Alert!"
 msgstr "警告！"
@@ -15577,6 +15652,12 @@ msgstr "实例 uniform 索引必须在 [0...%d] 范围内。"
 msgid ""
 "'hint_normal_roughness_texture' is not supported in gl_compatibility shaders."
 msgstr "gl_compatibility 着色器尚未支持“hint_normal_roughness_texture”。"
+
+msgid "'hint_normal_roughness_texture' is not supported in '%s' shaders."
+msgstr "“%s”着色器尚未支持“hint_normal_roughness_texture”。"
+
+msgid "'hint_depth_texture' is not supported in '%s' shaders."
+msgstr "“%s”着色器尚未支持“hint_depth_texture”。"
 
 msgid "This hint is only for sampler types."
 msgstr "这个提示仅适用于采样器类型。"

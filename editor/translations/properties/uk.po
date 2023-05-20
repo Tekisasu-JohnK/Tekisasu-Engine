@@ -18,7 +18,7 @@
 # Miroslav <zinmirx@gmail.com>, 2020.
 # IllusiveMan196 <hamsterrv@gmail.com>, 2021, 2022.
 # KazanskiyMaks <kazanskiy.maks@gmail.com>, 2022, 2023.
-# Мирослав <hlopukmyroslav@gmail.com>, 2022.
+# Мирослав <hlopukmyroslav@gmail.com>, 2022, 2023.
 # Ostap <ostapbataj79@gmail.com>, 2022.
 # Wald Sin <naaveranos@gmail.com>, 2022.
 # Гліб Соколов <ramithes@i.ua>, 2022.
@@ -27,13 +27,14 @@
 # Teashrock <kajitsu22@gmail.com>, 2022, 2023.
 # kirill7606 <k7606irill@gmail.com>, 2022.
 # Alex <anna.loban@yahoo.com>, 2023.
+# Maksym <maksym@mowemax.com>, 2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: Ukrainian (Godot Engine)\n"
 "Report-Msgid-Bugs-To: https://github.com/godotengine/godot\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2023-03-14 01:22+0000\n"
-"Last-Translator: Vladimir Spodin <gravin1904@gmail.com>\n"
+"PO-Revision-Date: 2023-04-20 03:46+0000\n"
+"Last-Translator: Мирослав <hlopukmyroslav@gmail.com>\n"
 "Language-Team: Ukrainian <https://hosted.weblate.org/projects/godot-engine/"
 "godot-properties/uk/>\n"
 "Language: uk\n"
@@ -42,7 +43,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.16.2-dev\n"
+"X-Generator: Weblate 4.18-dev\n"
 
 msgid "Application"
 msgstr "Програма"
@@ -82,6 +83,12 @@ msgstr "Нетипова назва каталогу користувача"
 
 msgid "Project Settings Override"
 msgstr "Перевизначення параметрів проєкту"
+
+msgid "Main Loop Type"
+msgstr "Знайти тип вузла"
+
+msgid "Auto Accept Quit"
+msgstr "Автоматично виходити"
 
 msgid "Display"
 msgstr "Показ"
@@ -167,6 +174,9 @@ msgstr "Скрипт"
 msgid "Search in File Extensions"
 msgstr "Пошук у розширеннях файлів"
 
+msgid "Subwindows"
+msgstr "Підвікна"
+
 msgid "Physics"
 msgstr "Фізика"
 
@@ -178,6 +188,15 @@ msgstr "Запуск на окремому потоці"
 
 msgid "3D"
 msgstr "Просторова графіка"
+
+msgid "Stretch"
+msgstr "Розтягнути"
+
+msgid "Aspect"
+msgstr "Аспект"
+
+msgid "Scale"
+msgstr "Масштаб"
 
 msgid "Debug"
 msgstr "Діагностика"
@@ -248,6 +267,9 @@ msgstr "Інтернаціоналізація"
 msgid "Force Right to Left Layout Direction"
 msgstr "Примусовий напрямок макета справа наліво"
 
+msgid "Root Node Layout Direction"
+msgstr "Напрямок макета кореневого вузла"
+
 msgid "GUI"
 msgstr "Інтерфейс"
 
@@ -256,6 +278,21 @@ msgstr "Таймери"
 
 msgid "Incremental Search Max Interval Msec"
 msgstr "Максимальний інтервал інкрементального пошуку, мсек"
+
+msgid "Common"
+msgstr "Загальні"
+
+msgid "Snap Controls to Pixels"
+msgstr "Прив'язка елементів керування до пікселів"
+
+msgid "Fonts"
+msgstr "Шрифти"
+
+msgid "Dynamic Fonts"
+msgstr "Динамічні шрифти"
+
+msgid "Use Oversampling"
+msgstr "Передискретизація"
 
 msgid "Rendering Device"
 msgstr "Пристрій рендерингу"
@@ -277,6 +314,18 @@ msgstr "Vulkan"
 
 msgid "Max Descriptors per Pool"
 msgstr "Макс. кількість дескрипторів на пул"
+
+msgid "Textures"
+msgstr "Текстури"
+
+msgid "Canvas Textures"
+msgstr "Текстури полотна"
+
+msgid "Default Texture Filter"
+msgstr "Фільтр текстур за замовчуванням"
+
+msgid "Default Texture Repeat"
+msgstr "Повторення текстури за замовчуванням"
 
 msgid "Low Processor Usage Mode"
 msgstr "Режим низького використання процесора"
@@ -560,9 +609,6 @@ msgstr "Пропустити заповнювачі"
 msgid "Rotation"
 msgstr "Обертання"
 
-msgid "Scale"
-msgstr "Масштаб"
-
 msgid "Value"
 msgstr "Значення"
 
@@ -646,15 +692,6 @@ msgstr "Показувати приховані файли"
 
 msgid "Disable Overwrite Warning"
 msgstr "Вимкнути попередження про перезапис"
-
-msgid "Import"
-msgstr "Імпорт"
-
-msgid "Reimport Missing Imported Files"
-msgstr "Повторно імпортувати пропущені імпортовані файли"
-
-msgid "Use Multiple Threads"
-msgstr "Використання кількох потоків"
 
 msgid "Text Editor"
 msgstr "Текстовий редактор"
@@ -1561,12 +1598,6 @@ msgstr "Приховати повзунок"
 msgid "Zoom"
 msgstr "Масштаб"
 
-msgid "Export"
-msgstr "Експортування"
-
-msgid "Convert Text Resources to Binary"
-msgstr "Перетворювати текстові ресурси на двійкові"
-
 msgid "Custom Template"
 msgstr "Нетиповий шаблон"
 
@@ -1596,6 +1627,9 @@ msgstr "ETC"
 
 msgid "ETC2"
 msgstr "ETC2"
+
+msgid "Export"
+msgstr "Експортування"
 
 msgid "Export Path"
 msgstr "Шлях експорту"
@@ -1764,6 +1798,9 @@ msgstr "Зміщення сітки"
 
 msgid "Optimize Mesh"
 msgstr "Оптимізувати сітку"
+
+msgid "Import"
+msgstr "Імпорт"
 
 msgid "Skip Import"
 msgstr "Пропустити імпорт"
@@ -2095,6 +2132,15 @@ msgstr "Сигнал зворотного виклику за замовчува
 msgid "Scene Name Casing"
 msgstr "Регістр назв сцени"
 
+msgid "Reimport Missing Imported Files"
+msgstr "Повторно імпортувати пропущені імпортовані файли"
+
+msgid "Use Multiple Threads"
+msgstr "Використання кількох потоків"
+
+msgid "Convert Text Resources to Binary"
+msgstr "Перетворювати текстові ресурси на двійкові"
+
 msgid "Show Scene Tree Root Selection"
 msgstr "Показувати кореневе позначення ієрархії сцени"
 
@@ -2140,9 +2186,6 @@ msgstr "Орієнтація"
 msgid "V-Sync"
 msgstr "Верт. синхронізація"
 
-msgid "Common"
-msgstr "Загальні"
-
 msgid "stdout"
 msgstr "stdout"
 
@@ -2160,6 +2203,9 @@ msgstr "iOS"
 
 msgid "Hide Home Indicator"
 msgstr "Приховати індикатор домівки"
+
+msgid "XR"
+msgstr "XR"
 
 msgid "Boot Splash"
 msgstr "Вітання системи"
@@ -2223,30 +2269,6 @@ msgstr "Назва збірки"
 
 msgid "Solution Directory"
 msgstr "Каталог проєкту"
-
-msgid "Main Loop Type"
-msgstr "Знайти тип вузла"
-
-msgid "Stretch"
-msgstr "Розтягнути"
-
-msgid "Aspect"
-msgstr "Аспект"
-
-msgid "Auto Accept Quit"
-msgstr "Автоматично виходити"
-
-msgid "Fonts"
-msgstr "Шрифти"
-
-msgid "Dynamic Fonts"
-msgstr "Динамічні шрифти"
-
-msgid "Use Oversampling"
-msgstr "Передискретизація"
-
-msgid "Textures"
-msgstr "Текстури"
 
 msgid "Operation"
 msgstr "Дія"
@@ -5481,6 +5503,9 @@ msgstr "Місцевості"
 
 msgid "Custom Data"
 msgstr "Спеціальні дані"
+
+msgid "Scene"
+msgstr "Сцена"
 
 msgid "Transpose"
 msgstr "Транспонувати"
