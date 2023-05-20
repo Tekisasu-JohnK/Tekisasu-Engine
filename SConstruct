@@ -686,7 +686,8 @@ if selected_platform in platform_list:
             if env["warnings"] == "extra":
                 env.Append(CCFLAGS=["/W4"])
             elif env["warnings"] == "all":
-                env.Append(CCFLAGS=["/W3"])
+                # C4458 is like -Wshadow. Part of /W4 but let's apply it for the default /W3 too.
+                env.Append(CCFLAGS=["/W3", "/w34458"])
             elif env["warnings"] == "moderate":
                 env.Append(CCFLAGS=["/W2"])
             # Disable warnings which we don't plan to fix.
@@ -715,7 +716,7 @@ if selected_platform in platform_list:
         common_warnings = []
 
         if methods.using_gcc(env):
-            common_warnings += ["-Wshadow-local", "-Wno-misleading-indentation"]
+            common_warnings += ["-Wshadow", "-Wno-misleading-indentation"]
             if cc_version_major == 7:  # Bogus warning fixed in 8+.
                 common_warnings += ["-Wno-strict-overflow"]
             if cc_version_major < 11:
@@ -725,6 +726,7 @@ if selected_platform in platform_list:
             if cc_version_major >= 12:  # False positives in our error macros, see GH-58747.
                 common_warnings += ["-Wno-return-type"]
         elif methods.using_clang(env) or methods.using_emcc(env):
+            common_warnings += ["-Wshadow-field-in-constructor", "-Wshadow-uncaptured-local"]
             # We often implement `operator<` for structs of pointers as a requirement
             # for putting them in `Set` or `Map`. We don't mind about unreliable ordering.
             common_warnings += ["-Wno-ordered-compare-function-pointers"]
@@ -820,6 +822,15 @@ if selected_platform in platform_list:
     env.module_list = modules_enabled
     methods.sort_module_list(env)
 
+    if env.editor_build:
+        # Add editor-specific dependencies to the dependency graph.
+        env.module_add_dependencies("editor", ["freetype", "svg"])
+
+        # And check if they are met.
+        if not env.module_check_dependencies("editor"):
+            print("Not all modules required by editor builds are enabled.")
+            Exit(255)
+
     methods.generate_version_header(env.module_version_string)
 
     env["PROGSUFFIX_WRAP"] = suffix + env.module_version_string + ".console" + env["PROGSUFFIX"]
@@ -840,7 +851,7 @@ if selected_platform in platform_list:
 
     if env["disable_3d"]:
         if env.editor_build:
-            print("Build option 'disable_3d=yes' cannot be used for editor builds, but only for export templates.")
+            print("Build option 'disable_3d=yes' cannot be used for editor builds, only for export template builds.")
             Exit(255)
         else:
             env.Append(CPPDEFINES=["_3D_DISABLED"])
@@ -848,7 +859,7 @@ if selected_platform in platform_list:
         if env.editor_build:
             print(
                 "Build option 'disable_advanced_gui=yes' cannot be used for editor builds, "
-                "but only for export templates."
+                "only for export template builds."
             )
             Exit(255)
         else:
