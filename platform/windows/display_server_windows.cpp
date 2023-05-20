@@ -3870,6 +3870,12 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 	{
 		WindowData &wd = windows[id];
 
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
+		#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+		#define DWMWA_USE_IMMERSIVE_DARK_MODE 19
+		#endif
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */
+
 		wd.hWnd = CreateWindowExW(
 				dwExStyle,
 				L"Engine", L"",
@@ -3887,6 +3893,7 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 				// lifetime is ensured because we are still on the stack when this is
 				// processed in the window proc
 				reinterpret_cast<void *>(&wd));
+		
 		if (!wd.hWnd) {
 			MessageBoxW(nullptr, L"Window Creation Error.", L"ERROR", MB_OK | MB_ICONEXCLAMATION);
 			windows.erase(id);
@@ -3902,10 +3909,10 @@ DisplayServer::WindowID DisplayServerWindows::_create_window(WindowMode p_mode, 
 			wd.pre_fs_valid = true;
 		}
 
-		if (is_dark_mode_supported() && dark_title_available) {
-			BOOL value = is_dark_mode();
-			::DwmSetWindowAttribute(wd.hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
-		}
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) BEGIN */
+		BOOL value = TRUE;
+		::DwmSetWindowAttribute(wd.hWnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+		/* Tekisasu-Engine: dark mode win32 titlebar (https://docs.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes) END */	
 
 #ifdef VULKAN_ENABLED
 		if (context_vulkan) {
@@ -4132,6 +4139,9 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 		if (os_ver.dwBuildNumber >= 22000) {
 			dark_title_available = true;
 		}
+
+		// Tekisasu Force dark_title_available to true
+		dark_title_available = true;
 	}
 
 	// Note: Wacom WinTab driver API for pen input, for devices incompatible with Windows Ink.
