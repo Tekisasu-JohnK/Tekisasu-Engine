@@ -4126,9 +4126,7 @@ DisplayServerWindows::DisplayServerWindows(const String &p_rendering_driver, Win
 		GetImmersiveUserColorSetPreference = (GetImmersiveUserColorSetPreferencePtr)GetProcAddress(ux_theme_lib, MAKEINTRESOURCEA(98));
 
 		ux_theme_available = ShouldAppsUseDarkMode && GetImmersiveColorFromColorSetEx && GetImmersiveColorTypeFromName && GetImmersiveUserColorSetPreference;
-		if (os_ver.dwBuildNumber >= 22000) {
-			dark_title_available = true;
-		}
+		dark_title_available = true;
 	}
 
 	// Note: Wacom WinTab driver API for pen input, for devices incompatible with Windows Ink.
