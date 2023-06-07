@@ -30,6 +30,7 @@
 
 #include "os_macos.h"
 
+#include "core/crypto/crypto_core.h"
 #include "core/version_generated.gen.h"
 #include "main/main.h"
 
@@ -285,6 +286,27 @@ String OS_MacOS::get_system_dir(SystemDir p_dir, bool p_shared_storage) const {
 	}
 
 	return ret;
+}
+
+Error OS_MacOS::shell_show_in_file_manager(String p_path, bool p_open_folder) {
+	bool open_folder = false;
+	if (DirAccess::dir_exists_absolute(p_path) && p_open_folder) {
+		open_folder = true;
+	}
+
+	if (!p_path.begins_with("file://")) {
+		p_path = String("file://") + p_path;
+	}
+
+	NSString *string = [NSString stringWithUTF8String:p_path.utf8().get_data()];
+	NSURL *uri = [[NSURL alloc] initWithString:[string stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLFragmentAllowedCharacterSet]]];
+
+	if (open_folder) {
+		[[NSWorkspace sharedWorkspace] openURL:uri];
+	} else {
+		[[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:@[ uri ]];
+	}
+	return OK;
 }
 
 Error OS_MacOS::shell_open(String p_uri) {
@@ -648,6 +670,34 @@ Error OS_MacOS::move_to_trash(const String &p_path) {
 	}
 
 	return OK;
+}
+
+String OS_MacOS::get_system_ca_certificates() {
+	CFArrayRef result;
+	SecCertificateRef item;
+	CFDataRef der;
+
+	OSStatus ret = SecTrustCopyAnchorCertificates(&result);
+	ERR_FAIL_COND_V(ret != noErr, "");
+
+	CFIndex l = CFArrayGetCount(result);
+	String certs;
+	PackedByteArray pba;
+	for (CFIndex i = 0; i < l; i++) {
+		item = (SecCertificateRef)CFArrayGetValueAtIndex(result, i);
+		der = SecCertificateCopyData(item);
+		int derlen = CFDataGetLength(der);
+		if (pba.size() < derlen * 3) {
+			pba.resize(derlen * 3);
+		}
+		size_t b64len = 0;
+		Error err = CryptoCore::b64_encode(pba.ptrw(), pba.size(), &b64len, (unsigned char *)CFDataGetBytePtr(der), derlen);
+		CFRelease(der);
+		ERR_CONTINUE(err != OK);
+		certs += "-----BEGIN CERTIFICATE-----\n" + String((char *)pba.ptr(), b64len) + "\n-----END CERTIFICATE-----\n";
+	}
+	CFRelease(result);
+	return certs;
 }
 
 void OS_MacOS::run() {

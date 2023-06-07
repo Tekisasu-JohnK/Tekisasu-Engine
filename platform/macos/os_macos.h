@@ -98,6 +98,7 @@ public:
 	virtual String get_system_dir(SystemDir p_dir, bool p_shared_storage = true) const override;
 
 	virtual Error shell_open(String p_uri) override;
+	virtual Error shell_show_in_file_manager(String p_path, bool p_open_folder) override;
 
 	virtual String get_locale() const override;
 
@@ -117,6 +118,8 @@ public:
 	virtual bool is_disable_crash_handler() const override;
 
 	virtual Error move_to_trash(const String &p_path) override;
+
+	virtual String get_system_ca_certificates() override;
 
 	void run();
 

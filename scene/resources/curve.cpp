@@ -40,11 +40,16 @@ Curve::Curve() {
 
 void Curve::set_point_count(int p_count) {
 	ERR_FAIL_COND(p_count < 0);
-	if (_points.size() >= p_count) {
+	int old_size = _points.size();
+	if (old_size == p_count) {
+		return;
+	}
+
+	if (old_size > p_count) {
 		_points.resize(p_count);
 		mark_dirty();
 	} else {
-		for (int i = p_count - _points.size(); i > 0; i--) {
+		for (int i = p_count - old_size; i > 0; i--) {
 			_add_point(Vector2());
 		}
 	}
@@ -105,6 +110,13 @@ int Curve::_add_point(Vector2 p_position, real_t p_left_tangent, real_t p_right_
 int Curve::add_point(Vector2 p_position, real_t p_left_tangent, real_t p_right_tangent, TangentMode p_left_mode, TangentMode p_right_mode) {
 	int ret = _add_point(p_position, p_left_tangent, p_right_tangent, p_left_mode, p_right_mode);
 	notify_property_list_changed();
+
+	return ret;
+}
+
+// TODO: Needed to make the curve editor function properly until https://github.com/godotengine/godot/issues/76985 is fixed.
+int Curve::add_point_no_update(Vector2 p_position, real_t p_left_tangent, real_t p_right_tangent, TangentMode p_left_mode, TangentMode p_right_mode) {
+	int ret = _add_point(p_position, p_left_tangent, p_right_tangent, p_left_mode, p_right_mode);
 
 	return ret;
 }
@@ -226,6 +238,10 @@ void Curve::remove_point(int p_index) {
 }
 
 void Curve::clear_points() {
+	if (_points.is_empty()) {
+		return;
+	}
+
 	_points.clear();
 	mark_dirty();
 	notify_property_list_changed();
@@ -398,8 +414,6 @@ void Curve::set_data(const Array p_input) {
 	const unsigned int ELEMS = 5;
 	ERR_FAIL_COND(p_input.size() % ELEMS != 0);
 
-	_points.clear();
-
 	// Validate input
 	for (int i = 0; i < p_input.size(); i += ELEMS) {
 		ERR_FAIL_COND(p_input[i].get_type() != Variant::VECTOR2);
@@ -414,8 +428,11 @@ void Curve::set_data(const Array p_input) {
 		int right_mode = p_input[i + 4];
 		ERR_FAIL_COND(right_mode < 0 || right_mode >= TANGENT_MODE_COUNT);
 	}
-
-	_points.resize(p_input.size() / ELEMS);
+	int old_size = _points.size();
+	int new_size = p_input.size() / ELEMS;
+	if (old_size != new_size) {
+		_points.resize(new_size);
+	}
 
 	for (int j = 0; j < _points.size(); ++j) {
 		Point &p = _points.write[j];
@@ -431,7 +448,9 @@ void Curve::set_data(const Array p_input) {
 	}
 
 	mark_dirty();
-	notify_property_list_changed();
+	if (old_size != new_size) {
+		notify_property_list_changed();
+	}
 }
 
 void Curve::bake() {
@@ -440,7 +459,7 @@ void Curve::bake() {
 	_baked_cache.resize(_bake_resolution);
 
 	for (int i = 1; i < _bake_resolution - 1; ++i) {
-		real_t x = i / static_cast<real_t>(_bake_resolution);
+		real_t x = i / static_cast<real_t>(_bake_resolution - 1);
 		real_t y = sample(x);
 		_baked_cache.write[i] = y;
 	}
@@ -477,7 +496,7 @@ real_t Curve::sample_baked(real_t p_offset) const {
 	}
 
 	// Get interpolation index
-	real_t fi = p_offset * _baked_cache.size();
+	real_t fi = p_offset * (_baked_cache.size() - 1);
 	int i = Math::floor(fi);
 	if (i < 0) {
 		i = 0;
@@ -636,11 +655,16 @@ int Curve2D::get_point_count() const {
 
 void Curve2D::set_point_count(int p_count) {
 	ERR_FAIL_COND(p_count < 0);
-	if (points.size() >= p_count) {
+	int old_size = points.size();
+	if (old_size == p_count) {
+		return;
+	}
+
+	if (old_size > p_count) {
 		points.resize(p_count);
 		mark_dirty();
 	} else {
-		for (int i = p_count - points.size(); i > 0; i--) {
+		for (int i = p_count - old_size; i > 0; i--) {
 			_add_point(Vector2());
 		}
 	}
@@ -1128,7 +1152,11 @@ void Curve2D::_set_data(const Dictionary &p_data) {
 	PackedVector2Array rp = p_data["points"];
 	int pc = rp.size();
 	ERR_FAIL_COND(pc % 3 != 0);
-	points.resize(pc / 3);
+	int old_size = points.size();
+	int new_size = pc / 3;
+	if (old_size != new_size) {
+		points.resize(new_size);
+	}
 	const Vector2 *r = rp.ptr();
 
 	for (int i = 0; i < points.size(); i++) {
@@ -1138,7 +1166,9 @@ void Curve2D::_set_data(const Dictionary &p_data) {
 	}
 
 	mark_dirty();
-	notify_property_list_changed();
+	if (old_size != new_size) {
+		notify_property_list_changed();
+	}
 }
 
 PackedVector2Array Curve2D::tessellate(int p_max_stages, real_t p_tolerance) const {
@@ -1330,11 +1360,16 @@ int Curve3D::get_point_count() const {
 
 void Curve3D::set_point_count(int p_count) {
 	ERR_FAIL_COND(p_count < 0);
-	if (points.size() >= p_count) {
+	int old_size = points.size();
+	if (old_size == p_count) {
+		return;
+	}
+
+	if (old_size > p_count) {
 		points.resize(p_count);
 		mark_dirty();
 	} else {
-		for (int i = p_count - points.size(); i > 0; i--) {
+		for (int i = p_count - old_size; i > 0; i--) {
 			_add_point(Vector3());
 		}
 	}
@@ -1620,9 +1655,9 @@ void Curve3D::_bake() const {
 			Vector3 forward = forward_ptr[0];
 
 			if (abs(forward.dot(Vector3(0, 1, 0))) > 1.0 - UNIT_EPSILON) {
-				frame_prev = Basis::looking_at(-forward, Vector3(1, 0, 0));
+				frame_prev = Basis::looking_at(forward, Vector3(1, 0, 0));
 			} else {
-				frame_prev = Basis::looking_at(-forward, Vector3(0, 1, 0));
+				frame_prev = Basis::looking_at(forward, Vector3(0, 1, 0));
 			}
 
 			up_write[0] = frame_prev.get_column(1);
@@ -1781,8 +1816,8 @@ Basis Curve3D::_sample_posture(Interval p_interval, bool p_apply_tilt) const {
 	}
 
 	// Build frames at both ends of the interval, then interpolate.
-	const Basis frame_begin = Basis::looking_at(-forward_begin, up_begin);
-	const Basis frame_end = Basis::looking_at(-forward_end, up_end);
+	const Basis frame_begin = Basis::looking_at(forward_begin, up_begin);
+	const Basis frame_end = Basis::looking_at(forward_end, up_end);
 	const Basis frame = frame_begin.slerp(frame_end, frac).orthonormalized();
 
 	if (!p_apply_tilt) {
@@ -2036,7 +2071,11 @@ void Curve3D::_set_data(const Dictionary &p_data) {
 	PackedVector3Array rp = p_data["points"];
 	int pc = rp.size();
 	ERR_FAIL_COND(pc % 3 != 0);
-	points.resize(pc / 3);
+	int old_size = points.size();
+	int new_size = pc / 3;
+	if (old_size != new_size) {
+		points.resize(new_size);
+	}
 	const Vector3 *r = rp.ptr();
 	Vector<real_t> rtl = p_data["tilts"];
 	const real_t *rt = rtl.ptr();
@@ -2049,7 +2088,9 @@ void Curve3D::_set_data(const Dictionary &p_data) {
 	}
 
 	mark_dirty();
-	notify_property_list_changed();
+	if (old_size != new_size) {
+		notify_property_list_changed();
+	}
 }
 
 PackedVector3Array Curve3D::tessellate(int p_max_stages, real_t p_tolerance) const {

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="RenderingDevice" inherits="Object" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="RenderingDevice" inherits="Object" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Abstraction for working with modern low-level graphics APIs.
 	</brief_description>
@@ -68,7 +68,7 @@
 			<param index="0" name="allow_draw_overlap" type="bool" default="false" />
 			<description>
 				Starts a list of compute commands created with the [code]compute_*[/code] methods. The returned value should be passed to other [code]compute_list_*[/code] functions.
-				If [code]allow_draw_overlap[/code] is true, you may have one draw list running at the same time as one compute list. Multiple compute lists cannot be created at the same time; you must finish the previous compute list first using [method compute_list_end].
+				If [param allow_draw_overlap] is [code]true[/code], you may have one draw list running at the same time as one compute list. Multiple compute lists cannot be created at the same time; you must finish the previous compute list first using [method compute_list_end].
 				A simple compute operation might look like this (code is not a complete example):
 				[codeblock]
 				var rd = RenderingDevice.new()
@@ -139,10 +139,9 @@
 		</method>
 		<method name="compute_pipeline_is_valid">
 			<return type="bool" />
-			<param index="0" name="compute_pieline" type="RID" />
+			<param index="0" name="compute_pipeline" type="RID" />
 			<description>
-				Returns [code]true[/code] if the compute pipeline specified by the [param compute_pieline] RID is valid, [code]false[/code] otherwise.
-				[b]Note:[/b] The [param compute_pieline] parameter should be named "compute_pipeline", but this typo was kept in the 4.0.x branch to preserve compatibility for C# and GDExtension.
+				Returns [code]true[/code] if the compute pipeline specified by the [param compute_pipeline] RID is valid, [code]false[/code] otherwise.
 			</description>
 		</method>
 		<method name="create_local_device">
@@ -185,7 +184,7 @@
 			<param index="6" name="clear_depth" type="float" default="1.0" />
 			<param index="7" name="clear_stencil" type="int" default="0" />
 			<param index="8" name="region" type="Rect2" default="Rect2(0, 0, 0, 0)" />
-			<param index="9" name="storage_textures" type="Array" default="[]" />
+			<param index="9" name="storage_textures" type="RID[]" default="[]" />
 			<description>
 				Starts a list of raster drawing commands created with the [code]draw_*[/code] methods. The returned value should be passed to other [code]draw_list_*[/code] functions.
 				Multiple draw lists cannot be created at the same time; you must finish the previous draw list first using [method draw_list_end].
@@ -369,7 +368,7 @@
 			<param index="1" name="view_count" type="int" default="1" />
 			<description>
 				Creates a new framebuffer format with the specified [param attachments] and [param view_count]. Returns the new framebuffer's unique framebuffer format ID.
-				If [code]view_count[/code] is greater than or equal to [code]2[/code], enables multiview which is used for VR rendering. This requires support for the Vulkan multiview extension.
+				If [param view_count] is greater than or equal to [code]2[/code], enables multiview which is used for VR rendering. This requires support for the Vulkan multiview extension.
 			</description>
 		</method>
 		<method name="framebuffer_format_create_empty">
@@ -385,7 +384,7 @@
 			<param index="1" name="passes" type="RDFramebufferPass[]" />
 			<param index="2" name="view_count" type="int" default="1" />
 			<description>
-				Creates a multipass framebuffer format with the specified [param attachments], [param passes] and [param view_count] and returns its ID. If [code]view_count[/code] is greater than or equal to [code]2[/code], enables multiview which is used for VR rendering. This requires support for the Vulkan multiview extension.
+				Creates a multipass framebuffer format with the specified [param attachments], [param passes] and [param view_count] and returns its ID. If [param view_count] is greater than or equal to [code]2[/code], enables multiview which is used for VR rendering. This requires support for the Vulkan multiview extension.
 			</description>
 		</method>
 		<method name="framebuffer_format_get_texture_samples">

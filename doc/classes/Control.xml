@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Control" inherits="CanvasItem" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="Control" inherits="CanvasItem" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
-		All user interface nodes inherit from Control. A control's anchors and offsets adapt its position and size relative to its parent.
+		Base class for all GUI controls. Adapts its position and size based on its parent control.
 	</brief_description>
 	<description>
 		Base class for all UI-related nodes. [Control] features a bounding rectangle that defines its extents, an anchor position relative to its parent control or the current viewport, and offsets relative to the anchor. The offsets update automatically when the node, any of its parents, or the screen size change.
@@ -75,7 +75,7 @@
 				[/codeblocks]
 			</description>
 		</method>
-		<method name="_get_drag_data" qualifiers="virtual const">
+		<method name="_get_drag_data" qualifiers="virtual">
 			<return type="Variant" />
 			<param index="0" name="at_position" type="Vector2" />
 			<description>
@@ -105,6 +105,14 @@
 				Virtual method to be implemented by the user. Returns the minimum size for this control. Alternative to [member custom_minimum_size] for controlling minimum size via code. The actual minimum size will be the max value of these two (in each axis separately).
 				If not overridden, defaults to [constant Vector2.ZERO].
 				[b]Note:[/b] This method will not be called when the script is attached to a [Control] node that already overrides its minimum size (e.g. [Label], [Button], [PanelContainer] etc.). It can only be used with most basic GUI nodes, like [Control], [Container], [Panel] etc.
+			</description>
+		</method>
+		<method name="_get_tooltip" qualifiers="virtual const">
+			<return type="String" />
+			<param index="0" name="at_position" type="Vector2" />
+			<description>
+				Virtual method to be implemented by the user. Returns the tooltip text for the position [param at_position] in control's local coordinates, which will typically appear when the cursor is resting over this control. See [method get_tooltip].
+				[b]Note:[/b] If this method returns an empty [String], no tooltip is displayed.
 			</description>
 		</method>
 		<method name="_gui_input" qualifiers="virtual">
@@ -533,8 +541,9 @@
 			<return type="String" />
 			<param index="0" name="at_position" type="Vector2" default="Vector2(0, 0)" />
 			<description>
-				Returns the tooltip text [param at_position] in local coordinates, which will typically appear when the cursor is resting over this control. By default, it returns [member tooltip_text].
-				[b]Note:[/b] This method can be overridden to customize its behavior. If this method returns an empty [String], no tooltip is displayed.
+				Returns the tooltip text for the position [param at_position] in control's local coordinates, which will typically appear when the cursor is resting over this control. By default, it returns [member tooltip_text].
+				This method can be overridden to customize its behavior. See [method _get_tooltip].
+				[b]Note:[/b] If this method returns an empty [String], no tooltip is displayed.
 			</description>
 		</method>
 		<method name="grab_click_focus">
@@ -919,7 +928,7 @@
 			Anchors the top edge of the node to the origin, the center or the end of its parent control. It changes how the top offset updates when the node moves or changes size. You can use one of the [enum Anchor] constants for convenience.
 		</member>
 		<member name="auto_translate" type="bool" setter="set_auto_translate" getter="is_auto_translating" default="true">
-			Toggles if any text should automatically change to its translated version depending on the current locale. Note that this will not affect any internal nodes (e.g. the popup of a [MenuButton]).
+			Toggles if any text should automatically change to its translated version depending on the current locale.
 			Also decides if the node's strings should be parsed for POT generation.
 		</member>
 		<member name="clip_contents" type="bool" setter="set_clip_contents" getter="is_clipping_contents" default="false">

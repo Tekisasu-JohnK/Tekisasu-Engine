@@ -86,7 +86,6 @@ CLASS_GROUPS_BASE: Dict[str, str] = {
 }
 # Sync with editor\register_editor_types.cpp
 EDITOR_CLASSES: List[str] = [
-    "AnimationTrackEditPlugin",
     "FileSystemDock",
     "ScriptCreateDialog",
     "ScriptEditor",
@@ -578,7 +577,7 @@ def main() -> None:
         if path.endswith("/") or path.endswith("\\"):
             path = path[:-1]
 
-        if os.path.basename(path) == "modules":
+        if os.path.basename(path) in ["modules", "platform"]:
             for subdir, dirs, _ in os.walk(path):
                 if "doc_classes" in dirs:
                     doc_dir = os.path.join(subdir, "doc_classes")
@@ -1678,6 +1677,26 @@ def format_text_block(
                 inside_code = True
                 inside_code_tag = cmd
                 escape_pre = True
+
+                valid_context = isinstance(context, (MethodDef, SignalDef, AnnotationDef))
+                if valid_context:
+                    endcode_pos = text.find("[/code]", endq_pos + 1)
+                    if endcode_pos == -1:
+                        print_error(
+                            f"{state.current_class}.xml: Tag depth mismatch for [code]: no closing [/code] in {context_name}.",
+                            state,
+                        )
+                        break
+
+                    inside_code_text = text[endq_pos + 1 : endcode_pos]
+                    context_params: List[ParameterDef] = context.parameters  # type: ignore
+                    for param_def in context_params:
+                        if param_def.name == inside_code_text:
+                            print_warning(
+                                f'{state.current_class}.xml: Potential error inside of a code tag, found a string "{inside_code_text}" that matches one of the parameters in {context_name}.',
+                                state,
+                            )
+                            break
 
             # Cross-references to items in this or other class documentation pages.
             elif is_in_tagset(cmd, RESERVED_CROSSLINK_TAGS):

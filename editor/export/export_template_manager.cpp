@@ -230,7 +230,7 @@ void ExportTemplateManager::_refresh_mirrors() {
 	is_refreshing_mirrors = true;
 
 	String current_version = VERSION_FULL_CONFIG;
-	const String mirrors_metadata_url = "https://dev.tekisasu.com/mirrorlist/" + current_version + ".json";
+	const String mirrors_metadata_url = "https://godotengine.org/mirrorlist/" + current_version + ".json";
 	request_mirrors->request(mirrors_metadata_url);
 }
 
@@ -620,7 +620,7 @@ void ExportTemplateManager::_installed_table_button_cbk(Object *p_item, int p_co
 
 void ExportTemplateManager::_open_template_folder(const String &p_version) {
 	const String &templates_dir = EditorPaths::get_singleton()->get_export_templates_dir();
-	OS::get_singleton()->shell_open("file://" + templates_dir.path_join(p_version));
+	OS::get_singleton()->shell_show_in_file_manager(templates_dir.path_join(p_version), true);
 }
 
 void ExportTemplateManager::popup_manager() {

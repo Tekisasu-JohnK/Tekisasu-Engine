@@ -33,6 +33,9 @@
 #include "nav_map.h"
 
 void NavRegion::set_map(NavMap *p_map) {
+	if (map == p_map) {
+		return;
+	}
 	map = p_map;
 	polygons_dirty = true;
 	if (!map) {
@@ -40,7 +43,17 @@ void NavRegion::set_map(NavMap *p_map) {
 	}
 }
 
+void NavRegion::set_use_edge_connections(bool p_enabled) {
+	if (use_edge_connections != p_enabled) {
+		use_edge_connections = p_enabled;
+		polygons_dirty = true;
+	}
+}
+
 void NavRegion::set_transform(Transform3D p_transform) {
+	if (transform == p_transform) {
+		return;
+	}
 	transform = p_transform;
 	polygons_dirty = true;
 }
@@ -114,7 +127,7 @@ void NavRegion::update_polygons() {
 		p.edges.resize(mesh_poly.size());
 
 		Vector3 center;
-		float sum(0);
+		real_t sum(0);
 
 		for (int j(0); j < mesh_poly.size(); j++) {
 			int idx = indices[j];
@@ -143,7 +156,7 @@ void NavRegion::update_polygons() {
 
 		p.clockwise = sum > 0;
 		if (mesh_poly.size() != 0) {
-			p.center = center / float(mesh_poly.size());
+			p.center = center / real_t(mesh_poly.size());
 		}
 	}
 }

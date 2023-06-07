@@ -30,6 +30,7 @@
 
 #include "os_linuxbsd.h"
 
+#include "core/io/certs_compressed.gen.h"
 #include "core/io/dir_access.h"
 #include "main/main.h"
 #include "servers/display_server.h"
@@ -195,6 +196,10 @@ void OS_LinuxBSD::set_main_loop(MainLoop *p_main_loop) {
 	main_loop = p_main_loop;
 }
 
+String OS_LinuxBSD::get_identifier() const {
+	return "linuxbsd";
+}
+
 String OS_LinuxBSD::get_name() const {
 #ifdef __linux__
 	return "Linux";
@@ -210,44 +215,50 @@ String OS_LinuxBSD::get_name() const {
 }
 
 String OS_LinuxBSD::get_systemd_os_release_info_value(const String &key) const {
-	static String info;
-	if (info.is_empty()) {
-		Ref<FileAccess> f = FileAccess::open("/etc/os-release", FileAccess::READ);
-		if (f.is_valid()) {
-			while (!f->eof_reached()) {
-				const String line = f->get_line();
-				if (line.find(key) != -1) {
-					return line.split("=")[1].strip_edges();
-				}
+	Ref<FileAccess> f = FileAccess::open("/etc/os-release", FileAccess::READ);
+	if (f.is_valid()) {
+		while (!f->eof_reached()) {
+			const String line = f->get_line();
+			if (line.find(key) != -1) {
+				String value = line.split("=")[1].strip_edges();
+				value = value.trim_prefix("\"");
+				return value.trim_suffix("\"");
 			}
 		}
 	}
-	return info;
+	return "";
 }
 
 String OS_LinuxBSD::get_distribution_name() const {
-	static String systemd_name = get_systemd_os_release_info_value("NAME"); // returns a value for systemd users, otherwise an empty string.
-	if (!systemd_name.is_empty()) {
-		return systemd_name;
+	static String distribution_name = get_systemd_os_release_info_value("NAME"); // returns a value for systemd users, otherwise an empty string.
+	if (!distribution_name.is_empty()) {
+		return distribution_name;
 	}
 	struct utsname uts; // returns a decent value for BSD family.
 	uname(&uts);
-	return uts.sysname;
+	distribution_name = uts.sysname;
+	return distribution_name;
 }
 
 String OS_LinuxBSD::get_version() const {
-	static String systemd_version = get_systemd_os_release_info_value("VERSION"); // returns a value for systemd users, otherwise an empty string.
-	if (!systemd_version.is_empty()) {
-		return systemd_version;
+	static String release_version = get_systemd_os_release_info_value("VERSION"); // returns a value for systemd users, otherwise an empty string.
+	if (!release_version.is_empty()) {
+		return release_version;
 	}
 	struct utsname uts; // returns a decent value for BSD family.
 	uname(&uts);
-	return uts.version;
+	release_version = uts.version;
+	return release_version;
 }
 
 Vector<String> OS_LinuxBSD::get_video_adapter_driver_info() const {
 	if (RenderingServer::get_singleton()->get_rendering_device() == nullptr) {
 		return Vector<String>();
+	}
+
+	static Vector<String> info;
+	if (!info.is_empty()) {
+		return info;
 	}
 
 	const String rendering_device_name = RenderingServer::get_singleton()->get_rendering_device()->get_device_name(); // e.g. `NVIDIA GeForce GTX 970`
@@ -315,8 +326,8 @@ Vector<String> OS_LinuxBSD::get_video_adapter_driver_info() const {
 	Vector<String> class_display_device_drivers = OS_LinuxBSD::lspci_get_device_value(class_display_device_candidates, kernel_lit, dummys);
 	Vector<String> class_3d_device_drivers = OS_LinuxBSD::lspci_get_device_value(class_3d_device_candidates, kernel_lit, dummys);
 
-	static String driver_name;
-	static String driver_version;
+	String driver_name;
+	String driver_version;
 
 	// Use first valid value:
 	for (const String &driver : class_3d_device_drivers) {
@@ -336,7 +347,6 @@ Vector<String> OS_LinuxBSD::get_video_adapter_driver_info() const {
 		}
 	}
 
-	Vector<String> info;
 	info.push_back(driver_name);
 
 	String modinfo;
@@ -487,6 +497,11 @@ bool OS_LinuxBSD::_check_internal_feature_support(const String &p_feature) {
 	}
 #endif
 	if (p_feature == "pc") {
+		return true;
+	}
+
+	// Match against the specific OS (linux, freebsd, etc).
+	if (p_feature == get_name().to_lower()) {
 		return true;
 	}
 
@@ -1076,6 +1091,40 @@ Error OS_LinuxBSD::move_to_trash(const String &p_path) {
 	return OK;
 }
 
+String OS_LinuxBSD::get_system_ca_certificates() {
+	String certfile;
+	Ref<DirAccess> da = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
+
+	// Compile time preferred certificates path.
+	if (!String(_SYSTEM_CERTS_PATH).is_empty() && da->file_exists(_SYSTEM_CERTS_PATH)) {
+		certfile = _SYSTEM_CERTS_PATH;
+	} else if (da->file_exists("/etc/ssl/certs/ca-certificates.crt")) {
+		// Debian/Ubuntu
+		certfile = "/etc/ssl/certs/ca-certificates.crt";
+	} else if (da->file_exists("/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem")) {
+		// Fedora
+		certfile = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem";
+	} else if (da->file_exists("/etc/ca-certificates/extracted/tls-ca-bundle.pem")) {
+		// Arch Linux
+		certfile = "/etc/ca-certificates/extracted/tls-ca-bundle.pem";
+	} else if (da->file_exists("/var/lib/ca-certificates/ca-bundle.pem")) {
+		// openSUSE
+		certfile = "/var/lib/ca-certificates/ca-bundle.pem";
+	} else if (da->file_exists("/etc/ssl/cert.pem")) {
+		// FreeBSD/OpenBSD
+		certfile = "/etc/ssl/cert.pem";
+	}
+
+	if (certfile.is_empty()) {
+		return "";
+	}
+
+	Ref<FileAccess> f = FileAccess::open(certfile, FileAccess::READ);
+	ERR_FAIL_COND_V_MSG(f.is_null(), "", vformat("Failed to open system CA certificates file: '%s'", certfile));
+
+	return f->get_as_text();
+}
+
 OS_LinuxBSD::OS_LinuxBSD() {
 	main_loop = nullptr;
 
@@ -1102,6 +1151,16 @@ OS_LinuxBSD::OS_LinuxBSD() {
 #else
 	font_config_initialized = true;
 #endif
+	if (font_config_initialized) {
+		bool ver_ok = false;
+		int version = FcGetVersion();
+		ver_ok = ((version / 100 / 100) == 2 && (version / 100 % 100) >= 11) || ((version / 100 / 100) > 2); // 2.11.0
+		print_verbose(vformat("FontConfig %d.%d.%d detected.", version / 100 / 100, version / 100 % 100, version % 100));
+		if (!ver_ok) {
+			font_config_initialized = false;
+		}
+	}
+
 	if (font_config_initialized) {
 		config = FcInitLoadConfigAndFonts();
 		if (!config) {

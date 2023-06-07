@@ -317,6 +317,8 @@ private:
 	Ref<ViewportTexture> default_texture;
 	HashSet<ViewportTexture *> viewport_textures;
 
+	void _update_viewport_path();
+
 	SDFOversize sdf_oversize = SDF_OVERSIZE_120_PERCENT;
 	SDFScale sdf_scale = SDF_SCALE_50_PERCENT;
 
@@ -379,6 +381,7 @@ private:
 		double tooltip_delay = 0.0;
 		bool roots_order_dirty = false;
 		List<Control *> roots;
+		HashSet<ObjectID> canvas_parents_with_dirty_order;
 		int canvas_sort_index = 0; //for sorting items with canvas as root
 		bool dragging = false;
 		bool drag_successful = false;
@@ -410,6 +413,8 @@ private:
 	void _gui_input_event(Ref<InputEvent> p_event);
 	void _perform_drop(Control *p_control = nullptr, Point2 p_pos = Point2());
 	void _gui_cleanup_internal_state(Ref<InputEvent> p_event);
+
+	void _push_unhandled_input_internal(const Ref<InputEvent> &p_event);
 
 	Ref<InputEvent> _make_input_local(const Ref<InputEvent> &ev);
 
@@ -471,6 +476,8 @@ private:
 	virtual bool _can_consume_input_events() const { return true; }
 	uint64_t event_count = 0;
 
+	void _process_dirty_canvas_parent_orders();
+
 protected:
 	void _set_size(const Size2i &p_size, const Size2i &p_size_2d_override, bool p_allocated);
 
@@ -483,6 +490,8 @@ protected:
 	static void _bind_methods();
 
 public:
+	void canvas_parent_mark_dirty(Node *p_node);
+
 	uint64_t get_processed_events_count() const { return event_count; }
 
 	AudioListener2D *get_audio_listener_2d() const;
@@ -568,13 +577,16 @@ public:
 
 	void push_text_input(const String &p_text);
 	void push_input(const Ref<InputEvent> &p_event, bool p_local_coords = false);
+#ifndef DISABLE_DEPRECATED
 	void push_unhandled_input(const Ref<InputEvent> &p_event, bool p_local_coords = false);
+#endif // DISABLE_DEPRECATED
 
 	void set_disable_input(bool p_disable);
 	bool is_input_disabled() const;
 
 	Vector2 get_mouse_position() const;
 	void warp_mouse(const Vector2 &p_position);
+	virtual void update_mouse_cursor_state();
 
 	void set_physics_object_picking(bool p_enable);
 	bool get_physics_object_picking();
@@ -731,6 +743,8 @@ public:
 	void set_use_xr(bool p_use_xr);
 	bool is_using_xr();
 #endif // _3D_DISABLED
+
+	void _propagate_world_2d_changed(Node *p_node);
 
 	void _validate_property(PropertyInfo &p_property) const;
 	Viewport();

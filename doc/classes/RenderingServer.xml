@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="RenderingServer" inherits="Object" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="RenderingServer" inherits="Object" version="4.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Server for anything visible.
 	</brief_description>
@@ -259,6 +259,16 @@
 				See also [method CanvasItem.draw_msdf_texture_rect_region].
 			</description>
 		</method>
+		<method name="canvas_item_add_multiline">
+			<return type="void" />
+			<param index="0" name="item" type="RID" />
+			<param index="1" name="points" type="PackedVector2Array" />
+			<param index="2" name="colors" type="PackedColorArray" />
+			<param index="3" name="width" type="float" default="-1.0" />
+			<description>
+				Draws a 2D multiline on the [CanvasItem] pointed to by the [param item] [RID]. See also [method CanvasItem.draw_multiline] and [method CanvasItem.draw_multiline_colors].
+			</description>
+		</method>
 		<method name="canvas_item_add_multimesh">
 			<return type="void" />
 			<param index="0" name="item" type="RID" />
@@ -312,7 +322,7 @@
 			<param index="3" name="width" type="float" default="-1.0" />
 			<param index="4" name="antialiased" type="bool" default="false" />
 			<description>
-				Draws a 2D polyline on the [CanvasItem] pointed to by the [param item] [RID]. See also [method CanvasItem.draw_polyline].
+				Draws a 2D polyline on the [CanvasItem] pointed to by the [param item] [RID]. See also [method CanvasItem.draw_polyline] and [method CanvasItem.draw_polyline_colors].
 			</description>
 		</method>
 		<method name="canvas_item_add_primitive">
@@ -1487,7 +1497,7 @@
 			</description>
 		</method>
 		<method name="global_shader_parameter_get_list" qualifiers="const">
-			<return type="PackedStringArray" />
+			<return type="StringName[]" />
 			<description>
 				Returns the list of global shader uniform names.
 				[b]Note:[/b] [method global_shader_parameter_get] has a large performance penalty as the rendering thread needs to synchronize with the calling thread, which is slow. Do not use this method during gameplay to avoid stuttering. If you need to read values in a script after setting them, consider creating an autoload where you store the values you need to query at the same time you're setting them as global parameters.
@@ -2479,10 +2489,9 @@
 		<method name="particles_collision_set_attractor_strength">
 			<return type="void" />
 			<param index="0" name="particles_collision" type="RID" />
-			<param index="1" name="setrngth" type="float" />
+			<param index="1" name="strength" type="float" />
 			<description>
-				Sets the [param setrngth] for the 3D GPU particles attractor specified by the [param particles_collision] RID. Only used for attractors, not colliders. Equivalent to [member GPUParticlesAttractor3D.strength].
-				[b]Note:[/b] The [param setrngth] parameter should be named "strength", but this typo was kept in the 4.0.x branch to preserve compatibility for C# and GDExtension.
+				Sets the [param strength] for the 3D GPU particles attractor specified by the [param particles_collision] RID. Only used for attractors, not colliders. Equivalent to [member GPUParticlesAttractor3D.strength].
 			</description>
 		</method>
 		<method name="particles_collision_set_box_extents">
@@ -3272,6 +3281,15 @@
 				[b]Note:[/b] The [param texture] must have the same width, height, depth and format as the current texture data. Otherwise, an error will be printed and the original texture won't be modified. If you need to use different width, height, depth or format, use [method texture_replace] instead.
 			</description>
 		</method>
+		<method name="texture_get_native_handle" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="texture" type="RID" />
+			<param index="1" name="srgb" type="bool" default="false" />
+			<description>
+				Returns the internal graphics handle for this texture object. For use when communicating with 3rd party APIs mostly with GDExternal.
+				[b]Note:[/b] This functions returns a [code]uint64_t[/code] which internally maps to a [code]GLuint[/code] (OpenGL) or [code]VkImage[/code] (Vulkan).
+			</description>
+		</method>
 		<method name="texture_get_path" qualifiers="const">
 			<return type="String" />
 			<param index="0" name="texture" type="RID" />
@@ -3604,7 +3622,7 @@
 			<param index="1" name="size" type="int" />
 			<param index="2" name="use_16_bits" type="bool" default="false" />
 			<description>
-				Sets the [param size] of the shadow atlas's images (used for omni and spot lights) on the viewport specified by the [param viewport] RID. The value is rounded up to the nearest power of 2. If [code]use_16_bits[/code] is [code]true[/code], use 16 bits for the omni/spot shadow depth map. Enabling this results in shadows having less precision and may result in shadow acne, but can lead to performance improvements on some devices.
+				Sets the [param size] of the shadow atlas's images (used for omni and spot lights) on the viewport specified by the [param viewport] RID. The value is rounded up to the nearest power of 2. If [param use_16_bits] is [code]true[/code], use 16 bits for the omni/spot shadow depth map. Enabling this results in shadows having less precision and may result in shadow acne, but can lead to performance improvements on some devices.
 				[b]Note:[/b] If this is set to [code]0[/code], no positional shadows will be visible at all. This can improve performance significantly on low-end systems by reducing both the CPU and GPU load (as fewer draw calls are needed to draw the scene without shadows).
 			</description>
 		</method>
@@ -4012,10 +4030,10 @@
 			Array is a vertex color array.
 		</constant>
 		<constant name="ARRAY_TEX_UV" value="4" enum="ArrayType">
-			Array is an UV coordinates array.
+			Array is a UV coordinates array.
 		</constant>
 		<constant name="ARRAY_TEX_UV2" value="5" enum="ArrayType">
-			Array is an UV coordinates array for the second set of UV coordinates.
+			Array is a UV coordinates array for the second set of UV coordinates.
 		</constant>
 		<constant name="ARRAY_CUSTOM0" value="6" enum="ArrayType">
 			Array is a custom data array for the first set of custom data.
@@ -4084,10 +4102,10 @@
 			Flag used to mark a vertex color array.
 		</constant>
 		<constant name="ARRAY_FORMAT_TEX_UV" value="16" enum="ArrayFormat" is_bitfield="true">
-			Flag used to mark an UV coordinates array.
+			Flag used to mark a UV coordinates array.
 		</constant>
 		<constant name="ARRAY_FORMAT_TEX_UV2" value="32" enum="ArrayFormat" is_bitfield="true">
-			Flag used to mark an UV coordinates array for the second UV coordinates.
+			Flag used to mark a UV coordinates array for the second UV coordinates.
 		</constant>
 		<constant name="ARRAY_FORMAT_CUSTOM0" value="64" enum="ArrayFormat" is_bitfield="true">
 			Flag used to mark an array of custom per-vertex data for the first set of custom data.

@@ -272,6 +272,7 @@ class TextServerAdvanced : public TextServerExtension {
 		Vector2i size;
 
 		Vector<ShelfPackTexture> textures;
+		HashMap<int64_t, int64_t> inv_glyph_map;
 		HashMap<int32_t, FontGlyph> glyph_map;
 		HashMap<Vector2i, Vector2> kerning_map;
 		hb_font_t *hb_handle = nullptr;
@@ -713,6 +714,7 @@ public:
 
 	MODBIND2(font_set_name, const RID &, const String &);
 	MODBIND1RC(String, font_get_name, const RID &);
+	MODBIND1RC(Dictionary, font_get_ot_name_strings, const RID &);
 
 	MODBIND2(font_set_antialiasing, const RID &, TextServer::FontAntialiasing);
 	MODBIND1RC(TextServer::FontAntialiasing, font_get_antialiasing, const RID &);
@@ -817,6 +819,7 @@ public:
 	MODBIND3RC(Vector2, font_get_kerning, const RID &, int64_t, const Vector2i &);
 
 	MODBIND4RC(int64_t, font_get_glyph_index, const RID &, int64_t, int64_t, int64_t);
+	MODBIND3RC(int64_t, font_get_char_from_glyph_index, const RID &, int64_t, int64_t);
 
 	MODBIND2RC(bool, font_has_char, const RID &, int64_t);
 	MODBIND1RC(String, font_get_supported_chars, const RID &);
