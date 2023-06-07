@@ -4588,7 +4588,7 @@ void EditorNode::_dock_make_float(Control *p_dock, int p_slot_index, bool p_show
 	dock_slot[p_slot_index]->remove_child(p_dock);
 
 	WindowWrapper *wrapper = memnew(WindowWrapper);
-	wrapper->set_window_title(vformat(TTR("%s - Godot Engine"), p_dock->get_name()));
+	wrapper->set_window_title(vformat(TTR("%s - Tekisasu Engine"), p_dock->get_name()));
 	wrapper->set_margins_enabled(true);
 
 	gui_base->add_child(wrapper);
@@ -6437,7 +6437,7 @@ bool EditorNode::call_build() {
 
 	for (int i = 0; i < build_callback_count && builds_successful; i++) {
 		if (!build_callbacks[i]()) {
-			ERR_PRINT("A Godot Engine build callback failed.");
+			ERR_PRINT("A Tekisasu Engine build callback failed.");
 			builds_successful = false;
 		}
 	}
