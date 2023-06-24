@@ -6,6 +6,18 @@ should instead be used to justify these changes and describe how users should wo
 
 ========================================================================================================================
 
+GH-78237
+--------
+Validate extension JSON: Error: Field 'classes/WebRTCPeerConnectionExtension/methods/_create_data_channel/return_value': type changed value in new API, from "Object" to "WebRTCDataChannel".
+
+GH-77757
+--------
+Validate extension JSON: Error: Field 'classes/Viewport/methods/gui_get_focus_owner': is_const changed value in new API, from false to true.
+Validate extension JSON: Error: Hash changed for 'classes/Viewport/methods/gui_get_focus_owner', from 31757941 to A5E188F5. This means that the function has changed and no compatibility function was provided.
+
+This method does not affect the state of Viewport so it should be const.
+
+
 GH-74736
 --------
 Validate extension JSON: Error: Field 'classes/MenuBar/properties/start_index': type changed value in new API, from "bool" to "int".
@@ -53,7 +65,7 @@ Validate extension JSON: Error: Hash changed for 'classes/RenderingServer/method
 Validate extension JSON: Error: Hash changed for 'classes/Window/methods/popup_centered_clamped', from DE3D691D to 9BCAB29D. This means that the function has changed and no compatibility function was provided.
 Validate extension JSON: Error: Hash changed for 'classes/Window/methods/popup_centered_ratio', from 71F7FFC1 to 3C7CD915. This means that the function has changed and no compatibility function was provided.
 
-None of these methods were actually changed, the hash changes only affects GDExtensions, no compatibility workaround exists currently.
+None of these methods were actually changed, the hash changes only affects GDExtensions binary compatibility.
 
 
 GH-76413
@@ -77,11 +89,9 @@ Validate extension JSON: API was removed: classes/NavigationAgent3D/methods/set_
 Validate extension JSON: API was removed: classes/NavigationAgent3D/properties/agent_height_offset
 Validate extension JSON: API was removed: classes/NavigationAgent3D/properties/ignore_y
 Validate extension JSON: API was removed: classes/NavigationAgent3D/properties/time_horizon
-Validate extension JSON: API was removed: classes/NavigationObstacle2D/methods/get_rid
 Validate extension JSON: API was removed: classes/NavigationObstacle2D/methods/is_radius_estimated
 Validate extension JSON: API was removed: classes/NavigationObstacle2D/methods/set_estimate_radius
 Validate extension JSON: API was removed: classes/NavigationObstacle2D/properties/estimate_radius
-Validate extension JSON: API was removed: classes/NavigationObstacle3D/methods/get_rid
 Validate extension JSON: API was removed: classes/NavigationObstacle3D/methods/is_radius_estimated
 Validate extension JSON: API was removed: classes/NavigationObstacle3D/methods/set_estimate_radius
 Validate extension JSON: API was removed: classes/NavigationObstacle3D/properties/estimate_radius
@@ -245,9 +255,10 @@ Validate extension JSON: Error: Field 'classes/EditorResourcePreviewGenerator/me
 Added parameters to virtual method.
 
 
-GH-76406
+GH-75746
 --------
-Validate extension JSON: Error: Field 'classes/GDExtension/methods/open_library/arguments': size changed value in new API, from 2 to 3.
+Validate extension JSON: Error: Field 'classes/CodeEdit/methods/add_code_completion_option/arguments': size changed value in new API, from 6 to 7.
+Validate extension JSON: Error: Hash changed for 'classes/CodeEdit/methods/add_code_completion_option', from EC613224 to 611C3D20. This means that the function has changed and no compatibility function was provided.
 
 Added an optional parameter with a default value. No adjustments should be necessary.
 
@@ -307,3 +318,13 @@ Validate extension JSON: Error: Field 'classes/PhysicsDirectSpaceState2D/methods
 Validate extension JSON: Error: Field 'classes/PhysicsDirectSpaceState3D/methods/collide_shape/return_value': type changed value in new API, from "typedarray::PackedVector3Array" to "typedarray::Vector3".
 
 The previous type declaration was simply wrong and the method did actually already return objects of the new type.
+
+
+GH-76688
+--------
+Validate extension JSON: Error: Field 'classes/EditorUndoRedoManager/methods/create_action/arguments': size changed value in new API, from 3 to 4.
+Validate extension JSON: Error: Field 'classes/UndoRedo/methods/create_action/arguments': size changed value in new API, from 2 to 3.
+Validate extension JSON: Error: Hash changed for 'classes/EditorUndoRedoManager/methods/create_action', from E07DA3CD to D543BA91. This means that the function has changed and no compatibility function was provided.
+Validate extension JSON: Error: Hash changed for 'classes/UndoRedo/methods/create_action', from 0AEC1BFC to E87757EB. This means that the function has changed and no compatibility function was provided.
+
+Added a optional parameters with default values. No adjustments should be necessary.
