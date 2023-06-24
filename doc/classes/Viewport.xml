@@ -115,7 +115,7 @@
 				Returns the drag data from the GUI, that was previously returned by [method Control._get_drag_data].
 			</description>
 		</method>
-		<method name="gui_get_focus_owner">
+		<method name="gui_get_focus_owner" qualifiers="const">
 			<return type="Control" />
 			<description>
 				Returns the [Control] having the focus within this viewport. If no [Control] has the focus, returns null.
@@ -188,7 +188,7 @@
 				If an earlier method marks the input as handled via [method set_input_as_handled], any later method in this list will not be called.
 				If none of the methods handle the event and [member physics_object_picking] is [code]true[/code], the event is used for physics object picking.
 				[b]Note:[/b] This method doesn't propagate input events to embedded [Window]s or [SubViewport]s.
-				[b]Note:[/b] This method is deprecated, use [method push_input] instead.
+				[i]Deprecated.[/i] Use [method push_input] instead.
 			</description>
 		</method>
 		<method name="set_canvas_cull_mask_bit">
