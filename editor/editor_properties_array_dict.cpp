@@ -208,6 +208,9 @@ void EditorPropertyArray::_property_changed(const String &p_property, Variant p_
 	array.set(index, p_value);
 	object->set_array(array);
 	emit_changed(get_edited_property(), array, "", true);
+	if (!p_changing) {
+		update_property();
+	}
 }
 
 void EditorPropertyArray::_change_type(Object *p_button, int p_index) {
@@ -738,12 +741,16 @@ void EditorPropertyDictionary::_property_changed(const String &p_property, Varia
 		object->set_dict(dict);
 		emit_changed(get_edited_property(), dict, "", true);
 	}
+	if (!p_changing) {
+		update_property();
+	}
 }
 
 void EditorPropertyDictionary::_change_type(Object *p_button, int p_index) {
 	Button *button = Object::cast_to<Button>(p_button);
 
 	Rect2 rect = button->get_screen_rect();
+	change_type->set_item_disabled(change_type->get_item_index(Variant::VARIANT_MAX), p_index < 0);
 	change_type->reset_size();
 	change_type->set_position(rect.get_end() - Vector2(change_type->get_contents_minimum_size().x, 0));
 	change_type->popup();

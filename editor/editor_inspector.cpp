@@ -46,14 +46,14 @@
 #include "scene/property_utils.h"
 #include "scene/resources/packed_scene.h"
 
-static bool _property_path_matches(const String &p_property_path, const String &p_filter, EditorPropertyNameProcessor::Style p_style) {
+bool EditorInspector::_property_path_matches(const String &p_property_path, const String &p_filter, EditorPropertyNameProcessor::Style p_style) {
 	if (p_property_path.findn(p_filter) != -1) {
 		return true;
 	}
 
-	const Vector<String> sections = p_property_path.split("/");
-	for (int i = 0; i < sections.size(); i++) {
-		if (p_filter.is_subsequence_ofn(EditorPropertyNameProcessor::get_singleton()->process_name(sections[i], p_style))) {
+	const Vector<String> prop_sections = p_property_path.split("/");
+	for (int i = 0; i < prop_sections.size(); i++) {
+		if (p_filter.is_subsequence_ofn(EditorPropertyNameProcessor::get_singleton()->process_name(prop_sections[i], p_style))) {
 			return true;
 		}
 	}
@@ -598,6 +598,9 @@ void EditorProperty::add_focusable(Control *p_control) {
 
 void EditorProperty::select(int p_focusable) {
 	bool already_selected = selected;
+	if (!selectable) {
+		return;
+	}
 
 	if (p_focusable >= 0) {
 		ERR_FAIL_INDEX(p_focusable, focusables.size());
@@ -671,11 +674,7 @@ void EditorProperty::gui_input(const Ref<InputEvent> &p_event) {
 			mpos.x = get_size().x - mpos.x;
 		}
 
-		if (!selected && selectable) {
-			selected = true;
-			emit_signal(SNAME("selected"), property, -1);
-			queue_redraw();
-		}
+		select();
 
 		if (keying_rect.has_point(mpos)) {
 			accept_event();
@@ -3691,8 +3690,9 @@ void EditorInspector::_edit_set(const String &p_name, const Variant &p_value, bo
 		Variant v_undo_redo = undo_redo;
 		Variant v_object = object;
 		Variant v_name = p_name;
-		for (int i = 0; i < EditorNode::get_singleton()->get_editor_data().get_undo_redo_inspector_hook_callback().size(); i++) {
-			const Callable &callback = EditorNode::get_singleton()->get_editor_data().get_undo_redo_inspector_hook_callback()[i];
+		const Vector<Callable> &callbacks = EditorNode::get_singleton()->get_editor_data().get_undo_redo_inspector_hook_callback();
+		for (int i = 0; i < callbacks.size(); i++) {
+			const Callable &callback = callbacks[i];
 
 			const Variant *p_arguments[] = { &v_undo_redo, &v_object, &v_name, &p_value };
 			Variant return_value;

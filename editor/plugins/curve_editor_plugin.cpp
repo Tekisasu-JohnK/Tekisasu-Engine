@@ -51,12 +51,6 @@ CurveEdit::CurveEdit() {
 	set_clip_contents(true);
 }
 
-void CurveEdit::_on_mouse_exited() {
-	hovered_index = -1;
-	hovered_tangent_index = TANGENT_NONE;
-	queue_redraw();
-}
-
 void CurveEdit::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_selected_index", "index"), &CurveEdit::set_selected_index);
 }
@@ -116,8 +110,12 @@ Size2 CurveEdit::get_minimum_size() const {
 
 void CurveEdit::_notification(int p_what) {
 	switch (p_what) {
-		case NOTIFICATION_ENTER_TREE: {
-			connect("mouse_exited", callable_mp(this, &CurveEdit::_on_mouse_exited));
+		case NOTIFICATION_MOUSE_EXIT: {
+			if (hovered_index != -1 || hovered_tangent_index != TANGENT_NONE) {
+				hovered_index = -1;
+				hovered_tangent_index = TANGENT_NONE;
+				queue_redraw();
+			}
 		} break;
 		case NOTIFICATION_THEME_CHANGED:
 		case EditorSettings::NOTIFICATION_EDITOR_SETTINGS_CHANGED: {
@@ -862,7 +860,7 @@ void CurveEdit::_redraw() {
 		const Color selected_point_color = get_theme_color(SNAME("accent_color"), SNAME("Editor"));
 
 		// Draw tangents if not dragging a point, or if holding a point without having moved it yet.
-		if (grabbing == GRAB_NONE || (grabbing != GRAB_NONE && (initial_grab_pos == point_pos || selected_tangent_index != TANGENT_NONE))) {
+		if (grabbing == GRAB_NONE || initial_grab_pos == point_pos || selected_tangent_index != TANGENT_NONE) {
 			const Color selected_tangent_color = get_theme_color(SNAME("accent_color"), SNAME("Editor")).darkened(0.25);
 			const Color tangent_color = get_theme_color(SNAME("font_color"), SNAME("Editor")).darkened(0.25);
 
@@ -980,9 +978,11 @@ void CurveEditor::_notification(int p_what) {
 		} break;
 		case NOTIFICATION_READY: {
 			Ref<Curve> curve = curve_editor_rect->get_curve();
-			// Set snapping settings based on the curve's meta.
-			snap_button->set_pressed(curve->get_meta("_snap_enabled", false));
-			snap_count_edit->set_value(curve->get_meta("_snap_count", DEFAULT_SNAP));
+			if (curve.is_valid()) {
+				// Set snapping settings based on the curve's meta.
+				snap_button->set_pressed(curve->get_meta("_snap_enabled", false));
+				snap_count_edit->set_value(curve->get_meta("_snap_count", DEFAULT_SNAP));
+			}
 		} break;
 	}
 }

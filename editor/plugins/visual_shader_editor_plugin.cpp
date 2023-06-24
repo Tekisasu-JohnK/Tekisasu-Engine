@@ -362,8 +362,7 @@ bool VisualShaderGraphPlugin::is_node_has_parameter_instances_relatively(VisualS
 		}
 	}
 
-	LocalVector<int> prev_connected_nodes;
-	visual_shader->get_prev_connected_nodes(p_type, p_node, prev_connected_nodes);
+	const LocalVector<int> &prev_connected_nodes = visual_shader->get_prev_connected_nodes(p_type, p_node);
 
 	for (const int &E : prev_connected_nodes) {
 		result = is_node_has_parameter_instances_relatively(p_type, E);
@@ -4982,7 +4981,7 @@ void VisualShaderEditor::_preview_size_changed() {
 	preview_vbox->set_custom_minimum_size(preview_window->get_size());
 }
 
-static ShaderLanguage::DataType _get_global_shader_uniform_type(const StringName &p_variable) {
+static ShaderLanguage::DataType _visual_shader_editor_get_global_shader_uniform_type(const StringName &p_variable) {
 	RS::GlobalShaderParameterType gvt = RS::get_singleton()->global_shader_parameter_get_type(p_variable);
 	return (ShaderLanguage::DataType)RS::global_shader_uniform_type_get_shader_datatype(gvt);
 }
@@ -5001,7 +5000,7 @@ void VisualShaderEditor::_update_preview() {
 	info.functions = ShaderTypes::get_singleton()->get_functions(RenderingServer::ShaderMode(visual_shader->get_mode()));
 	info.render_modes = ShaderTypes::get_singleton()->get_modes(RenderingServer::ShaderMode(visual_shader->get_mode()));
 	info.shader_types = ShaderTypes::get_singleton()->get_types();
-	info.global_shader_uniform_type_func = _get_global_shader_uniform_type;
+	info.global_shader_uniform_type_func = _visual_shader_editor_get_global_shader_uniform_type;
 
 	ShaderLanguage sl;
 
@@ -5038,8 +5037,7 @@ void VisualShaderEditor::_update_next_previews(int p_node_id) {
 }
 
 void VisualShaderEditor::_get_next_nodes_recursively(VisualShader::Type p_type, int p_node_id, LocalVector<int> &r_nodes) const {
-	LocalVector<int> next_connections;
-	visual_shader->get_next_connected_nodes(p_type, p_node_id, next_connections);
+	const LocalVector<int> &next_connections = visual_shader->get_next_connected_nodes(p_type, p_node_id);
 
 	for (int node_id : next_connections) {
 		r_nodes.push_back(node_id);

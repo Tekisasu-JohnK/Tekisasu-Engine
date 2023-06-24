@@ -789,7 +789,14 @@ void EditorNode::_notification(int p_what) {
 
 			help_menu->set_item_icon(help_menu->get_item_index(HELP_SEARCH), gui_base->get_theme_icon(SNAME("HelpSearch"), SNAME("EditorIcons")));
 			help_menu->set_item_icon(help_menu->get_item_index(HELP_DOCS), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_QA), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_REPORT_A_BUG), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_COPY_SYSTEM_INFO), gui_base->get_theme_icon(SNAME("ActionCopy"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_SUGGEST_A_FEATURE), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_SEND_DOCS_FEEDBACK), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_COMMUNITY), gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")));
 			help_menu->set_item_icon(help_menu->get_item_index(HELP_ABOUT), gui_base->get_theme_icon(SNAME("Godot"), SNAME("EditorIcons")));
+			help_menu->set_item_icon(help_menu->get_item_index(HELP_SUPPORT_GODOT_DEVELOPMENT), gui_base->get_theme_icon(SNAME("Heart"), SNAME("EditorIcons")));
 
 			for (int i = 0; i < main_editor_buttons.size(); i++) {
 				main_editor_buttons.write[i]->add_theme_font_override("font", gui_base->get_theme_font(SNAME("main_button_font"), SNAME("EditorFonts")));
@@ -976,7 +983,7 @@ void EditorNode::_fs_changed() {
 				} else { // Normal project export.
 					String config_error;
 					bool missing_templates;
-					if (!platform->can_export(export_preset, config_error, missing_templates)) {
+					if (!platform->can_export(export_preset, config_error, missing_templates, export_defer.debug)) {
 						ERR_PRINT(vformat("Cannot export project with preset \"%s\" due to configuration errors:\n%s", preset_name, config_error));
 						err = missing_templates ? ERR_FILE_NOT_FOUND : ERR_UNCONFIGURED;
 					} else {
@@ -2020,6 +2027,9 @@ void EditorNode::_dialog_action(String p_file) {
 			if (err) {
 				show_accept(TTR("Error saving MeshLibrary!"), TTR("OK"));
 				return;
+			} else if (ResourceCache::has(p_file)) {
+				// Make sure MeshLibrary is updated in the editor.
+				ResourceLoader::load(p_file)->reload_from_file();
 			}
 
 		} break;
@@ -3410,10 +3420,12 @@ void EditorNode::_remove_scene(int index, bool p_change_tab) {
 }
 
 void EditorNode::set_edited_scene(Node *p_scene) {
-	if (get_editor_data().get_edited_scene_root()) {
-		if (get_editor_data().get_edited_scene_root()->get_parent() == scene_root) {
-			scene_root->remove_child(get_editor_data().get_edited_scene_root());
+	Node *old_edited_scene_root = get_editor_data().get_edited_scene_root();
+	if (old_edited_scene_root) {
+		if (old_edited_scene_root->get_parent() == scene_root) {
+			scene_root->remove_child(old_edited_scene_root);
 		}
+		old_edited_scene_root->disconnect(SNAME("replacing_by"), callable_mp(this, &EditorNode::set_edited_scene));
 	}
 	get_editor_data().set_edited_scene_root(p_scene);
 
@@ -3429,6 +3441,7 @@ void EditorNode::set_edited_scene(Node *p_scene) {
 		if (p_scene->get_parent() != scene_root) {
 			scene_root->add_child(p_scene, true);
 		}
+		p_scene->connect(SNAME("replacing_by"), callable_mp(this, &EditorNode::set_edited_scene));
 	}
 }
 
@@ -4096,6 +4109,13 @@ void EditorNode::add_io_error(const String &p_error) {
 	EditorInterface::get_singleton()->popup_dialog_centered_ratio(singleton->load_error_dialog, 0.5);
 }
 
+void EditorNode::add_io_warning(const String &p_warning) {
+	DEV_ASSERT(Thread::get_caller_id() == Thread::get_main_id());
+	singleton->load_errors->add_image(singleton->gui_base->get_theme_icon(SNAME("Warning"), SNAME("EditorIcons")));
+	singleton->load_errors->add_text(p_warning + "\n");
+	EditorInterface::get_singleton()->popup_dialog_centered_ratio(singleton->load_error_dialog, 0.5);
+}
+
 bool EditorNode::_find_scene_in_use(Node *p_node, const String &p_path) const {
 	if (p_node->get_scene_file_path() == p_path) {
 		return true;
@@ -4375,7 +4395,7 @@ String EditorNode::_get_system_info() const {
 	String driver_name = GLOBAL_GET("rendering/rendering_device/driver");
 	String rendering_method = GLOBAL_GET("rendering/renderer/rendering_method");
 
-	const String rendering_device_name = RenderingServer::get_singleton()->get_rendering_device()->get_device_name();
+	const String rendering_device_name = RenderingServer::get_singleton()->get_video_adapter_name();
 
 	RenderingDevice::DeviceType device_type = RenderingServer::get_singleton()->get_video_adapter_type();
 	String device_type_string;
@@ -4588,7 +4608,7 @@ void EditorNode::_dock_make_float(Control *p_dock, int p_slot_index, bool p_show
 	dock_slot[p_slot_index]->remove_child(p_dock);
 
 	WindowWrapper *wrapper = memnew(WindowWrapper);
-	wrapper->set_window_title(vformat(TTR("%s - Tekisasu Engine"), p_dock->get_name()));
+	wrapper->set_window_title(vformat(TTR("%s - Godot Engine"), p_dock->get_name()));
 	wrapper->set_margins_enabled(true);
 
 	gui_base->add_child(wrapper);
@@ -4919,7 +4939,10 @@ void EditorNode::_save_open_scenes_to_config(Ref<ConfigFile> p_layout) {
 	p_layout->set_value(EDITOR_NODE_CONFIG_SECTION, "open_scenes", scenes);
 
 	String currently_edited_scene_path = editor_data.get_scene_path(editor_data.get_edited_scene());
-	p_layout->set_value(EDITOR_NODE_CONFIG_SECTION, "current_scene", currently_edited_scene_path);
+	// Don't save a bad path to the config.
+	if (!currently_edited_scene_path.is_empty()) {
+		p_layout->set_value(EDITOR_NODE_CONFIG_SECTION, "current_scene", currently_edited_scene_path);
+	}
 }
 
 void EditorNode::save_editor_layout_delayed() {
@@ -6437,7 +6460,7 @@ bool EditorNode::call_build() {
 
 	for (int i = 0; i < build_callback_count && builds_successful; i++) {
 		if (!build_callbacks[i]()) {
-			ERR_PRINT("A Tekisasu Engine build callback failed.");
+			ERR_PRINT("A Godot Engine build callback failed.");
 			builds_successful = false;
 		}
 	}
@@ -6753,28 +6776,28 @@ EditorNode::EditorNode() {
 		switch (display_scale) {
 			case 0:
 				// Try applying a suitable display scale automatically.
-				editor_set_scale(EditorSettings::get_singleton()->get_auto_display_scale());
+				EditorScale::set_scale(EditorSettings::get_singleton()->get_auto_display_scale());
 				break;
 			case 1:
-				editor_set_scale(0.75);
+				EditorScale::set_scale(0.75);
 				break;
 			case 2:
-				editor_set_scale(1.0);
+				EditorScale::set_scale(1.0);
 				break;
 			case 3:
-				editor_set_scale(1.25);
+				EditorScale::set_scale(1.25);
 				break;
 			case 4:
-				editor_set_scale(1.5);
+				EditorScale::set_scale(1.5);
 				break;
 			case 5:
-				editor_set_scale(1.75);
+				EditorScale::set_scale(1.75);
 				break;
 			case 6:
-				editor_set_scale(2.0);
+				EditorScale::set_scale(2.0);
 				break;
 			default:
-				editor_set_scale(EDITOR_GET("interface/editor/custom_display_scale"));
+				EditorScale::set_scale(EDITOR_GET("interface/editor/custom_display_scale"));
 				break;
 		}
 	}
@@ -6785,7 +6808,6 @@ EditorNode::EditorNode() {
 		w->set_min_size(Size2(1024, 600) * EDSCALE);
 	}
 
-	FileDialog::set_default_show_hidden_files(EDITOR_GET("filesystem/file_dialog/show_hidden_files"));
 	EditorFileDialog::set_default_show_hidden_files(EDITOR_GET("filesystem/file_dialog/show_hidden_files"));
 	EditorFileDialog::set_default_display_mode((EditorFileDialog::DisplayMode)EDITOR_GET("filesystem/file_dialog/display_mode").operator int());
 
@@ -6798,6 +6820,11 @@ EditorNode::EditorNode() {
 	ResourceLoader::set_abort_on_missing_resources(false);
 	ResourceLoader::set_error_notify_func(&EditorNode::add_io_error);
 	ResourceLoader::set_dependency_error_notify_func(&EditorNode::_dependency_error_report);
+
+	SceneState::set_instantiation_warning_notify_func([](const String &p_warning) {
+		add_io_warning(p_warning);
+		callable_mp(EditorInterface::get_singleton(), &EditorInterface::mark_scene_as_unsaved).call_deferred();
+	});
 
 	{
 		// Register importers at the beginning, so dialogs are created with the right extensions.
@@ -7493,11 +7520,19 @@ EditorNode::EditorNode() {
 	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("HelpSearch"), SNAME("EditorIcons")), ED_GET_SHORTCUT("editor/editor_help"), HELP_SEARCH);
 	help_menu->add_separator();
 	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/online_docs", TTR("Online Documentation")), HELP_DOCS);
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/q&a", TTR("Questions & Answers")), HELP_QA);
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/report_a_bug", TTR("Report a Bug")), HELP_REPORT_A_BUG);
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ActionCopy"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/copy_system_info", TTR("Copy System Info")), HELP_COPY_SYSTEM_INFO);
+	help_menu->set_item_tooltip(-1, TTR("Copies the system info as a single-line text into the clipboard."));
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/suggest_a_feature", TTR("Suggest a Feature")), HELP_SUGGEST_A_FEATURE);
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/send_docs_feedback", TTR("Send Docs Feedback")), HELP_SEND_DOCS_FEEDBACK);
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("ExternalLink"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/community", TTR("Community")), HELP_COMMUNITY);
 	help_menu->add_separator();
 	if (!global_menu || !OS::get_singleton()->has_feature("macos")) {
 		// On macOS  "Quit" and "About" options are in the "app" menu.
-		help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("Godot"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/about", TTR("About Tekisasu-Engine")), HELP_ABOUT);
+		help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("Godot"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/about", TTR("About Godot")), HELP_ABOUT);
 	}
+	help_menu->add_icon_shortcut(gui_base->get_theme_icon(SNAME("Heart"), SNAME("EditorIcons")), ED_SHORTCUT_AND_COMMAND("editor/support_development", TTR("Support Godot Development")), HELP_SUPPORT_GODOT_DEVELOPMENT);
 
 	// Spacer to center 2D / 3D / Script buttons.
 	Control *right_spacer = memnew(Control);

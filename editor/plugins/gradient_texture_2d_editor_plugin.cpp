@@ -39,13 +39,6 @@
 #include "scene/gui/flow_container.h"
 #include "scene/gui/separator.h"
 
-void GradientTexture2DEdit::_on_mouse_exited() {
-	if (hovered != HANDLE_NONE) {
-		hovered = HANDLE_NONE;
-		queue_redraw();
-	}
-}
-
 Point2 GradientTexture2DEdit::_get_handle_pos(const Handle p_handle) {
 	// Get the handle's mouse position in pixels relative to offset.
 	return (p_handle == HANDLE_FROM ? texture->get_fill_from() : texture->get_fill_to()).clamp(Vector2(), Vector2(1, 1)) * size;
@@ -168,9 +161,12 @@ void GradientTexture2DEdit::set_snap_count(int p_snap_count) {
 
 void GradientTexture2DEdit::_notification(int p_what) {
 	switch (p_what) {
-		case NOTIFICATION_ENTER_TREE:
-			connect("mouse_exited", callable_mp(this, &GradientTexture2DEdit::_on_mouse_exited));
-			[[fallthrough]];
+		case NOTIFICATION_MOUSE_EXIT: {
+			if (hovered != HANDLE_NONE) {
+				hovered = HANDLE_NONE;
+				queue_redraw();
+			}
+		} break;
 		case NOTIFICATION_THEME_CHANGED: {
 			checkerboard->set_texture(get_theme_icon(SNAME("GuiMiniCheckerboard"), SNAME("EditorIcons")));
 		} break;
@@ -217,8 +213,8 @@ void GradientTexture2DEdit::_draw() {
 
 	// Draw handles.
 	const Color focus_modulate = Color(0.5, 1, 2);
-	bool modulate_handle_from = grabbed == HANDLE_FROM || (grabbed != HANDLE_FROM && hovered == HANDLE_FROM);
-	bool modulate_handle_to = grabbed == HANDLE_TO || (grabbed != HANDLE_TO && hovered == HANDLE_TO);
+	bool modulate_handle_from = grabbed == HANDLE_FROM || hovered == HANDLE_FROM;
+	bool modulate_handle_to = grabbed == HANDLE_TO || hovered == HANDLE_TO;
 	draw_texture(fill_from_icon, (_get_handle_pos(HANDLE_FROM) - handle_size / 2).round(), modulate_handle_from ? focus_modulate : Color(1, 1, 1));
 	draw_texture(fill_to_icon, (_get_handle_pos(HANDLE_TO) - handle_size / 2).round(), modulate_handle_to ? focus_modulate : Color(1, 1, 1));
 }
@@ -269,9 +265,11 @@ void GradientTexture2DEditor::_notification(int p_what) {
 			snap_button->set_icon(get_theme_icon(SNAME("SnapGrid"), SNAME("EditorIcons")));
 		} break;
 		case NOTIFICATION_READY: {
-			// Set snapping settings based on the texture's meta.
-			snap_button->set_pressed(texture->get_meta("_snap_enabled", false));
-			snap_count_edit->set_value(texture->get_meta("_snap_count", DEFAULT_SNAP));
+			if (texture.is_valid()) {
+				// Set snapping settings based on the texture's meta.
+				snap_button->set_pressed(texture->get_meta("_snap_enabled", false));
+				snap_count_edit->set_value(texture->get_meta("_snap_count", DEFAULT_SNAP));
+			}
 		} break;
 	}
 }
