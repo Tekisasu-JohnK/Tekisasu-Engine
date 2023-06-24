@@ -32,6 +32,11 @@
 
 #if defined(DEBUG_METHODS_ENABLED) && defined(TOOLS_ENABLED)
 
+#include "../godotsharp_defs.h"
+#include "../utils/naming_utils.h"
+#include "../utils/path_utils.h"
+#include "../utils/string_utils.h"
+
 #include "core/config/engine.h"
 #include "core/core_constants.h"
 #include "core/io/compression.h"
@@ -39,11 +44,6 @@
 #include "core/io/file_access.h"
 #include "core/os/os.h"
 #include "main/main.h"
-
-#include "../godotsharp_defs.h"
-#include "../utils/naming_utils.h"
-#include "../utils/path_utils.h"
-#include "../utils/string_utils.h"
 
 StringBuilder &operator<<(StringBuilder &r_sb, const String &p_string) {
 	r_sb.append(p_string);
@@ -115,6 +115,7 @@ StringBuilder &operator<<(StringBuilder &r_sb, const char *p_cstring) {
 #define C_METHOD_MANAGED_FROM_SIGNAL C_NS_MONOMARSHAL ".ConvertSignalToManaged"
 
 // Types that will be ignored by the generator and won't be available in C#.
+// This must be kept in sync with `ignored_types` in csharp_script.cpp
 const Vector<String> ignored_types = { "PhysicsServer2DExtension", "PhysicsServer3DExtension" };
 
 void BindingsGenerator::TypeInterface::postsetup_enum_type(BindingsGenerator::TypeInterface &r_enum_itype) {
@@ -1375,6 +1376,10 @@ Error BindingsGenerator::_generate_cs_type(const TypeInterface &itype, const Str
 
 			output.append("/// </summary>\n");
 		}
+
+		if (class_doc->is_deprecated) {
+			output.append("[Obsolete(\"This class is deprecated.\")]\n");
+		}
 	}
 
 	// We generate a `GodotClassName` attribute if the engine class name is not the same as the
@@ -1426,6 +1431,10 @@ Error BindingsGenerator::_generate_cs_type(const TypeInterface &itype, const Str
 
 				output.append(INDENT1 "/// </summary>");
 			}
+
+			if (iconstant.const_doc->is_deprecated) {
+				output.append(MEMBER_BEGIN "[Obsolete(\"This constant is deprecated.\")]");
+			}
 		}
 
 		output.append(MEMBER_BEGIN "public const long ");
@@ -1469,6 +1478,10 @@ Error BindingsGenerator::_generate_cs_type(const TypeInterface &itype, const Str
 					}
 
 					output.append(INDENT2 "/// </summary>\n");
+				}
+
+				if (iconstant.const_doc->is_deprecated) {
+					output.append(INDENT2 "[Obsolete(\"This enum member is deprecated.\")]\n");
 				}
 			}
 
@@ -1867,6 +1880,10 @@ Error BindingsGenerator::_generate_cs_property(const BindingsGenerator::TypeInte
 
 			p_output.append(INDENT1 "/// </summary>");
 		}
+
+		if (p_iprop.prop_doc->is_deprecated) {
+			p_output.append(MEMBER_BEGIN "[Obsolete(\"This property is deprecated.\")]");
+		}
 	}
 
 	p_output.append(MEMBER_BEGIN "public ");
@@ -2102,6 +2119,10 @@ Error BindingsGenerator::_generate_cs_method(const BindingsGenerator::TypeInterf
 
 				p_output.append(INDENT1 "/// </summary>");
 			}
+
+			if (p_imethod.method_doc->is_deprecated) {
+				p_output.append(MEMBER_BEGIN "[Obsolete(\"This method is deprecated.\")]");
+			}
 		}
 
 		if (default_args_doc.get_string_length()) {
@@ -2313,6 +2334,10 @@ Error BindingsGenerator::_generate_cs_signal(const BindingsGenerator::TypeInterf
 				}
 
 				p_output.append(INDENT1 "/// </summary>");
+			}
+
+			if (p_isignal.method_doc->is_deprecated) {
+				p_output.append(MEMBER_BEGIN "[Obsolete(\"This signal is deprecated.\")]");
 			}
 		}
 
@@ -2865,7 +2890,7 @@ bool BindingsGenerator::_populate_object_type_interfaces() {
 
 		itype.cs_out = "%5return (%2)%0(%1);";
 
-		itype.c_arg_in = "(void*)%s";
+		itype.c_arg_in = "&%s";
 		itype.c_type = "IntPtr";
 		itype.c_type_in = itype.c_type;
 		itype.c_type_out = "GodotObject";
