@@ -30,18 +30,19 @@
 
 #include "display_server_web.h"
 
+#include "dom_keys.inc"
+#include "godot_js.h"
+#include "os_web.h"
+
 #include "core/config/project_settings.h"
+#include "servers/rendering/dummy/rasterizer_dummy.h"
+
 #ifdef GLES3_ENABLED
 #include "drivers/gles3/rasterizer_gles3.h"
 #endif
-#include "platform/web/os_web.h"
-#include "servers/rendering/dummy/rasterizer_dummy.h"
 
 #include <emscripten.h>
 #include <png.h>
-
-#include "dom_keys.inc"
-#include "godot_js.h"
 
 #define DOM_BUTTON_LEFT 0
 #define DOM_BUTTON_MIDDLE 1
@@ -1072,12 +1073,20 @@ void DisplayServerWeb::window_move_to_foreground(WindowID p_window) {
 	// Not supported.
 }
 
+bool DisplayServerWeb::window_is_focused(WindowID p_window) const {
+	return true;
+}
+
 bool DisplayServerWeb::window_can_draw(WindowID p_window) const {
 	return true;
 }
 
 bool DisplayServerWeb::can_any_window_draw() const {
 	return true;
+}
+
+DisplayServer::VSyncMode DisplayServerWeb::window_get_vsync_mode(WindowID p_vsync_mode) const {
+	return DisplayServer::VSYNC_ENABLED;
 }
 
 void DisplayServerWeb::process_events() {

@@ -35,17 +35,13 @@
 #include "main/main.h"
 #include "servers/display_server.h"
 
-#include "modules/modules_enabled.gen.h" // For regex.
-#ifdef MODULE_REGEX_ENABLED
-#include "modules/regex/regex.h"
-#endif
-
 #ifdef X11_ENABLED
 #include "x11/display_server_x11.h"
 #endif
 
-#ifdef HAVE_MNTENT
-#include <mntent.h>
+#include "modules/modules_enabled.gen.h" // For regex.
+#ifdef MODULE_REGEX_ENABLED
+#include "modules/regex/regex.h"
 #endif
 
 #include <dlfcn.h>
@@ -56,6 +52,10 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <unistd.h>
+
+#ifdef HAVE_MNTENT
+#include <mntent.h>
+#endif
 
 void OS_LinuxBSD::alert(const String &p_alert, const String &p_title) {
 	const char *message_programs[] = { "zenity", "kdialog", "Xdialog", "xmessage" };
@@ -252,7 +252,7 @@ String OS_LinuxBSD::get_version() const {
 }
 
 Vector<String> OS_LinuxBSD::get_video_adapter_driver_info() const {
-	if (RenderingServer::get_singleton()->get_rendering_device() == nullptr) {
+	if (RenderingServer::get_singleton() == nullptr) {
 		return Vector<String>();
 	}
 
@@ -261,8 +261,8 @@ Vector<String> OS_LinuxBSD::get_video_adapter_driver_info() const {
 		return info;
 	}
 
-	const String rendering_device_name = RenderingServer::get_singleton()->get_rendering_device()->get_device_name(); // e.g. `NVIDIA GeForce GTX 970`
-	const String rendering_device_vendor = RenderingServer::get_singleton()->get_rendering_device()->get_device_vendor_name(); // e.g. `NVIDIA`
+	const String rendering_device_name = RenderingServer::get_singleton()->get_video_adapter_name(); // e.g. `NVIDIA GeForce GTX 970`
+	const String rendering_device_vendor = RenderingServer::get_singleton()->get_video_adapter_vendor(); // e.g. `NVIDIA`
 	const String card_name = rendering_device_name.trim_prefix(rendering_device_vendor).strip_edges(); // -> `GeForce GTX 970`
 
 	String vendor_device_id_mappings;
@@ -496,11 +496,19 @@ bool OS_LinuxBSD::_check_internal_feature_support(const String &p_feature) {
 		return font_config_initialized;
 	}
 #endif
+
+#ifndef __linux__
+	// `bsd` includes **all** BSD, not only "other BSD" (see `get_name()`).
+	if (p_feature == "bsd") {
+		return true;
+	}
+#endif
+
 	if (p_feature == "pc") {
 		return true;
 	}
 
-	// Match against the specific OS (linux, freebsd, etc).
+	// Match against the specific OS (`linux`, `freebsd`, `netbsd`, `openbsd`).
 	if (p_feature == get_name().to_lower()) {
 		return true;
 	}
@@ -953,32 +961,41 @@ Error OS_LinuxBSD::move_to_trash(const String &p_path) {
 	args.push_back(path);
 	args.push_front("trash"); // The command is `gio trash <file_name>` so we need to add it to args.
 	Error result = execute("gio", args, nullptr, &err_code); // For GNOME based machines.
-	if (result == OK && !err_code) {
-		return OK;
-	} else if (err_code == 2) {
-		return ERR_FILE_NOT_FOUND;
+	if (result == OK) { // The `execute` function has done its job without errors.
+		if (!err_code) { // The shell command has been executed without errors.
+			return OK;
+		} else if (err_code == 1) {
+			ERR_PRINT("move_to_trash: No such file or directory as " + path + ".");
+			return ERR_FILE_NOT_FOUND;
+		}
 	}
 
 	args.pop_front();
 	args.push_front("move");
 	args.push_back("trash:/"); // The command is `kioclient5 move <file_name> trash:/`.
 	result = execute("kioclient5", args, nullptr, &err_code); // For KDE based machines.
-	if (result == OK && !err_code) {
-		return OK;
-	} else if (err_code == 2) {
-		return ERR_FILE_NOT_FOUND;
+	if (result == OK) { // The `execute` function has done its job without errors.
+		if (!err_code) { // The shell command has been executed without errors.
+			return OK;
+		} else if (err_code == 1) {
+			ERR_PRINT("move_to_trash: No such file or directory as " + path + ".");
+			return ERR_FILE_NOT_FOUND;
+		}
 	}
 
 	args.pop_front();
 	args.pop_back();
 	result = execute("gvfs-trash", args, nullptr, &err_code); // For older Linux machines.
-	if (result == OK && !err_code) {
-		return OK;
-	} else if (err_code == 2) {
-		return ERR_FILE_NOT_FOUND;
+	if (result == OK) { // The `execute` function has done its job without errors.
+		if (!err_code) { // The shell command has been executed without errors.
+			return OK;
+		} else if (err_code == 1) {
+			ERR_PRINT("move_to_trash: No such file or directory as " + path + ".");
+			return ERR_FILE_NOT_FOUND;
+		}
 	}
 
-	// If the commands `kioclient5`, `gio` or `gvfs-trash` don't exist on the system we do it manually.
+	// If the commands `kioclient5`, `gio` or `gvfs-trash` don't work on the system we do it manually.
 	String trash_path = "";
 	String mnt = get_mountpoint(path);
 

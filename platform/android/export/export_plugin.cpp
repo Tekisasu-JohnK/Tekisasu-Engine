@@ -31,6 +31,8 @@
 #include "export_plugin.h"
 
 #include "gradle_export_util.h"
+#include "logo_svg.gen.h"
+#include "run_icon_svg.gen.h"
 
 #include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
@@ -46,8 +48,6 @@
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 #include "main/splash.gen.h"
-#include "platform/android/logo_svg.gen.h"
-#include "platform/android/run_icon_svg.gen.h"
 
 #include "modules/modules_enabled.gen.h" // For svg.
 #ifdef MODULE_SVG_ENABLED
@@ -2227,7 +2227,7 @@ String EditorExportPlatformAndroid::get_apksigner_path(int p_target_sdk, bool p_
 	return apksigner_path;
 }
 
-bool EditorExportPlatformAndroid::has_valid_export_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const {
+bool EditorExportPlatformAndroid::has_valid_export_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates, bool p_debug) const {
 	String err;
 	bool valid = false;
 	const bool gradle_build_enabled = p_preset->get("gradle_build/use_gradle_build");
@@ -2286,7 +2286,8 @@ bool EditorExportPlatformAndroid::has_valid_export_configuration(const Ref<Edito
 		err += TTR("Either Debug Keystore, Debug User AND Debug Password settings must be configured OR none of them.") + "\n";
 	}
 
-	if (!FileAccess::exists(dk)) {
+	// Use OR to make the export UI able to show this error.
+	if ((p_debug || !dk.is_empty()) && !FileAccess::exists(dk)) {
 		dk = EDITOR_GET("export/android/debug_keystore");
 		if (!FileAccess::exists(dk)) {
 			valid = false;
@@ -2303,7 +2304,7 @@ bool EditorExportPlatformAndroid::has_valid_export_configuration(const Ref<Edito
 		err += TTR("Either Release Keystore, Release User AND Release Password settings must be configured OR none of them.") + "\n";
 	}
 
-	if (!rk.is_empty() && !FileAccess::exists(rk)) {
+	if (!p_debug && !rk.is_empty() && !FileAccess::exists(rk)) {
 		valid = false;
 		err += TTR("Release keystore incorrectly configured in the export preset.") + "\n";
 	}
@@ -2323,7 +2324,7 @@ bool EditorExportPlatformAndroid::has_valid_export_configuration(const Ref<Edito
 			valid = false;
 		}
 
-		// Validate that adb is available
+		// Validate that adb is available.
 		String adb_path = get_adb_path();
 		if (!FileAccess::exists(adb_path)) {
 			err += TTR("Unable to find Android SDK platform-tools' adb command.");
@@ -2345,7 +2346,7 @@ bool EditorExportPlatformAndroid::has_valid_export_configuration(const Ref<Edito
 		if (!target_sdk_version.is_valid_int()) {
 			target_sdk_version = itos(DEFAULT_TARGET_SDK_VERSION);
 		}
-		// Validate that apksigner is available
+		// Validate that apksigner is available.
 		String apksigner_path = get_apksigner_path(target_sdk_version.to_int());
 		if (!FileAccess::exists(apksigner_path)) {
 			err += TTR("Unable to find Android SDK build-tools' apksigner command.");
@@ -2542,7 +2543,6 @@ Error EditorExportPlatformAndroid::sign_apk(const Ref<EditorExportPreset> &p_pre
 		if (ep.step(vformat(TTR("Signing debug %s..."), export_label), 104)) {
 			return ERR_SKIP;
 		}
-
 	} else {
 		keystore = release_keystore;
 		password = release_password;
