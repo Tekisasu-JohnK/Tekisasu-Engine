@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  navigation_polygon.h                                                  */
+/*  navigation_mesh_source_geometry_data_3d.h                             */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,72 +28,48 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef NAVIGATION_POLYGON_H
-#define NAVIGATION_POLYGON_H
+#ifndef NAVIGATION_MESH_SOURCE_GEOMETRY_DATA_3D_H
+#define NAVIGATION_MESH_SOURCE_GEOMETRY_DATA_3D_H
 
-#include "scene/2d/node_2d.h"
-#include "scene/resources/navigation_mesh.h"
+#include "scene/3d/visual_instance_3d.h"
 
-class NavigationPolygon : public Resource {
-	GDCLASS(NavigationPolygon, Resource);
+class NavigationMeshSourceGeometryData3D : public Resource {
+	GDCLASS(NavigationMeshSourceGeometryData3D, Resource);
 
-	Vector<Vector2> vertices;
-	struct Polygon {
-		Vector<int> indices;
-	};
-	Vector<Polygon> polygons;
-	Vector<Vector<Vector2>> outlines;
-
-	mutable Rect2 item_rect;
-	mutable bool rect_cache_dirty = true;
-
-	Mutex navigation_mesh_generation;
-	// Navigation mesh
-	Ref<NavigationMesh> navigation_mesh;
-
-	real_t cell_size = 1.0f; // Must match ProjectSettings default 2D cell_size.
+	Vector<float> vertices;
+	Vector<int> indices;
 
 protected:
 	static void _bind_methods();
 
-	void _set_polygons(const TypedArray<Vector<int32_t>> &p_array);
-	TypedArray<Vector<int32_t>> _get_polygons() const;
-
-	void _set_outlines(const TypedArray<Vector<Vector2>> &p_array);
-	TypedArray<Vector<Vector2>> _get_outlines() const;
+private:
+	void _add_vertex(const Vector3 &p_vec3);
+	void _add_mesh(const Ref<Mesh> &p_mesh, const Transform3D &p_xform);
+	void _add_mesh_array(const Array &p_array, const Transform3D &p_xform);
+	void _add_faces(const PackedVector3Array &p_faces, const Transform3D &p_xform);
 
 public:
-#ifdef TOOLS_ENABLED
-	Rect2 _edit_get_rect() const;
-	bool _edit_is_selected_on_click(const Point2 &p_point, double p_tolerance) const;
-#endif
+	// kept root node transform here on the geometry data
+	// if we add this transform to all exposed functions we need to break comp on all functions later
+	// when navmesh changes from global transform to relative to navregion
+	// but if it stays here we can just remove it and change the internal functions only
+	Transform3D root_node_transform;
 
-	void set_vertices(const Vector<Vector2> &p_vertices);
-	Vector<Vector2> get_vertices() const;
+	void set_vertices(const Vector<float> &p_vertices);
+	const Vector<float> &get_vertices() const { return vertices; }
 
-	void add_polygon(const Vector<int> &p_polygon);
-	int get_polygon_count() const;
+	void set_indices(const Vector<int> &p_indices);
+	const Vector<int> &get_indices() const { return indices; }
 
-	void add_outline(const Vector<Vector2> &p_outline);
-	void add_outline_at_index(const Vector<Vector2> &p_outline, int p_index);
-	void set_outline(int p_idx, const Vector<Vector2> &p_outline);
-	Vector<Vector2> get_outline(int p_idx) const;
-	void remove_outline(int p_idx);
-	int get_outline_count() const;
+	bool has_data() { return vertices.size() && indices.size(); };
+	void clear();
 
-	void clear_outlines();
-	void make_polygons_from_outlines();
+	void add_mesh(const Ref<Mesh> &p_mesh, const Transform3D &p_xform);
+	void add_mesh_array(const Array &p_mesh_array, const Transform3D &p_xform);
+	void add_faces(const PackedVector3Array &p_faces, const Transform3D &p_xform);
 
-	Vector<int> get_polygon(int p_idx);
-	void clear_polygons();
-
-	Ref<NavigationMesh> get_navigation_mesh();
-
-	void set_cell_size(real_t p_cell_size);
-	real_t get_cell_size() const;
-
-	NavigationPolygon() {}
-	~NavigationPolygon() {}
+	NavigationMeshSourceGeometryData3D();
+	~NavigationMeshSourceGeometryData3D();
 };
 
-#endif // NAVIGATION_POLYGON_H
+#endif // NAVIGATION_MESH_SOURCE_GEOMETRY_DATA_3D_H

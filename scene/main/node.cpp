@@ -46,11 +46,6 @@
 
 #include <stdint.h>
 
-VARIANT_ENUM_CAST(Node::ProcessMode);
-VARIANT_ENUM_CAST(Node::ProcessThreadGroup);
-VARIANT_BITFIELD_CAST(Node::ProcessThreadMessages);
-VARIANT_ENUM_CAST(Node::InternalMode);
-
 int Node::orphan_node_count = 0;
 
 thread_local Node *Node::current_process_thread_group = nullptr;
@@ -66,8 +61,8 @@ void Node::_notification(int p_notification) {
 		} break;
 
 		case NOTIFICATION_ENTER_TREE: {
-			ERR_FAIL_COND(!get_viewport());
-			ERR_FAIL_COND(!get_tree());
+			ERR_FAIL_NULL(get_viewport());
+			ERR_FAIL_NULL(get_tree());
 
 			// Update process mode.
 			if (data.process_mode == PROCESS_MODE_INHERIT) {
@@ -121,8 +116,8 @@ void Node::_notification(int p_notification) {
 		} break;
 
 		case NOTIFICATION_EXIT_TREE: {
-			ERR_FAIL_COND(!get_viewport());
-			ERR_FAIL_COND(!get_tree());
+			ERR_FAIL_NULL(get_viewport());
+			ERR_FAIL_NULL(get_tree());
 
 			get_tree()->nodes_in_tree_count--;
 			orphan_node_count++;
@@ -214,14 +209,6 @@ void Node::_notification(int p_notification) {
 			while (data.children.size()) {
 				Node *child = data.children.last()->value; // begin from the end because its faster and more consistent with creation
 				memdelete(child);
-			}
-		} break;
-
-		case NOTIFICATION_CHILD_ORDER_CHANGED: {
-			// The order, in which canvas items are drawn gets rearranged.
-			// This makes it necessary to update mouse cursor and send according mouse_enter/mouse_exit signals for Control nodes.
-			if (get_viewport()) {
-				get_viewport()->update_mouse_cursor_state();
 			}
 		} break;
 	}
@@ -1175,6 +1162,20 @@ void Node::set_name(const String &p_name) {
 	}
 }
 
+// Returns a clear description of this node depending on what is available. Useful for error messages.
+String Node::get_description() const {
+	String description;
+	if (is_inside_tree()) {
+		description = get_path();
+	} else {
+		description = get_name();
+		if (description.is_empty()) {
+			description = get_class();
+		}
+	}
+	return description;
+}
+
 static SafeRefCount node_hrcr_count;
 
 void Node::init_node_hrcr() {
@@ -1433,11 +1434,11 @@ void Node::remove_child(Node *p_child) {
 	bool success = data.children.erase(p_child->data.name);
 	ERR_FAIL_COND_MSG(!success, "Children name does not match parent name in hashtable, this is a bug.");
 
-	notification(NOTIFICATION_CHILD_ORDER_CHANGED);
-	emit_signal(SNAME("child_order_changed"));
-
 	p_child->data.parent = nullptr;
 	p_child->data.index = -1;
+
+	notification(NOTIFICATION_CHILD_ORDER_CHANGED);
+	emit_signal(SNAME("child_order_changed"));
 
 	if (data.inside_tree) {
 		p_child->_propagate_after_exit_tree();
@@ -1604,17 +1605,7 @@ Node *Node::get_node(const NodePath &p_path) const {
 	Node *node = get_node_or_null(p_path);
 
 	if (unlikely(!node)) {
-		// Try to get a clear description of this node in the error message.
-		String desc;
-		if (is_inside_tree()) {
-			desc = get_path();
-		} else {
-			desc = get_name();
-			if (desc.is_empty()) {
-				desc = get_class();
-			}
-		}
-
+		const String desc = get_description();
 		if (p_path.is_absolute()) {
 			ERR_FAIL_V_MSG(nullptr,
 					vformat(R"(Node not found: "%s" (absolute path attempted from "%s").)", p_path, desc));
@@ -1674,25 +1665,19 @@ TypedArray<Node> Node::find_children(const String &p_pattern, const String &p_ty
 			continue;
 		}
 
-		if (!p_pattern.is_empty()) {
-			if (!cptr[i]->data.name.operator String().match(p_pattern)) {
-				continue;
-			} else if (p_type.is_empty()) {
+		if (p_pattern.is_empty() || cptr[i]->data.name.operator String().match(p_pattern)) {
+			if (p_type.is_empty() || cptr[i]->is_class(p_type)) {
 				ret.append(cptr[i]);
-			}
-		}
+			} else if (cptr[i]->get_script_instance()) {
+				Ref<Script> scr = cptr[i]->get_script_instance()->get_script();
+				while (scr.is_valid()) {
+					if ((ScriptServer::is_global_class(p_type) && ScriptServer::get_global_class_path(p_type) == scr->get_path()) || p_type == scr->get_path()) {
+						ret.append(cptr[i]);
+						break;
+					}
 
-		if (cptr[i]->is_class(p_type)) {
-			ret.append(cptr[i]);
-		} else if (cptr[i]->get_script_instance()) {
-			Ref<Script> scr = cptr[i]->get_script_instance()->get_script();
-			while (scr.is_valid()) {
-				if ((ScriptServer::is_global_class(p_type) && ScriptServer::get_global_class_path(p_type) == scr->get_path()) || p_type == scr->get_path()) {
-					ret.append(cptr[i]);
-					break;
+					scr = scr->get_base_script();
 				}
-
-				scr = scr->get_base_script();
 			}
 		}
 
@@ -1993,7 +1978,7 @@ NodePath Node::get_path_to(const Node *p_node, bool p_use_unique_path) const {
 		common_parent = common_parent->data.parent;
 	}
 
-	ERR_FAIL_COND_V(!common_parent, NodePath()); //nodes not in the same tree
+	ERR_FAIL_NULL_V(common_parent, NodePath()); //nodes not in the same tree
 
 	visited.clear();
 
@@ -2256,7 +2241,7 @@ void Node::_propagate_replace_owner(Node *p_owner, Node *p_by_owner) {
 
 Ref<Tween> Node::create_tween() {
 	ERR_THREAD_GUARD_V(Ref<Tween>());
-	ERR_FAIL_COND_V_MSG(!data.tree, nullptr, "Can't create Tween when not inside scene tree.");
+	ERR_FAIL_NULL_V_MSG(data.tree, nullptr, "Can't create Tween when not inside scene tree.");
 	Ref<Tween> tween = get_tree()->create_tween();
 	tween->bind_node(this);
 	return tween;
@@ -2441,19 +2426,19 @@ Node *Node::_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap) c
 		}
 #endif
 		node = res->instantiate(edit_state);
-		ERR_FAIL_COND_V(!node, nullptr);
+		ERR_FAIL_NULL_V(node, nullptr);
 		node->set_scene_instance_load_placeholder(get_scene_instance_load_placeholder());
 
 		instantiated = true;
 
 	} else {
 		Object *obj = ClassDB::instantiate(get_class());
-		ERR_FAIL_COND_V(!obj, nullptr);
+		ERR_FAIL_NULL_V(obj, nullptr);
 		node = Object::cast_to<Node>(obj);
 		if (!node) {
 			memdelete(obj);
 		}
-		ERR_FAIL_COND_V(!node, nullptr);
+		ERR_FAIL_NULL_V(node, nullptr);
 	}
 
 	if (!get_scene_file_path().is_empty()) { //an instance
@@ -2782,6 +2767,8 @@ void Node::replace_by(Node *p_node, bool p_keep_groups) {
 		parent->add_child(p_node);
 		parent->move_child(p_node, index_in_parent);
 	}
+
+	emit_signal(SNAME("replacing_by"), p_node);
 
 	while (get_child_count()) {
 		Node *child = get_child(0);
@@ -3448,9 +3435,9 @@ void Node::_bind_methods() {
 	BIND_ENUM_CONSTANT(PROCESS_THREAD_GROUP_MAIN_THREAD);
 	BIND_ENUM_CONSTANT(PROCESS_THREAD_GROUP_SUB_THREAD);
 
-	BIND_ENUM_CONSTANT(FLAG_PROCESS_THREAD_MESSAGES);
-	BIND_ENUM_CONSTANT(FLAG_PROCESS_THREAD_MESSAGES_PHYSICS);
-	BIND_ENUM_CONSTANT(FLAG_PROCESS_THREAD_MESSAGES_ALL);
+	BIND_BITFIELD_FLAG(FLAG_PROCESS_THREAD_MESSAGES);
+	BIND_BITFIELD_FLAG(FLAG_PROCESS_THREAD_MESSAGES_PHYSICS);
+	BIND_BITFIELD_FLAG(FLAG_PROCESS_THREAD_MESSAGES_ALL);
 
 	BIND_ENUM_CONSTANT(DUPLICATE_SIGNALS);
 	BIND_ENUM_CONSTANT(DUPLICATE_GROUPS);
@@ -3468,7 +3455,9 @@ void Node::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("tree_exited"));
 	ADD_SIGNAL(MethodInfo("child_entered_tree", PropertyInfo(Variant::OBJECT, "node", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "Node")));
 	ADD_SIGNAL(MethodInfo("child_exiting_tree", PropertyInfo(Variant::OBJECT, "node", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "Node")));
+
 	ADD_SIGNAL(MethodInfo("child_order_changed"));
+	ADD_SIGNAL(MethodInfo("replacing_by", PropertyInfo(Variant::OBJECT, "node", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT, "Node")));
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "name", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_name", "get_name");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "unique_name_in_owner", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_unique_name_in_owner", "is_unique_name_in_owner");

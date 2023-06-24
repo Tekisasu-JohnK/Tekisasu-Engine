@@ -185,10 +185,10 @@ int PopupMenu::_get_mouse_over(const Point2 &p_over) const {
 }
 
 void PopupMenu::_activate_submenu(int p_over, bool p_by_keyboard) {
-	Node *n = get_node(items[p_over].submenu);
-	ERR_FAIL_COND_MSG(!n, "Item subnode does not exist: " + items[p_over].submenu + ".");
+	Node *n = get_node_or_null(items[p_over].submenu);
+	ERR_FAIL_NULL_MSG(n, "Item subnode does not exist: '" + items[p_over].submenu + "'.");
 	Popup *submenu_popup = Object::cast_to<Popup>(n);
-	ERR_FAIL_COND_MSG(!submenu_popup, "Item subnode is not a Popup: " + items[p_over].submenu + ".");
+	ERR_FAIL_NULL_MSG(submenu_popup, "Item subnode is not a Popup: '" + items[p_over].submenu + "'.");
 	if (submenu_popup->is_visible()) {
 		return; // Already visible.
 	}
@@ -295,7 +295,18 @@ void PopupMenu::gui_input(const Ref<InputEvent> &p_event) {
 	ERR_FAIL_COND(p_event.is_null());
 
 	if (!items.is_empty()) {
+		Input *input = Input::get_singleton();
+		Ref<InputEventJoypadMotion> joypadmotion_event = p_event;
+		Ref<InputEventJoypadButton> joypadbutton_event = p_event;
+		bool is_joypad_event = (joypadmotion_event.is_valid() || joypadbutton_event.is_valid());
+
 		if (p_event->is_action("ui_down", true) && p_event->is_pressed()) {
+			if (is_joypad_event) {
+				if (!input->is_action_just_pressed("ui_down", true)) {
+					return;
+				}
+				set_process_internal(true);
+			}
 			int search_from = mouse_over + 1;
 			if (search_from >= items.size()) {
 				search_from = 0;
@@ -328,6 +339,12 @@ void PopupMenu::gui_input(const Ref<InputEvent> &p_event) {
 				}
 			}
 		} else if (p_event->is_action("ui_up", true) && p_event->is_pressed()) {
+			if (is_joypad_event) {
+				if (!input->is_action_just_pressed("ui_up", true)) {
+					return;
+				}
+				set_process_internal(true);
+			}
 			int search_from = mouse_over - 1;
 			if (search_from < 0) {
 				search_from = items.size() - 1;
@@ -907,6 +924,82 @@ void PopupMenu::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_INTERNAL_PROCESS: {
+			Input *input = Input::get_singleton();
+
+			if (input->is_action_just_released("ui_up") || input->is_action_just_released("ui_down")) {
+				gamepad_event_delay_ms = DEFAULT_GAMEPAD_EVENT_DELAY_MS;
+				set_process_internal(false);
+				return;
+			}
+			gamepad_event_delay_ms -= get_process_delta_time();
+			if (gamepad_event_delay_ms <= 0) {
+				if (input->is_action_pressed("ui_down")) {
+					gamepad_event_delay_ms = GAMEPAD_EVENT_REPEAT_RATE_MS + gamepad_event_delay_ms;
+					int search_from = mouse_over + 1;
+					if (search_from >= items.size()) {
+						search_from = 0;
+					}
+
+					bool match_found = false;
+					for (int i = search_from; i < items.size(); i++) {
+						if (!items[i].separator && !items[i].disabled) {
+							mouse_over = i;
+							emit_signal(SNAME("id_focused"), i);
+							scroll_to_item(i);
+							control->queue_redraw();
+							match_found = true;
+							break;
+						}
+					}
+
+					if (!match_found) {
+						// If the last item is not selectable, try re-searching from the start.
+						for (int i = 0; i < search_from; i++) {
+							if (!items[i].separator && !items[i].disabled) {
+								mouse_over = i;
+								emit_signal(SNAME("id_focused"), i);
+								scroll_to_item(i);
+								control->queue_redraw();
+								break;
+							}
+						}
+					}
+				}
+
+				if (input->is_action_pressed("ui_up")) {
+					gamepad_event_delay_ms = GAMEPAD_EVENT_REPEAT_RATE_MS + gamepad_event_delay_ms;
+					int search_from = mouse_over - 1;
+					if (search_from < 0) {
+						search_from = items.size() - 1;
+					}
+
+					bool match_found = false;
+					for (int i = search_from; i >= 0; i--) {
+						if (!items[i].separator && !items[i].disabled) {
+							mouse_over = i;
+							emit_signal(SNAME("id_focused"), i);
+							scroll_to_item(i);
+							control->queue_redraw();
+							match_found = true;
+							break;
+						}
+					}
+
+					if (!match_found) {
+						// If the first item is not selectable, try re-searching from the end.
+						for (int i = items.size() - 1; i >= search_from; i--) {
+							if (!items[i].separator && !items[i].disabled) {
+								mouse_over = i;
+								emit_signal(SNAME("id_focused"), i);
+								scroll_to_item(i);
+								control->queue_redraw();
+								break;
+							}
+						}
+					}
+				}
+			}
+
 			// Only used when using operating system windows.
 			if (!activated_by_keyboard && !is_embedded() && autohide_areas.size()) {
 				Point2 mouse_pos = DisplayServer::get_singleton()->mouse_get_position();
@@ -1940,10 +2033,6 @@ String PopupMenu::get_tooltip(const Point2 &p_pos) const {
 	return items[over].tooltip;
 }
 
-void PopupMenu::set_parent_rect(const Rect2 &p_rect) {
-	parent_rect = p_rect;
-}
-
 void PopupMenu::add_autohide_area(const Rect2 &p_area) {
 	autohide_areas.push_back(p_area);
 }
@@ -2051,8 +2140,13 @@ bool PopupMenu::_get(const StringName &p_name, Variant &r_ret) const {
 			r_ret = get_item_icon(item_index);
 			return true;
 		} else if (property == "checkable") {
-			r_ret = this->items[item_index].checkable_type;
-			return true;
+			if (item_index >= 0 && item_index < items.size()) {
+				r_ret = items[item_index].checkable_type;
+				return true;
+			} else {
+				r_ret = Item::CHECKABLE_TYPE_NONE;
+				ERR_FAIL_V(true);
+			}
 		} else if (property == "checked") {
 			r_ret = is_item_checked(item_index);
 			return true;
