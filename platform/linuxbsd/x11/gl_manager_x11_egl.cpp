@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  export.cpp                                                            */
+/*  gl_manager_x11_egl.cpp                                                */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,28 +28,36 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "export.h"
+#include "gl_manager_x11_egl.h"
 
-#include "editor/editor_settings.h"
-#include "editor/export/editor_export.h"
-#include "export_plugin.h"
+#if defined(X11_ENABLED) && defined(GLES3_ENABLED)
 
-void register_uwp_exporter_types() {
-	// GDREGISTER_VIRTUAL_CLASS(EditorExportPlatformUWP);
+#include <stdio.h>
+#include <stdlib.h>
+
+const char *GLManagerEGL_X11::_get_platform_extension_name() const {
+	return "EGL_KHR_platform_x11";
 }
 
-void register_uwp_exporter() {
-#ifdef WINDOWS_ENABLED
-	EDITOR_DEF("export/uwp/signtool", "");
-	EditorSettings::get_singleton()->add_property_hint(PropertyInfo(Variant::STRING, "export/uwp/signtool", PROPERTY_HINT_GLOBAL_FILE, "*.exe"));
-	EDITOR_DEF("export/uwp/debug_certificate", "");
-	EditorSettings::get_singleton()->add_property_hint(PropertyInfo(Variant::STRING, "export/uwp/debug_certificate", PROPERTY_HINT_GLOBAL_FILE, "*.pfx"));
-	EDITOR_DEF("export/uwp/debug_password", "");
-	EDITOR_DEF("export/uwp/debug_algorithm", 2); // SHA256 is the default
-	EditorSettings::get_singleton()->add_property_hint(PropertyInfo(Variant::INT, "export/uwp/debug_algorithm", PROPERTY_HINT_ENUM, "MD5,SHA1,SHA256"));
-#endif // WINDOWS_ENABLED
-
-	Ref<EditorExportPlatformUWP> exporter;
-	exporter.instantiate();
-	EditorExport::get_singleton()->add_export_platform(exporter);
+EGLenum GLManagerEGL_X11::_get_platform_extension_enum() const {
+	return EGL_PLATFORM_X11_KHR;
 }
+
+Vector<EGLAttrib> GLManagerEGL_X11::_get_platform_display_attributes() const {
+	return Vector<EGLAttrib>();
+}
+
+EGLenum GLManagerEGL_X11::_get_platform_api_enum() const {
+	return EGL_OPENGL_ES_API;
+}
+
+Vector<EGLint> GLManagerEGL_X11::_get_platform_context_attribs() const {
+	Vector<EGLint> ret;
+	ret.push_back(EGL_CONTEXT_CLIENT_VERSION);
+	ret.push_back(3);
+	ret.push_back(EGL_NONE);
+
+	return ret;
+}
+
+#endif // WINDOWS_ENABLED && GLES3_ENABLED

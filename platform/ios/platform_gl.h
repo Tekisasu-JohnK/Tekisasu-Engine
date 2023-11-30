@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  joypad_uwp.h                                                          */
+/*  platform_gl.h                                                         */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,54 +28,13 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef JOYPAD_UWP_H
-#define JOYPAD_UWP_H
+#ifndef PLATFORM_GL_H
+#define PLATFORM_GL_H
 
-#include "core/input/input.h"
+#ifndef GLES_API_ENABLED
+#define GLES_API_ENABLED // Allow using GLES.
+#endif
 
-ref class JoypadUWP sealed {
-	/** clang-format breaks this, it does not understand this token. */
-	/* clang-format off */
-internal:
-	void register_events();
-	void process_controllers();
-	/* clang-format on */
+#include <ES3/gl.h>
 
-	JoypadUWP();
-	JoypadUWP(InputDefault *p_input);
-
-private:
-	enum {
-		MAX_CONTROLLERS = 4,
-	};
-
-	enum ControllerType {
-		GAMEPAD_CONTROLLER,
-		ARCADE_STICK_CONTROLLER,
-		RACING_WHEEL_CONTROLLER,
-	};
-
-	struct ControllerDevice {
-		Windows::Gaming::Input::IGameController ^ controller_reference;
-
-		int id = -1;
-		bool connected = false;
-		ControllerType type = ControllerType::GAMEPAD_CONTROLLER;
-		float ff_timestamp = 0;
-		float ff_end_timestamp = 0;
-		bool vibrating = false;
-	};
-
-	ControllerDevice controllers[MAX_CONTROLLERS];
-
-	InputDefault *input = nullptr;
-
-	void OnGamepadAdded(Platform::Object ^ sender, Windows::Gaming::Input::Gamepad ^ value);
-	void OnGamepadRemoved(Platform::Object ^ sender, Windows::Gaming::Input::Gamepad ^ value);
-
-	float axis_correct(double p_val, bool p_negate = false, bool p_trigger = false) const;
-	void joypad_vibration_start(int p_device, float p_weak_magnitude, float p_strong_magnitude, float p_duration, uint64_t p_timestamp);
-	void joypad_vibration_stop(int p_device, uint64_t p_timestamp);
-};
-
-#endif // JOYPAD_UWP_H
+#endif // PLATFORM_GL_H

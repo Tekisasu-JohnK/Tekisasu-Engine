@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  context_egl_uwp.h                                                     */
+/*  platform_gl.h                                                         */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,58 +28,25 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef CONTEXT_EGL_UWP_H
-#define CONTEXT_EGL_UWP_H
+#ifndef PLATFORM_GL_H
+#define PLATFORM_GL_H
 
-#include <wrl.h>
+#ifndef GL_API_ENABLED
+#define GL_API_ENABLED // Allow using desktop GL.
+#endif
 
-#include <EGL/egl.h>
+#ifndef GLES_API_ENABLED
+#define GLES_API_ENABLED // Allow using GLES (ANGLE).
+#endif
 
-#include "core/error/error_list.h"
-#include "core/os/os.h"
+#ifdef EGL_STATIC
+#define KHRONOS_STATIC 1
+#include "thirdparty/angle/include/EGL/egl.h"
+#include "thirdparty/angle/include/EGL/eglext.h"
+#undef KHRONOS_STATIC
+#else
+#include "thirdparty/glad/glad/egl.h"
+#endif
+#include "thirdparty/glad/glad/gl.h"
 
-using namespace Windows::UI::Core;
-
-class ContextEGL_UWP {
-public:
-	enum Driver {
-		GLES_2_0,
-		VULKAN, // FIXME: Add Vulkan support.
-	};
-
-private:
-	CoreWindow ^ window;
-
-	EGLDisplay mEglDisplay;
-	EGLContext mEglContext;
-	EGLSurface mEglSurface;
-
-	EGLint width;
-	EGLint height;
-
-	bool vsync;
-
-	Driver driver;
-
-public:
-	void release_current();
-
-	void make_current();
-
-	int get_window_width();
-	int get_window_height();
-	void swap_buffers();
-
-	void set_use_vsync(bool use) { vsync = use; }
-	bool is_using_vsync() const { return vsync; }
-
-	Error initialize();
-	void reset();
-
-	void cleanup();
-
-	ContextEGL_UWP(CoreWindow ^ p_window, Driver p_driver);
-	~ContextEGL_UWP();
-};
-
-#endif // CONTEXT_EGL_UWP_H
+#endif // PLATFORM_GL_H

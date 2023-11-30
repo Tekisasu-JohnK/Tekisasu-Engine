@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  GodotPluginInfoProvider.java                                          */
+/*  vulkan_context_android.cpp                                            */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,45 +28,42 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-package org.godotengine.godot.plugin;
+#include "vulkan_context_android.h"
 
-import androidx.annotation.NonNull;
+#ifdef VULKAN_ENABLED
 
-import java.util.Collections;
-import java.util.Set;
+#ifdef USE_VOLK
+#include <volk.h>
+#else
+#include <vulkan/vulkan.h>
+#endif
 
-/**
- * Provides the set of information expected from a Godot plugin.
- */
-public interface GodotPluginInfoProvider {
-	/**
-	 * Returns the name of the plugin.
-	 */
-	@NonNull
-	String getPluginName();
-
-	/**
-	 * Returns the list of signals to be exposed to Godot.
-	 */
-	@NonNull
-	default Set<SignalInfo> getPluginSignals() {
-		return Collections.emptySet();
-	}
-
-	/**
-	 * Returns the paths for the plugin's gdextension libraries (if any).
-	 *
-	 * The paths must be relative to the 'assets' directory and point to a '*.gdextension' file.
-	 */
-	@NonNull
-	default Set<String> getPluginGDExtensionLibrariesPaths() {
-		return Collections.emptySet();
-	}
-
-	/**
-	 * This is invoked on the render thread when the plugin described by this instance has been
-	 * registered.
-	 */
-	default void onPluginRegistered() {
-	}
+const char *VulkanContextAndroid::_get_platform_surface_extension() const {
+	return VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
 }
+
+Error VulkanContextAndroid::window_create(ANativeWindow *p_window, DisplayServer::VSyncMode p_vsync_mode, int p_width, int p_height) {
+	VkAndroidSurfaceCreateInfoKHR createInfo;
+	createInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+	createInfo.pNext = nullptr;
+	createInfo.flags = 0;
+	createInfo.window = p_window;
+
+	VkSurfaceKHR surface;
+	VkResult err = vkCreateAndroidSurfaceKHR(get_instance(), &createInfo, nullptr, &surface);
+	if (err != VK_SUCCESS) {
+		ERR_FAIL_V_MSG(ERR_CANT_CREATE, "vkCreateAndroidSurfaceKHR failed with error " + itos(err));
+	}
+
+	return _window_create(DisplayServer::MAIN_WINDOW_ID, p_vsync_mode, surface, p_width, p_height);
+}
+
+bool VulkanContextAndroid::_use_validation_layers() {
+	uint32_t count = 0;
+	_get_preferred_validation_layers(&count, nullptr);
+
+	// On Android, we use validation layers automatically if they were explicitly linked with the app.
+	return count > 0;
+}
+
+#endif // VULKAN_ENABLED

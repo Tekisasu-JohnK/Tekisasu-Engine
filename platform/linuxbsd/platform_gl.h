@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  vulkan_context_android.cpp                                            */
+/*  platform_gl.h                                                         */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,42 +28,18 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifdef VULKAN_ENABLED
+#ifndef PLATFORM_GL_H
+#define PLATFORM_GL_H
 
-#include "vulkan_context_android.h"
-
-#ifdef USE_VOLK
-#include <volk.h>
-#else
-#include <vulkan/vulkan.h>
+#ifndef GL_API_ENABLED
+#define GL_API_ENABLED // Allow using desktop GL.
 #endif
 
-const char *VulkanContextAndroid::_get_platform_surface_extension() const {
-	return VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
-}
+#ifndef GLES_API_ENABLED
+#define GLES_API_ENABLED // Allow using GLES.
+#endif
 
-Error VulkanContextAndroid::window_create(ANativeWindow *p_window, DisplayServer::VSyncMode p_vsync_mode, int p_width, int p_height) {
-	VkAndroidSurfaceCreateInfoKHR createInfo;
-	createInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
-	createInfo.pNext = nullptr;
-	createInfo.flags = 0;
-	createInfo.window = p_window;
+#include "thirdparty/glad/glad/egl.h"
+#include "thirdparty/glad/glad/gl.h"
 
-	VkSurfaceKHR surface;
-	VkResult err = vkCreateAndroidSurfaceKHR(get_instance(), &createInfo, nullptr, &surface);
-	if (err != VK_SUCCESS) {
-		ERR_FAIL_V_MSG(ERR_CANT_CREATE, "vkCreateAndroidSurfaceKHR failed with error " + itos(err));
-	}
-
-	return _window_create(DisplayServer::MAIN_WINDOW_ID, p_vsync_mode, surface, p_width, p_height);
-}
-
-bool VulkanContextAndroid::_use_validation_layers() {
-	uint32_t count = 0;
-	_get_preferred_validation_layers(&count, nullptr);
-
-	// On Android, we use validation layers automatically if they were explicitly linked with the app.
-	return count > 0;
-}
-
-#endif // VULKAN_ENABLED
+#endif // PLATFORM_GL_H
