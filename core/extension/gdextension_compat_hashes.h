@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  debugger_marshalls.h                                                  */
+/*  gdextension_compat_hashes.h                                           */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,46 +28,31 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef DEBUGGER_MARSHALLS_H
-#define DEBUGGER_MARSHALLS_H
+#ifndef GDEXTENSION_COMPAT_HASHES_H
+#define GDEXTENSION_COMPAT_HASHES_H
 
-#include "core/object/script_language.h"
+#ifndef DISABLE_DEPRECATED
 
-struct DebuggerMarshalls {
-	struct ScriptStackVariable {
-		String name;
-		Variant value;
-		int type = -1;
-		int var_type = -1;
+#include "core/string/string_name.h"
+#include "core/templates/hash_map.h"
+#include "core/templates/local_vector.h"
 
-		Array serialize(int max_size = 1 << 20); // 1 MiB default.
-		bool deserialize(const Array &p_arr);
+class GDExtensionCompatHashes {
+	struct Mapping {
+		StringName method;
+		uint32_t legacy_hash;
+		uint32_t current_hash;
 	};
 
-	struct ScriptStackDump {
-		List<ScriptLanguage::StackInfo> frames;
-		ScriptStackDump() {}
+	static HashMap<StringName, LocalVector<Mapping>> mappings;
 
-		Array serialize();
-		bool deserialize(const Array &p_arr);
-	};
-
-	struct OutputError {
-		int hr = -1;
-		int min = -1;
-		int sec = -1;
-		int msec = -1;
-		String source_file;
-		String source_func;
-		int source_line = -1;
-		String error;
-		String error_descr;
-		bool warning = false;
-		Vector<ScriptLanguage::StackInfo> callstack;
-
-		Array serialize();
-		bool deserialize(const Array &p_arr);
-	};
+public:
+	static void initialize();
+	static void finalize();
+	static bool lookup_current_hash(const StringName &p_class, const StringName &p_method, uint32_t p_legacy_hash, uint32_t *r_current_hash);
+	static bool get_legacy_hashes(const StringName &p_class, const StringName &p_method, Array &r_hashes, bool p_check_valid = true);
 };
 
-#endif // DEBUGGER_MARSHALLS_H
+#endif // DISABLE_DEPRECATED
+
+#endif // GDEXTENSION_COMPAT_HASHES_H

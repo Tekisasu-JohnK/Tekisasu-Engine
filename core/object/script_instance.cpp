@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  threaded_array_processor.h                                            */
+/*  script_instance.cpp                                                   */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,60 +28,44 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef THREADED_ARRAY_PROCESSOR_H
-#define THREADED_ARRAY_PROCESSOR_H
+#include "script_instance.h"
 
-#include "core/os/os.h"
-#include "core/os/thread.h"
-#include "core/os/thread_safe.h"
-#include "core/templates/safe_refcount.h"
+#include "core/object/script_language.h"
 
-template <class C, class U>
-struct ThreadArrayProcessData {
-	uint32_t elements;
-	SafeNumeric<uint32_t> index;
-	C *instance;
-	U userdata;
-	void (C::*method)(uint32_t, U);
+Variant ScriptInstance::call_const(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+	return callp(p_method, p_args, p_argcount, r_error);
+}
 
-	void process(uint32_t p_index) {
-		(instance->*method)(p_index, userdata);
-	}
-};
-
-template <class T>
-void process_array_thread(void *ud) {
-	T &data = *(T *)ud;
-	while (true) {
-		uint32_t index = data.index.increment();
-		if (index >= data.elements) {
-			break;
+void ScriptInstance::get_property_state(List<Pair<StringName, Variant>> &state) {
+	List<PropertyInfo> pinfo;
+	get_property_list(&pinfo);
+	for (const PropertyInfo &E : pinfo) {
+		if (E.usage & PROPERTY_USAGE_STORAGE) {
+			Pair<StringName, Variant> p;
+			p.first = E.name;
+			if (get(p.first, p.second)) {
+				state.push_back(p);
+			}
 		}
-		data.process(index);
 	}
 }
 
-template <class C, class M, class U>
-void thread_process_array(uint32_t p_elements, C *p_instance, M p_method, U p_userdata) {
-	ThreadArrayProcessData<C, U> data;
-	data.method = p_method;
-	data.instance = p_instance;
-	data.userdata = p_userdata;
-	data.index.set(0);
-	data.elements = p_elements;
-	data.process(0); //process first, let threads increment for next
-
-	int thread_count = OS::get_singleton()->get_processor_count();
-	Thread *threads = memnew_arr(Thread, thread_count);
-
-	for (int i = 0; i < thread_count; i++) {
-		threads[i].start(process_array_thread<ThreadArrayProcessData<C, U>>, &data);
+void ScriptInstance::property_set_fallback(const StringName &, const Variant &, bool *r_valid) {
+	if (r_valid) {
+		*r_valid = false;
 	}
-
-	for (int i = 0; i < thread_count; i++) {
-		threads[i].wait_to_finish();
-	}
-	memdelete_arr(threads);
 }
 
-#endif // THREADED_ARRAY_PROCESSOR_H
+Variant ScriptInstance::property_get_fallback(const StringName &, bool *r_valid) {
+	if (r_valid) {
+		*r_valid = false;
+	}
+	return Variant();
+}
+
+const Variant ScriptInstance::get_rpc_config() const {
+	return get_script()->get_rpc_config();
+}
+
+ScriptInstance::~ScriptInstance() {
+}
