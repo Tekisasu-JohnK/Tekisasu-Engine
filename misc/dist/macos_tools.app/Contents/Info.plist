@@ -5,9 +5,9 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>Tekisasu-Engine</string>
+	<string>Godot</string>
 	<key>CFBundleName</key>
-	<string>Tekisasu-Engine</string>
+	<string>Godot</string>
 	<key>CFBundleIconFile</key>
 	<string>Godot.icns</string>
 	<key>CFBundleIdentifier</key>
@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.1</string>
+	<string>4.2</string>
 	<key>CFBundleSignature</key>
 	<string>godot</string>
 	<key>CFBundleVersion</key>
-	<string>4.1</string>
+	<string>4.2</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone access is required to capture audio.</string>
 	<key>NSCameraUsageDescription</key>
@@ -29,7 +29,7 @@
 	<key>NSRequiresAquaSystemAppearance</key>
 	<false/>
 	<key>NSHumanReadableCopyright</key>
-	<string>© 2021-present Tekisasu, © 2007-present Juan Linietsky, Ariel Manzur &amp; Godot Engine contributors</string>
+	<string>© 2007-present Juan Linietsky, Ariel Manzur &amp; Godot Engine contributors</string>
 	<key>CFBundleSupportedPlatforms</key>
 	<array>
 		<string>MacOSX</string>
