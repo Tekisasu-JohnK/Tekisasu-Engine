@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  sprite_3d_gizmo_plugin.cpp                                            */
+/*  resource_importer_texture_settings.cpp                                */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,37 +28,27 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "sprite_3d_gizmo_plugin.h"
+#include "resource_importer_texture_settings.h"
 
-#include "editor/plugins/node_3d_editor_plugin.h"
-#include "scene/3d/sprite_3d.h"
+#include "core/config/project_settings.h"
+#include "core/os/os.h"
 
-Sprite3DGizmoPlugin::Sprite3DGizmoPlugin() {
-}
-
-bool Sprite3DGizmoPlugin::has_gizmo(Node3D *p_spatial) {
-	return Object::cast_to<Sprite3D>(p_spatial) != nullptr;
-}
-
-String Sprite3DGizmoPlugin::get_gizmo_name() const {
-	return "Sprite3D";
-}
-
-int Sprite3DGizmoPlugin::get_priority() const {
-	return -1;
-}
-
-bool Sprite3DGizmoPlugin::can_be_hidden() const {
-	return false;
-}
-
-void Sprite3DGizmoPlugin::redraw(EditorNode3DGizmo *p_gizmo) {
-	Sprite3D *sprite = Object::cast_to<Sprite3D>(p_gizmo->get_node_3d());
-
-	p_gizmo->clear();
-
-	Ref<TriangleMesh> tm = sprite->generate_triangle_mesh();
-	if (tm.is_valid()) {
-		p_gizmo->add_collision_triangles(tm);
+// ResourceImporterTextureSettings contains code used by
+// multiple texture importers and the export dialog.
+bool ResourceImporterTextureSettings::should_import_s3tc_bptc() {
+	if (GLOBAL_GET("rendering/textures/vram_compression/import_s3tc_bptc")) {
+		return true;
 	}
+	// If the project settings override is not enabled, import
+	// S3TC/BPTC only when the host operating system needs it.
+	return OS::get_singleton()->get_preferred_texture_format() == OS::PREFERRED_TEXTURE_FORMAT_S3TC_BPTC;
+}
+
+bool ResourceImporterTextureSettings::should_import_etc2_astc() {
+	if (GLOBAL_GET("rendering/textures/vram_compression/import_etc2_astc")) {
+		return true;
+	}
+	// If the project settings override is not enabled, import
+	// ETC2/ASTC only when the host operating system needs it.
+	return OS::get_singleton()->get_preferred_texture_format() == OS::PREFERRED_TEXTURE_FORMAT_ETC2_ASTC;
 }

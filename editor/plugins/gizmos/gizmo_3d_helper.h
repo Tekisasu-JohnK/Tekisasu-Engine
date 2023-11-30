@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  sprite_3d_gizmo_plugin.h                                              */
+/*  gizmo_3d_helper.h                                                     */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,22 +28,28 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef SPRITE_3D_GIZMO_PLUGIN_H
-#define SPRITE_3D_GIZMO_PLUGIN_H
+#ifndef GIZMO_3D_HELPER_H
+#define GIZMO_3D_HELPER_H
 
-#include "editor/plugins/node_3d_editor_gizmos.h"
+#include "core/object/ref_counted.h"
 
-class Sprite3DGizmoPlugin : public EditorNode3DGizmoPlugin {
-	GDCLASS(Sprite3DGizmoPlugin, EditorNode3DGizmoPlugin);
+class Camera3D;
+
+class Gizmo3DHelper : public RefCounted {
+	GDCLASS(Gizmo3DHelper, RefCounted);
+
+	int current_handle_id;
+	Variant initial_value;
+	Transform3D initial_transform;
 
 public:
-	bool has_gizmo(Node3D *p_spatial) override;
-	String get_gizmo_name() const override;
-	int get_priority() const override;
-	bool can_be_hidden() const override;
-	void redraw(EditorNode3DGizmo *p_gizmo) override;
+	void initialize_handle_action(const Variant &p_initial_value, const Transform3D &p_initial_transform);
+	void get_segment(Camera3D *p_camera, const Point2 &p_point, Vector3 *r_segment);
 
-	Sprite3DGizmoPlugin();
+	Vector<Vector3> box_get_handles(const Vector3 &p_box_size);
+	String box_get_handle_name(int p_id) const;
+	void box_set_handle(const Vector3 p_segment[2], int p_id, Vector3 &r_box_size, Vector3 &r_box_position);
+	void box_commit_handle(const String &p_action_name, bool p_cancel, Object *p_position_object, Object *p_size_object = nullptr, const StringName &p_position_property = "global_position", const StringName &p_size_property = "size");
 };
 
-#endif // SPRITE_3D_GIZMO_PLUGIN_H
+#endif // GIZMO_3D_HELPER_H
