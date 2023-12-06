@@ -561,7 +561,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	float preset_contrast = 0;
 	bool preset_draw_extra_borders = false;
 
-	const float default_contrast = 0.3;
+	const float default_contrast = 0.38;
 
 	// Please use alphabetical order if you're adding a new theme here
 	// (after "Custom")
@@ -603,8 +603,8 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 		preset_contrast = 0.0;
 		preset_draw_extra_borders = true;
 	} else { // Default
-		preset_accent_color = Color(0.44, 0.73, 0.98);
-		preset_base_color = Color(0.21, 0.24, 0.29);
+		preset_accent_color = Color(0.38, 0.54, 0.91);
+		preset_base_color = Color(0.15, 0.18, 0.30);
 		preset_contrast = default_contrast;
 	}
 
