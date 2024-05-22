@@ -574,7 +574,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "text_editor/appearance/lines/autowrap_mode", 3, "Arbitrary:1,Word:2,Word (Smart):3")
 
 	// Appearance: Whitespace
-	_initial_set("text_editor/appearance/whitespace/draw_tabs", true);
+	_initial_set("text_editor/appearance/whitespace/draw_tabs", false);
 	_initial_set("text_editor/appearance/whitespace/draw_spaces", false);
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "text_editor/appearance/whitespace/line_spacing", 4, "0,50,1")
 
