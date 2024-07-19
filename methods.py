@@ -727,8 +727,8 @@ def find_visual_c_batch_file(env):
 
     # Scons 4.6.0+ removed passing env, so we need to get the product_dir ourselves first,
     # then pass that as the last param instead of env as the first param as before.
-    # We should investigate if we can avoid relying on SCons internals here.
-    product_dir = find_vc_pdir(env, msvc_version)
+    # Param names need to be explicit, as they were shuffled around in SCons 4.8.0.
+    product_dir = find_vc_pdir(msvc_version=msvc_version, env=env)
     return find_batch_file(msvc_version, host_platform, target_platform, product_dir)[0]
 
 
