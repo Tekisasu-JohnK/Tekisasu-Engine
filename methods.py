@@ -776,7 +776,7 @@ def add_to_vs_project(env, sources):
                 env.vs_srcs += [basename + ".cpp"]
 
 
-def generate_vs_project(env, original_args, project_name="godot"):
+def generate_vs_project(env, original_args, project_name="tekisasu-engine"):
     batch_file = find_visual_c_batch_file(env)
     filtered_args = original_args.copy()
     # Ignore the "vsproj" option to not regenerate the VS project on every build

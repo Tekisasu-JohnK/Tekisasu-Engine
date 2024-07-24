@@ -181,7 +181,7 @@ opts.Add(
 opts.Add(BoolVariable("debug_symbols", "Build with debugging symbols", False))
 opts.Add(BoolVariable("separate_debug_symbols", "Extract debugging symbols to a separate file", False))
 opts.Add(EnumVariable("lto", "Link-time optimization (production builds)", "none", ("none", "auto", "thin", "full")))
-opts.Add(BoolVariable("production", "Set defaults to build Godot for use in production", False))
+opts.Add(BoolVariable("production", "Set defaults to build Tekisasu-Engine for use in production", False))
 
 # Components
 opts.Add(BoolVariable("deprecated", "Enable compatibility code for deprecated and removed features", True))
@@ -209,7 +209,7 @@ opts.Add(BoolVariable("werror", "Treat compiler warnings as errors", False))
 opts.Add("extra_suffix", "Custom extra suffix added to the base filename of all generated binary files", "")
 opts.Add("object_prefix", "Custom prefix added to the base filename of all generated object files", "")
 opts.Add(BoolVariable("vsproj", "Generate a Visual Studio solution", False))
-opts.Add("vsproj_name", "Name of the Visual Studio solution", "godot")
+opts.Add("vsproj_name", "Name of the Visual Studio solution", "Tekisasu-Engine")
 opts.Add(BoolVariable("disable_3d", "Disable 3D nodes for a smaller executable", False))
 opts.Add(BoolVariable("disable_advanced_gui", "Disable advanced GUI nodes and behaviors", False))
 opts.Add("build_profile", "Path to a file containing a feature build profile", "")
@@ -302,21 +302,21 @@ else:
 if selected_platform in ["macos", "osx"]:
     if selected_platform == "osx":
         # Deprecated alias kept for compatibility.
-        print('Platform "osx" has been renamed to "macos" in Godot 4. Building for platform "macos".')
+        print('Platform "osx" has been renamed to "macos" in Tekisasu-Engine 4. Building for platform "macos".')
     # Alias for convenience.
     selected_platform = "macos"
 
 if selected_platform in ["ios", "iphone"]:
     if selected_platform == "iphone":
         # Deprecated alias kept for compatibility.
-        print('Platform "iphone" has been renamed to "ios" in Godot 4. Building for platform "ios".')
+        print('Platform "iphone" has been renamed to "ios" in Tekisasu-Engine 4. Building for platform "ios".')
     # Alias for convenience.
     selected_platform = "ios"
 
 if selected_platform in ["linux", "bsd", "x11"]:
     if selected_platform == "x11":
         # Deprecated alias kept for compatibility.
-        print('Platform "x11" has been renamed to "linuxbsd" in Godot 4. Building for platform "linuxbsd".')
+        print('Platform "x11" has been renamed to "linuxbsd" in Tekisasu-Engine 4. Building for platform "linuxbsd".')
     # Alias for convenience.
     selected_platform = "linuxbsd"
 
@@ -716,7 +716,7 @@ if selected_platform in platform_list:
             )
             Exit(255)
 
-    # Disable exception handling. Godot doesn't use exceptions anywhere, and this
+    # Disable exception handling. Tekisasu-Engine doesn't use exceptions anywhere, and this
     # saves around 20% of binary size and very significant build time (GH-80513).
     if env["disable_exceptions"]:
         if env.msvc:
