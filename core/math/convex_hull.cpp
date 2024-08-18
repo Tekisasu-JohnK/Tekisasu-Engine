@@ -77,17 +77,15 @@ subject to the following restrictions:
 
 #ifdef DEBUG_ENABLED
 #define CHULL_ASSERT(m_cond)                                     \
-	if constexpr (true) {                                        \
+	do {                                                         \
 		if (unlikely(!(m_cond))) {                               \
 			ERR_PRINT("Assertion \"" _STR(m_cond) "\" failed."); \
 		}                                                        \
-	} else                                                       \
-		((void)0)
+	} while (0)
 #else
 #define CHULL_ASSERT(m_cond) \
-	if constexpr (true) {    \
-	} else                   \
-		((void)0)
+	do {                     \
+	} while (0)
 #endif
 
 #if defined(DEBUG_CONVEX_HULL) || defined(SHOW_ITERATIONS)
@@ -346,31 +344,31 @@ public:
 		Rational128(int64_t p_value) {
 			if (p_value > 0) {
 				sign = 1;
-				numerator = p_value;
+				this->numerator = p_value;
 			} else if (p_value < 0) {
 				sign = -1;
-				numerator = -p_value;
+				this->numerator = -p_value;
 			} else {
 				sign = 0;
-				numerator = (uint64_t)0;
+				this->numerator = (uint64_t)0;
 			}
-			denominator = (uint64_t)1;
+			this->denominator = (uint64_t)1;
 			is_int_64 = true;
 		}
 
 		Rational128(const Int128 &p_numerator, const Int128 &p_denominator) {
 			sign = p_numerator.get_sign();
 			if (sign >= 0) {
-				numerator = p_numerator;
+				this->numerator = p_numerator;
 			} else {
-				numerator = -p_numerator;
+				this->numerator = -p_numerator;
 			}
 			int32_t dsign = p_denominator.get_sign();
 			if (dsign >= 0) {
-				denominator = p_denominator;
+				this->denominator = p_denominator;
 			} else {
 				sign = -sign;
-				denominator = -p_denominator;
+				this->denominator = -p_denominator;
 			}
 			is_int_64 = false;
 		}

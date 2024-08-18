@@ -33,6 +33,7 @@
 
 #include "variant.h"
 
+#include "core/core_string_names.h"
 #include "core/crypto/crypto_core.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/io/compression.h"
@@ -41,7 +42,7 @@
 #include "core/templates/local_vector.h"
 #include "core/templates/oa_hash_map.h"
 
-template <typename T>
+template <class T>
 struct PtrConstruct {};
 
 #define MAKE_PTRCONSTRUCT(m_type)                                                  \
@@ -96,10 +97,9 @@ MAKE_PTRCONSTRUCT(PackedStringArray);
 MAKE_PTRCONSTRUCT(PackedVector2Array);
 MAKE_PTRCONSTRUCT(PackedVector3Array);
 MAKE_PTRCONSTRUCT(PackedColorArray);
-MAKE_PTRCONSTRUCT(PackedVector4Array);
 MAKE_PTRCONSTRUCT(Variant);
 
-template <typename T, typename... P>
+template <class T, class... P>
 class VariantConstructor {
 	template <size_t... Is>
 	static _FORCE_INLINE_ void construct_helper(T &base, const Variant **p_args, Callable::CallError &r_error, IndexSequence<Is...>) {
@@ -153,14 +153,11 @@ public:
 class VariantConstructorObject {
 public:
 	static void construct(Variant &r_ret, const Variant **p_args, Callable::CallError &r_error) {
+		VariantInternal::clear(&r_ret);
 		if (p_args[0]->get_type() == Variant::NIL) {
-			VariantInternal::clear(&r_ret);
-			VariantTypeChanger<Object *>::change(&r_ret);
 			VariantInternal::object_assign_null(&r_ret);
 			r_error.error = Callable::CallError::CALL_OK;
 		} else if (p_args[0]->get_type() == Variant::OBJECT) {
-			VariantInternal::clear(&r_ret);
-			VariantTypeChanger<Object *>::change(&r_ret);
 			VariantInternal::object_assign(&r_ret, p_args[0]);
 			r_error.error = Callable::CallError::CALL_OK;
 		} else {
@@ -172,7 +169,6 @@ public:
 
 	static inline void validated_construct(Variant *r_ret, const Variant **p_args) {
 		VariantInternal::clear(r_ret);
-		VariantTypeChanger<Object *>::change(r_ret);
 		VariantInternal::object_assign(r_ret, p_args[0]);
 	}
 	static void ptr_construct(void *base, const void **p_args) {
@@ -202,13 +198,11 @@ public:
 		}
 
 		VariantInternal::clear(&r_ret);
-		VariantTypeChanger<Object *>::change(&r_ret);
 		VariantInternal::object_assign_null(&r_ret);
 	}
 
 	static inline void validated_construct(Variant *r_ret, const Variant **p_args) {
 		VariantInternal::clear(r_ret);
-		VariantTypeChanger<Object *>::change(r_ret);
 		VariantInternal::object_assign_null(r_ret);
 	}
 	static void ptr_construct(void *base, const void **p_args) {
@@ -228,7 +222,7 @@ public:
 	}
 };
 
-template <typename T>
+template <class T>
 class VariantConstructorFromString {
 public:
 	static void construct(Variant &r_ret, const Variant **p_args, Callable::CallError &r_error) {
@@ -476,7 +470,7 @@ public:
 	}
 };
 
-template <typename T>
+template <class T>
 class VariantConstructorToArray {
 public:
 	static void construct(Variant &r_ret, const Variant **p_args, Callable::CallError &r_error) {
@@ -535,7 +529,7 @@ public:
 	}
 };
 
-template <typename T>
+template <class T>
 class VariantConstructorFromArray {
 public:
 	static void construct(Variant &r_ret, const Variant **p_args, Callable::CallError &r_error) {
@@ -628,7 +622,7 @@ public:
 	}
 };
 
-template <typename T>
+template <class T>
 class VariantConstructNoArgs {
 public:
 	static void construct(Variant &r_ret, const Variant **p_args, Callable::CallError &r_error) {
@@ -667,7 +661,7 @@ public:
 		VariantInternal::clear(r_ret);
 	}
 	static void ptr_construct(void *base, const void **p_args) {
-		ERR_FAIL_MSG("Cannot ptrcall nil constructor");
+		ERR_FAIL_MSG("can't ptrcall nil constructor");
 	}
 
 	static int get_argument_count() {

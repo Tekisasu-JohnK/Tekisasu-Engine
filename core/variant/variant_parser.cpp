@@ -30,7 +30,6 @@
 
 #include "variant_parser.h"
 
-#include "core/crypto/crypto_core.h"
 #include "core/input/input_event.h"
 #include "core/io/resource_loader.h"
 #include "core/object/script_language.h"
@@ -489,11 +488,11 @@ Error VariantParser::get_token(Stream *p_stream, Token &r_token, int &line, Stri
 						r_token.value = num.as_int();
 					}
 					return OK;
-				} else if (is_ascii_alphabet_char(cchar) || is_underscore(cchar)) {
+				} else if (is_ascii_char(cchar) || is_underscore(cchar)) {
 					StringBuffer<> id;
 					bool first = true;
 
-					while (is_ascii_alphabet_char(cchar) || is_underscore(cchar) || (!first && is_digit(cchar))) {
+					while (is_ascii_char(cchar) || is_underscore(cchar) || (!first && is_digit(cchar))) {
 						id += cchar;
 						cchar = p_stream->get_char();
 						first = false;
@@ -547,7 +546,7 @@ Error VariantParser::_parse_enginecfg(Stream *p_stream, Vector<String> &strings,
 	}
 }
 
-template <typename T>
+template <class T>
 Error VariantParser::_parse_construct(Stream *p_stream, Vector<T> &r_construct, int &line, String &r_err_str) {
 	Token token;
 	get_token(p_stream, token, line, r_err_str);
@@ -591,82 +590,6 @@ Error VariantParser::_parse_construct(Stream *p_stream, Vector<T> &r_construct, 
 
 		r_construct.push_back(token.value);
 		first = false;
-	}
-
-	return OK;
-}
-
-Error VariantParser::_parse_byte_array(Stream *p_stream, Vector<uint8_t> &r_construct, int &line, String &r_err_str) {
-	Token token;
-	get_token(p_stream, token, line, r_err_str);
-	if (token.type != TK_PARENTHESIS_OPEN) {
-		r_err_str = "Expected '(' in constructor";
-		return ERR_PARSE_ERROR;
-	}
-
-	get_token(p_stream, token, line, r_err_str);
-	if (token.type == TK_STRING) {
-		// Base64 encoded array.
-		String base64_encoded_string = token.value;
-		int strlen = base64_encoded_string.length();
-		CharString cstr = base64_encoded_string.ascii();
-
-		size_t arr_len = 0;
-		r_construct.resize(strlen / 4 * 3 + 1);
-		uint8_t *w = r_construct.ptrw();
-		Error err = CryptoCore::b64_decode(&w[0], r_construct.size(), &arr_len, (unsigned char *)cstr.get_data(), strlen);
-		if (err) {
-			r_err_str = "Invalid base64-encoded string";
-			return ERR_PARSE_ERROR;
-		}
-		r_construct.resize(arr_len);
-
-		get_token(p_stream, token, line, r_err_str);
-		if (token.type != TK_PARENTHESIS_CLOSE) {
-			r_err_str = "Expected ')' in constructor";
-			return ERR_PARSE_ERROR;
-		}
-
-	} else if (token.type == TK_NUMBER || token.type == TK_IDENTIFIER) {
-		// Individual elements.
-		while (true) {
-			if (token.type != TK_NUMBER) {
-				bool valid = false;
-				if (token.type == TK_IDENTIFIER) {
-					double real = stor_fix(token.value);
-					if (real != -1) {
-						token.type = TK_NUMBER;
-						token.value = real;
-						valid = true;
-					}
-				}
-				if (!valid) {
-					r_err_str = "Expected number in constructor";
-					return ERR_PARSE_ERROR;
-				}
-			}
-
-			r_construct.push_back(token.value);
-
-			get_token(p_stream, token, line, r_err_str);
-
-			if (token.type == TK_COMMA) {
-				//do none
-			} else if (token.type == TK_PARENTHESIS_CLOSE) {
-				break;
-			} else {
-				r_err_str = "Expected ',' or ')' in constructor";
-				return ERR_PARSE_ERROR;
-			}
-
-			get_token(p_stream, token, line, r_err_str);
-		}
-	} else if (token.type == TK_PARENTHESIS_CLOSE) {
-		// Empty array.
-		return OK;
-	} else {
-		r_err_str = "Expected base64 string, or list of numbers in constructor";
-		return ERR_PARSE_ERROR;
 	}
 
 	return OK;
@@ -1103,10 +1026,7 @@ Error VariantParser::parse_value(Token &token, Variant &value, Stream *p_stream,
 				Ref<Resource> res;
 				Error err = p_res_parser->ext_func(p_res_parser->userdata, p_stream, res, line, r_err_str);
 				if (err) {
-					// If the file is missing, the error can be ignored.
-					if (err != ERR_FILE_NOT_FOUND && err != ERR_CANT_OPEN && err != ERR_FILE_CANT_OPEN) {
-						return err;
-					}
+					return err;
 				}
 
 				value = res;
@@ -1225,7 +1145,7 @@ Error VariantParser::parse_value(Token &token, Variant &value, Stream *p_stream,
 			value = array;
 		} else if (id == "PackedByteArray" || id == "PoolByteArray" || id == "ByteArray") {
 			Vector<uint8_t> args;
-			Error err = _parse_byte_array(p_stream, args, line, r_err_str);
+			Error err = _parse_construct<uint8_t>(p_stream, args, line, r_err_str);
 			if (err) {
 				return err;
 			}
@@ -1391,24 +1311,6 @@ Error VariantParser::parse_value(Token &token, Variant &value, Stream *p_stream,
 				Vector3 *w = arr.ptrw();
 				for (int i = 0; i < len; i++) {
 					w[i] = Vector3(args[i * 3 + 0], args[i * 3 + 1], args[i * 3 + 2]);
-				}
-			}
-
-			value = arr;
-		} else if (id == "PackedVector4Array" || id == "PoolVector4Array" || id == "Vector4Array") {
-			Vector<real_t> args;
-			Error err = _parse_construct<real_t>(p_stream, args, line, r_err_str);
-			if (err) {
-				return err;
-			}
-
-			Vector<Vector4> arr;
-			{
-				int len = args.size() / 4;
-				arr.resize(len);
-				Vector4 *w = arr.ptrw();
-				for (int i = 0; i < len; i++) {
-					w[i] = Vector4(args[i * 4 + 0], args[i * 4 + 1], args[i * 4 + 2], args[i * 4 + 3]);
 				}
 			}
 
@@ -1807,7 +1709,7 @@ static String rtos_fix(double p_value) {
 	}
 }
 
-Error VariantWriter::write(const Variant &p_variant, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, int p_recursion_count, bool p_compat) {
+Error VariantWriter::write(const Variant &p_variant, StoreStringFunc p_store_string_func, void *p_store_string_ud, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, int p_recursion_count) {
 	switch (p_variant.get_type()) {
 		case Variant::NIL: {
 			p_store_string_func(p_store_string_ud, "null");
@@ -2027,7 +1929,7 @@ Error VariantWriter::write(const Variant &p_variant, StoreStringFunc p_store_str
 					}
 
 					p_store_string_func(p_store_string_ud, "\"" + E.name + "\":");
-					write(obj->get(E.name), p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, p_compat);
+					write(obj->get(E.name), p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count);
 				}
 			}
 
@@ -2053,9 +1955,9 @@ Error VariantWriter::write(const Variant &p_variant, StoreStringFunc p_store_str
 
 				p_store_string_func(p_store_string_ud, "{\n");
 				for (List<Variant>::Element *E = keys.front(); E; E = E->next()) {
-					write(E->get(), p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, p_compat);
+					write(E->get(), p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count);
 					p_store_string_func(p_store_string_ud, ": ");
-					write(dict[E->get()], p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, p_compat);
+					write(dict[E->get()], p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count);
 					if (E->next()) {
 						p_store_string_func(p_store_string_ud, ",\n");
 					} else {
@@ -2107,14 +2009,12 @@ Error VariantWriter::write(const Variant &p_variant, StoreStringFunc p_store_str
 				p_recursion_count++;
 
 				p_store_string_func(p_store_string_ud, "[");
-				bool first = true;
-				for (const Variant &var : array) {
-					if (first) {
-						first = false;
-					} else {
+				int len = array.size();
+				for (int i = 0; i < len; i++) {
+					if (i > 0) {
 						p_store_string_func(p_store_string_ud, ", ");
 					}
-					write(var, p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count, p_compat);
+					write(array[i], p_store_string_func, p_store_string_ud, p_encode_res_func, p_encode_res_ud, p_recursion_count);
 				}
 
 				p_store_string_func(p_store_string_ud, "]");
@@ -2128,20 +2028,17 @@ Error VariantWriter::write(const Variant &p_variant, StoreStringFunc p_store_str
 		case Variant::PACKED_BYTE_ARRAY: {
 			p_store_string_func(p_store_string_ud, "PackedByteArray(");
 			Vector<uint8_t> data = p_variant;
-			if (p_compat) {
-				int len = data.size();
-				const uint8_t *ptr = data.ptr();
-				for (int i = 0; i < len; i++) {
-					if (i > 0) {
-						p_store_string_func(p_store_string_ud, ", ");
-					}
-					p_store_string_func(p_store_string_ud, itos(ptr[i]));
+			int len = data.size();
+			const uint8_t *ptr = data.ptr();
+
+			for (int i = 0; i < len; i++) {
+				if (i > 0) {
+					p_store_string_func(p_store_string_ud, ", ");
 				}
-			} else if (data.size() > 0) {
-				p_store_string_func(p_store_string_ud, "\"");
-				p_store_string_func(p_store_string_ud, CryptoCore::b64_encode_str(data.ptr(), data.size()));
-				p_store_string_func(p_store_string_ud, "\"");
+
+				p_store_string_func(p_store_string_ud, itos(ptr[i]));
 			}
+
 			p_store_string_func(p_store_string_ud, ")");
 		} break;
 		case Variant::PACKED_INT32_ARRAY: {
@@ -2266,21 +2163,6 @@ Error VariantWriter::write(const Variant &p_variant, StoreStringFunc p_store_str
 
 			p_store_string_func(p_store_string_ud, ")");
 		} break;
-		case Variant::PACKED_VECTOR4_ARRAY: {
-			p_store_string_func(p_store_string_ud, "PackedVector4Array(");
-			Vector<Vector4> data = p_variant;
-			int len = data.size();
-			const Vector4 *ptr = data.ptr();
-
-			for (int i = 0; i < len; i++) {
-				if (i > 0) {
-					p_store_string_func(p_store_string_ud, ", ");
-				}
-				p_store_string_func(p_store_string_ud, rtos_fix(ptr[i].x) + ", " + rtos_fix(ptr[i].y) + ", " + rtos_fix(ptr[i].z) + ", " + rtos_fix(ptr[i].w));
-			}
-
-			p_store_string_func(p_store_string_ud, ")");
-		} break;
 
 		default: {
 			ERR_PRINT("Unknown variant type");
@@ -2297,8 +2179,8 @@ static Error _write_to_str(void *ud, const String &p_string) {
 	return OK;
 }
 
-Error VariantWriter::write_to_string(const Variant &p_variant, String &r_string, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud, bool p_compat) {
+Error VariantWriter::write_to_string(const Variant &p_variant, String &r_string, EncodeResourceFunc p_encode_res_func, void *p_encode_res_ud) {
 	r_string = String();
 
-	return write(p_variant, _write_to_str, &r_string, p_encode_res_func, p_encode_res_ud, 0, p_compat);
+	return write(p_variant, _write_to_str, &r_string, p_encode_res_func, p_encode_res_ud);
 }

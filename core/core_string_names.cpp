@@ -33,17 +33,21 @@
 CoreStringNames *CoreStringNames::singleton = nullptr;
 
 CoreStringNames::CoreStringNames() :
-		free_(StaticCString::create("free")),
+		_free(StaticCString::create("free")),
 		changed(StaticCString::create("changed")),
-		script(StaticCString::create("script")),
+		_script(StaticCString::create("script")),
 		script_changed(StaticCString::create("script_changed")),
+		___pdcdata(StaticCString::create("___pdcdata")),
+		__getvar(StaticCString::create("__getvar")),
 		_iter_init(StaticCString::create("_iter_init")),
 		_iter_next(StaticCString::create("_iter_next")),
 		_iter_get(StaticCString::create("_iter_get")),
 		get_rid(StaticCString::create("get_rid")),
 		_to_string(StaticCString::create("_to_string")),
+#ifdef TOOLS_ENABLED
+		_sections_unfolded(StaticCString::create("_sections_unfolded")),
+#endif
 		_custom_features(StaticCString::create("_custom_features")),
-
 		x(StaticCString::create("x")),
 		y(StaticCString::create("y")),
 		z(StaticCString::create("z")),
@@ -66,10 +70,11 @@ CoreStringNames::CoreStringNames() :
 		g8(StaticCString::create("g8")),
 		b8(StaticCString::create("b8")),
 		a8(StaticCString::create("a8")),
-
 		call(StaticCString::create("call")),
 		call_deferred(StaticCString::create("call_deferred")),
 		bind(StaticCString::create("bind")),
+		unbind(StaticCString::create("unbind")),
+		emit(StaticCString::create("emit")),
 		notification(StaticCString::create("notification")),
 		property_list_changed(StaticCString::create("property_list_changed")) {
 }

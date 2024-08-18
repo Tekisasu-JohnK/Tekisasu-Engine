@@ -85,35 +85,6 @@ String InputMap::suggest_actions(const StringName &p_action) const {
 	return error_message;
 }
 
-#ifdef TOOLS_ENABLED
-void InputMap::get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const {
-	const String pf = p_function;
-	bool first_argument_is_action = false;
-	if (p_idx == 0) {
-		first_argument_is_action = (pf == "has_action" || pf == "erase_action" ||
-				pf == "action_set_deadzone" || pf == "action_get_deadzone" ||
-				pf == "action_has_event" || pf == "action_add_event" || pf == "action_get_events" ||
-				pf == "action_erase_event" || pf == "action_erase_events");
-	}
-	if (first_argument_is_action || (p_idx == 1 && pf == "event_is_action")) {
-		// Cannot rely on `get_actions()`, otherwise the actions would be in the context of the Editor (no user-defined actions).
-		List<PropertyInfo> pinfo;
-		ProjectSettings::get_singleton()->get_property_list(&pinfo);
-
-		for (const PropertyInfo &pi : pinfo) {
-			if (!pi.name.begins_with("input/")) {
-				continue;
-			}
-
-			String name = pi.name.substr(pi.name.find("/") + 1, pi.name.length());
-			r_options->push_back(name.quote());
-		}
-	}
-
-	Object::get_argument_options(p_function, p_idx, r_options);
-}
-#endif
-
 void InputMap::add_action(const StringName &p_action, float p_deadzone) {
 	ERR_FAIL_COND_MSG(input_map.has(p_action), "InputMap already has action \"" + String(p_action) + "\".");
 	input_map[p_action] = Action();
@@ -274,13 +245,6 @@ bool InputMap::event_get_action_status(const Ref<InputEvent> &p_event, const Str
 		if (r_raw_strength != nullptr) {
 			*r_raw_strength = strength;
 		}
-		if (r_event_index) {
-			if (input_event_action->get_event_index() >= 0) {
-				*r_event_index = input_event_action->get_event_index();
-			} else {
-				*r_event_index = E->value.inputs.size();
-			}
-		}
 		return input_event_action->get_action() == p_action;
 	}
 
@@ -390,7 +354,6 @@ static const _BuiltinActionDisplayName _builtin_action_display_names[] = {
     { "ui_text_select_all",                            TTRC("Select All") },
     { "ui_text_select_word_under_caret",               TTRC("Select Word Under Caret") },
     { "ui_text_add_selection_for_next_occurrence",     TTRC("Add Selection for Next Occurrence") },
-    { "ui_text_skip_selection_for_next_occurrence",    TTRC("Skip Selection for Next Occurrence") },
     { "ui_text_clear_carets_and_selection",            TTRC("Clear Carets and Selection") },
     { "ui_text_toggle_insert_mode",                    TTRC("Toggle Insert Mode") },
     { "ui_text_submit",                                TTRC("Submit Text") },
@@ -636,7 +599,6 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::A | KeyModifierMask::CTRL));
 	inputs.push_back(InputEventKey::create_reference(Key::LEFT | KeyModifierMask::CMD_OR_CTRL));
-	inputs.push_back(InputEventKey::create_reference(Key::HOME));
 	default_builtin_cache.insert("ui_text_caret_line_start.macos", inputs);
 
 	inputs = List<Ref<InputEvent>>();
@@ -646,7 +608,6 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::E | KeyModifierMask::CTRL));
 	inputs.push_back(InputEventKey::create_reference(Key::RIGHT | KeyModifierMask::CMD_OR_CTRL));
-	inputs.push_back(InputEventKey::create_reference(Key::END));
 	default_builtin_cache.insert("ui_text_caret_line_end.macos", inputs);
 
 	// Text Caret Movement Page Up/Down
@@ -667,7 +628,6 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::UP | KeyModifierMask::CMD_OR_CTRL));
-	inputs.push_back(InputEventKey::create_reference(Key::HOME | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_caret_document_start.macos", inputs);
 
 	inputs = List<Ref<InputEvent>>();
@@ -676,7 +636,6 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::DOWN | KeyModifierMask::CMD_OR_CTRL));
-	inputs.push_back(InputEventKey::create_reference(Key::END | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_caret_document_end.macos", inputs);
 
 	// Text Caret Addition Below/Above
@@ -732,10 +691,6 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::D | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_add_selection_for_next_occurrence", inputs);
-
-	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::D | KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::ALT));
-	default_builtin_cache.insert("ui_text_skip_selection_for_next_occurrence", inputs);
 
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::ESCAPE));
@@ -799,7 +754,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins_with_featur
 		String fullname = E.key;
 
 		Vector<String> split = fullname.split(".");
-		const String &name = split[0];
+		String name = split[0];
 		String override_for = split.size() > 1 ? split[1] : String();
 
 		if (!override_for.is_empty() && OS::get_singleton()->has_feature(override_for)) {
@@ -811,7 +766,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins_with_featur
 		String fullname = E.key;
 
 		Vector<String> split = fullname.split(".");
-		const String &name = split[0];
+		String name = split[0];
 		String override_for = split.size() > 1 ? split[1] : String();
 
 		if (builtins_with_overrides.has(name) && override_for.is_empty()) {

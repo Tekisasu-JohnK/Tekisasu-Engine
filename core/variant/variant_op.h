@@ -33,10 +33,11 @@
 
 #include "variant.h"
 
+#include "core/core_string_names.h"
 #include "core/debugger/engine_debugger.h"
 #include "core/object/class_db.h"
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorAdd {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -54,7 +55,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorSub {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -72,7 +73,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorMul {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -90,7 +91,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorPow {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -108,7 +109,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorXForm {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -126,7 +127,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorXFormInv {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -144,7 +145,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorDiv {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -162,7 +163,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorDivNZ {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -257,7 +258,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<Vector4i>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorMod {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -275,7 +276,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorModNZ {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -370,7 +371,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<Vector4i>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A>
+template <class R, class A>
 class OperatorEvaluatorNeg {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -387,7 +388,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A>
+template <class R, class A>
 class OperatorEvaluatorPos {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -404,7 +405,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorShiftLeft {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -430,7 +431,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorShiftRight {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -456,7 +457,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorBitOr {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -474,7 +475,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorBitAnd {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -492,7 +493,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A, typename B>
+template <class R, class A, class B>
 class OperatorEvaluatorBitXor {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -510,7 +511,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename R, typename A>
+template <class R, class A>
 class OperatorEvaluatorBitNeg {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -527,7 +528,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<R>::VARIANT_TYPE; }
 };
 
-template <typename A, typename B>
+template <class A, class B>
 class OperatorEvaluatorEqual {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -598,7 +599,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename A, typename B>
+template <class A, class B>
 class OperatorEvaluatorNotEqual {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -669,7 +670,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename A, typename B>
+template <class A, class B>
 class OperatorEvaluatorLess {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -687,7 +688,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename A, typename B>
+template <class A, class B>
 class OperatorEvaluatorLessEqual {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -705,7 +706,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename A, typename B>
+template <class A, class B>
 class OperatorEvaluatorGreater {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -723,7 +724,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename A, typename B>
+template <class A, class B>
 class OperatorEvaluatorGreaterEqual {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -741,7 +742,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename A, typename B>
+template <class A, class B>
 class OperatorEvaluatorAnd {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -759,7 +760,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename A, typename B>
+template <class A, class B>
 class OperatorEvaluatorOr {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -778,7 +779,7 @@ public:
 };
 
 #define XOR_OP(m_a, m_b) (((m_a) || (m_b)) && !((m_a) && (m_b)))
-template <typename A, typename B>
+template <class A, class B>
 class OperatorEvaluatorXor {
 public:
 	_FORCE_INLINE_ static bool xor_op(const A &a, const B &b) {
@@ -799,7 +800,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename A>
+template <class A>
 class OperatorEvaluatorNot {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -856,7 +857,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::ARRAY; }
 };
 
-template <typename T>
+template <class T>
 class OperatorEvaluatorAppendArray {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -879,7 +880,7 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<Vector<T>>::VARIANT_TYPE; }
 };
 
-template <typename Left, typename Right>
+template <class Left, class Right>
 class OperatorEvaluatorStringConcat {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -901,10 +902,10 @@ public:
 	static Variant::Type get_return_type() { return Variant::STRING; }
 };
 
-template <typename S, typename T>
+template <class S, class T>
 class OperatorEvaluatorStringFormat;
 
-template <typename S>
+template <class S>
 class OperatorEvaluatorStringFormat<S, void> {
 public:
 	_FORCE_INLINE_ static String do_mod(const String &s, bool *r_valid) {
@@ -932,7 +933,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::STRING; }
 };
 
-template <typename S>
+template <class S>
 class OperatorEvaluatorStringFormat<S, Array> {
 public:
 	_FORCE_INLINE_ static String do_mod(const String &s, const Array &p_values, bool *r_valid) {
@@ -957,7 +958,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::STRING; }
 };
 
-template <typename S>
+template <class S>
 class OperatorEvaluatorStringFormat<S, Object> {
 public:
 	_FORCE_INLINE_ static String do_mod(const String &s, const Object *p_object, bool *r_valid) {
@@ -985,7 +986,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::STRING; }
 };
 
-template <typename S, typename T>
+template <class S, class T>
 class OperatorEvaluatorStringFormat {
 public:
 	_FORCE_INLINE_ static String do_mod(const String &s, const T &p_value, bool *r_valid) {
@@ -1316,10 +1317,10 @@ public:
 
 ////
 
-template <typename Left, typename Right>
+template <class Left, class Right>
 class OperatorEvaluatorInStringFind;
 
-template <typename Left>
+template <class Left>
 class OperatorEvaluatorInStringFind<Left, String> {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -1340,7 +1341,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename Left>
+template <class Left>
 class OperatorEvaluatorInStringFind<Left, StringName> {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -1361,7 +1362,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename A, typename B>
+template <class A, class B>
 class OperatorEvaluatorInArrayFind {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
@@ -1416,7 +1417,7 @@ public:
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
 
-template <typename A>
+template <class A>
 class OperatorEvaluatorInDictionaryHas {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {

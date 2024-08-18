@@ -46,8 +46,7 @@ class Delaunay3D {
 	struct Simplex;
 
 	enum {
-		ACCEL_GRID_SIZE = 16,
-		QUANTIZATION_MAX = 1 << 16 // A power of two smaller than the 23 bit significand of a float.
+		ACCEL_GRID_SIZE = 16
 	};
 	struct GridPos {
 		Vector3i pos;
@@ -174,25 +173,38 @@ class Delaunay3D {
 
 		R128 radius2 = rel2_x * rel2_x + rel2_y * rel2_y + rel2_z * rel2_z;
 
-		return radius2 < (p_simplex.circum_r2 - R128(0.0000000001));
-		// When this tolerance is too big, it can result in overlapping simplices.
-		// When it's too small, large amounts of planar simplices are created.
+		return radius2 < (p_simplex.circum_r2 - R128(0.00001));
 	}
 
 	static bool simplex_is_coplanar(const Vector3 *p_points, const Simplex &p_simplex) {
-		// Checking every possible distance like this is overkill, but only checking
-		// one is not enough. If the simplex is almost planar then the vectors p1-p2
-		// and p1-p3 can be practically collinear, which makes Plane unreliable.
-		for (uint32_t i = 0; i < 4; i++) {
-			Plane p(p_points[p_simplex.points[i]], p_points[p_simplex.points[(i + 1) % 4]], p_points[p_simplex.points[(i + 2) % 4]]);
-			// This tolerance should not be smaller than the one used with
-			// Plane::has_point() when creating the LightmapGI probe BSP tree.
-			if (ABS(p.distance_to(p_points[p_simplex.points[(i + 3) % 4]])) < 0.001) {
-				return true;
-			}
+		Plane p(p_points[p_simplex.points[0]], p_points[p_simplex.points[1]], p_points[p_simplex.points[2]]);
+		if (ABS(p.distance_to(p_points[p_simplex.points[3]])) < CMP_EPSILON) {
+			return true;
 		}
 
-		return false;
+		Projection cm;
+
+		cm.columns[0][0] = p_points[p_simplex.points[0]].x;
+		cm.columns[0][1] = p_points[p_simplex.points[1]].x;
+		cm.columns[0][2] = p_points[p_simplex.points[2]].x;
+		cm.columns[0][3] = p_points[p_simplex.points[3]].x;
+
+		cm.columns[1][0] = p_points[p_simplex.points[0]].y;
+		cm.columns[1][1] = p_points[p_simplex.points[1]].y;
+		cm.columns[1][2] = p_points[p_simplex.points[2]].y;
+		cm.columns[1][3] = p_points[p_simplex.points[3]].y;
+
+		cm.columns[2][0] = p_points[p_simplex.points[0]].z;
+		cm.columns[2][1] = p_points[p_simplex.points[1]].z;
+		cm.columns[2][2] = p_points[p_simplex.points[2]].z;
+		cm.columns[2][3] = p_points[p_simplex.points[3]].z;
+
+		cm.columns[3][0] = 1.0;
+		cm.columns[3][1] = 1.0;
+		cm.columns[3][2] = 1.0;
+		cm.columns[3][3] = 1.0;
+
+		return ABS(cm.determinant()) <= CMP_EPSILON;
 	}
 
 public:
@@ -203,10 +215,9 @@ public:
 	static Vector<OutputSimplex> tetrahedralize(const Vector<Vector3> &p_points) {
 		uint32_t point_count = p_points.size();
 		Vector3 *points = (Vector3 *)memalloc(sizeof(Vector3) * (point_count + 4));
-		const Vector3 *src_points = p_points.ptr();
-		Vector3 proportions;
 
 		{
+			const Vector3 *src_points = p_points.ptr();
 			AABB rect;
 			for (uint32_t i = 0; i < point_count; i++) {
 				Vector3 point = src_points[i];
@@ -215,25 +226,17 @@ public:
 				} else {
 					rect.expand_to(point);
 				}
+				points[i] = point;
 			}
-
-			real_t longest_axis = rect.size[rect.get_longest_axis_index()];
-			proportions = Vector3(longest_axis, longest_axis, longest_axis) / rect.size;
 
 			for (uint32_t i = 0; i < point_count; i++) {
-				// Scale points to the unit cube to better utilize R128 precision
-				// and quantize to stabilize triangulation over a wide range of
-				// distances.
-				points[i] = Vector3(Vector3i((src_points[i] - rect.position) / longest_axis * QUANTIZATION_MAX)) / QUANTIZATION_MAX;
+				points[i] = (points[i] - rect.position) / rect.size;
 			}
 
-			const real_t delta_max = Math::sqrt(2.0) * 100.0;
+			float delta_max = Math::sqrt(2.0) * 20.0;
 			Vector3 center = Vector3(0.5, 0.5, 0.5);
 
-			// The larger the root simplex is, the more likely it is that the
-			// triangulation is convex. If it's not absolutely huge, there can
-			// be missing simplices that are not created for the outermost faces
-			// of the point cloud if the point density is very low there.
+			// any simplex that contains everything is good
 			points[point_count + 0] = center + Vector3(0, 1, 0) * delta_max;
 			points[point_count + 1] = center + Vector3(0, -1, 1) * delta_max;
 			points[point_count + 2] = center + Vector3(1, -1, -1) * delta_max;
@@ -268,7 +271,7 @@ public:
 		for (uint32_t i = 0; i < point_count; i++) {
 			bool unique = true;
 			for (uint32_t j = i + 1; j < point_count; j++) {
-				if (points[i] == points[j]) {
+				if (points[i].is_equal_approx(points[j])) {
 					unique = false;
 					break;
 				}
@@ -277,8 +280,10 @@ public:
 				continue;
 			}
 
-			Vector3i grid_pos = Vector3i(points[i] * proportions * ACCEL_GRID_SIZE);
-			grid_pos = grid_pos.clampi(0, ACCEL_GRID_SIZE - 1);
+			Vector3i grid_pos = Vector3i(points[i] * ACCEL_GRID_SIZE);
+			grid_pos.x = CLAMP(grid_pos.x, 0, ACCEL_GRID_SIZE - 1);
+			grid_pos.y = CLAMP(grid_pos.y, 0, ACCEL_GRID_SIZE - 1);
+			grid_pos.z = CLAMP(grid_pos.z, 0, ACCEL_GRID_SIZE - 1);
 
 			for (List<Simplex *>::Element *E = acceleration_grid[grid_pos.x][grid_pos.y][grid_pos.z].front(); E;) {
 				List<Simplex *>::Element *N = E->next(); //may be deleted
@@ -297,9 +302,6 @@ public:
 						Triangle t = Triangle(simplex->points[triangle_order[k][0]], simplex->points[triangle_order[k][1]], simplex->points[triangle_order[k][2]]);
 						uint32_t *p = triangles_inserted.lookup_ptr(t);
 						if (p) {
-							// This Delaunay implementation uses the Bowyer-Watson algorithm.
-							// The rule is that you don't reuse any triangles that were
-							// shared by any of the retriangulated simplices.
 							triangles[*p].bad = true;
 						} else {
 							triangles_inserted.insert(t, triangles.size());
@@ -307,6 +309,7 @@ public:
 						}
 					}
 
+					//remove simplex and continue
 					simplex_list.erase(simplex->SE);
 
 					for (const GridPos &gp : simplex->grid_positions) {
@@ -331,12 +334,17 @@ public:
 					center.y = double(new_simplex->circum_center_y);
 					center.z = double(new_simplex->circum_center_z);
 
-					const real_t radius2 = Math::sqrt(double(new_simplex->circum_r2)) + 0.0001;
+					float radius2 = Math::sqrt(double(new_simplex->circum_r2));
+					radius2 += 0.0001; //
 					Vector3 extents = Vector3(radius2, radius2, radius2);
-					Vector3i from = Vector3i((center - extents) * proportions * ACCEL_GRID_SIZE);
-					Vector3i to = Vector3i((center + extents) * proportions * ACCEL_GRID_SIZE);
-					from = from.clampi(0, ACCEL_GRID_SIZE - 1);
-					to = to.clampi(0, ACCEL_GRID_SIZE - 1);
+					Vector3i from = Vector3i((center - extents) * ACCEL_GRID_SIZE);
+					Vector3i to = Vector3i((center + extents) * ACCEL_GRID_SIZE);
+					from.x = CLAMP(from.x, 0, ACCEL_GRID_SIZE - 1);
+					from.y = CLAMP(from.y, 0, ACCEL_GRID_SIZE - 1);
+					from.z = CLAMP(from.z, 0, ACCEL_GRID_SIZE - 1);
+					to.x = CLAMP(to.x, 0, ACCEL_GRID_SIZE - 1);
+					to.y = CLAMP(to.y, 0, ACCEL_GRID_SIZE - 1);
+					to.z = CLAMP(to.z, 0, ACCEL_GRID_SIZE - 1);
 
 					for (int32_t x = from.x; x <= to.x; x++) {
 						for (int32_t y = from.y; y <= to.y; y++) {
@@ -369,7 +377,7 @@ public:
 					break;
 				}
 			}
-			if (invalid || simplex_is_coplanar(src_points, *simplex)) {
+			if (invalid || simplex_is_coplanar(points, *simplex)) {
 				memdelete(simplex);
 				continue;
 			}

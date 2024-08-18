@@ -43,7 +43,7 @@
  * from the iterator.
  */
 
-template <typename T, typename A = DefaultAllocator>
+template <class T, class A = DefaultAllocator>
 class List {
 	struct _Data;
 
@@ -139,6 +139,31 @@ public:
 
 	typedef T ValueType;
 
+	struct Iterator {
+		_FORCE_INLINE_ T &operator*() const {
+			return E->get();
+		}
+		_FORCE_INLINE_ T *operator->() const { return &E->get(); }
+		_FORCE_INLINE_ Iterator &operator++() {
+			E = E->next();
+			return *this;
+		}
+		_FORCE_INLINE_ Iterator &operator--() {
+			E = E->prev();
+			return *this;
+		}
+
+		_FORCE_INLINE_ bool operator==(const Iterator &b) const { return E == b.E; }
+		_FORCE_INLINE_ bool operator!=(const Iterator &b) const { return E != b.E; }
+
+		Iterator(Element *p_E) { E = p_E; }
+		Iterator() {}
+		Iterator(const Iterator &p_it) { E = p_it.E; }
+
+	private:
+		Element *E = nullptr;
+	};
+
 	struct ConstIterator {
 		_FORCE_INLINE_ const T &operator*() const {
 			return E->get();
@@ -162,35 +187,6 @@ public:
 
 	private:
 		const Element *E = nullptr;
-	};
-
-	struct Iterator {
-		_FORCE_INLINE_ T &operator*() const {
-			return E->get();
-		}
-		_FORCE_INLINE_ T *operator->() const { return &E->get(); }
-		_FORCE_INLINE_ Iterator &operator++() {
-			E = E->next();
-			return *this;
-		}
-		_FORCE_INLINE_ Iterator &operator--() {
-			E = E->prev();
-			return *this;
-		}
-
-		_FORCE_INLINE_ bool operator==(const Iterator &b) const { return E == b.E; }
-		_FORCE_INLINE_ bool operator!=(const Iterator &b) const { return E != b.E; }
-
-		Iterator(Element *p_E) { E = p_E; }
-		Iterator() {}
-		Iterator(const Iterator &p_it) { E = p_it.E; }
-
-		operator ConstIterator() const {
-			return ConstIterator(E);
-		}
-
-	private:
-		Element *E = nullptr;
 	};
 
 	_FORCE_INLINE_ Iterator begin() {
@@ -414,7 +410,7 @@ public:
 	/**
 	 * find an element in the list,
 	 */
-	template <typename T_v>
+	template <class T_v>
 	Element *find(const T_v &p_val) {
 		Element *it = front();
 		while (it) {
@@ -523,9 +519,7 @@ public:
 		}
 	}
 
-	// Random access to elements, use with care,
-	// do not use for iteration.
-	T &get(int p_index) {
+	T &operator[](int p_index) {
 		CRASH_BAD_INDEX(p_index, size());
 
 		Element *I = front();
@@ -538,9 +532,7 @@ public:
 		return I->get();
 	}
 
-	// Random access to elements, use with care,
-	// do not use for iteration.
-	const T &get(int p_index) const {
+	const T &operator[](int p_index) const {
 		CRASH_BAD_INDEX(p_index, size());
 
 		const Element *I = front();
@@ -654,7 +646,7 @@ public:
 		sort_custom<Comparator<T>>();
 	}
 
-	template <typename C>
+	template <class C>
 	void sort_custom_inplace() {
 		if (size() < 2) {
 			return;
@@ -701,7 +693,7 @@ public:
 		_data->last = to;
 	}
 
-	template <typename C>
+	template <class C>
 	struct AuxiliaryComparator {
 		C compare;
 		_FORCE_INLINE_ bool operator()(const Element *a, const Element *b) const {
@@ -709,7 +701,7 @@ public:
 		}
 	};
 
-	template <typename C>
+	template <class C>
 	void sort_custom() {
 		//this version uses auxiliary memory for speed.
 		//if you don't want to use auxiliary memory, use the in_place version
@@ -772,7 +764,7 @@ public:
 	}
 };
 
-template <typename T, typename A>
+template <class T, class A>
 void List<T, A>::Element::transfer_to_back(List<T, A> *p_dst_list) {
 	// Detach from current.
 

@@ -49,7 +49,7 @@ protected:
 	static StaticRaycaster *(*create_function)();
 
 public:
-	// Compatible with embree4 rays.
+	// compatible with embree3 rays
 	struct __aligned(16) Ray {
 		const static unsigned int INVALID_GEOMETRY_ID = ((unsigned int)-1); // from rtcore_common.h
 
