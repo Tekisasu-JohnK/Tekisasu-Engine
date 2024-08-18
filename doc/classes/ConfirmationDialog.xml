@@ -8,10 +8,10 @@
 		To get cancel action, you can use:
 		[codeblocks]
 		[gdscript]
-		get_cancel_button().pressed.connect(_on_canceled)
+		get_cancel_button().pressed.connect(self.canceled)
 		[/gdscript]
 		[csharp]
-		GetCancelButton().Pressed += OnCanceled;
+		GetCancelButton().Pressed += Canceled;
 		[/csharp]
 		[/codeblocks]
 	</description>
