@@ -31,9 +31,9 @@
 #ifndef GPU_PARTICLES_2D_EDITOR_PLUGIN_H
 #define GPU_PARTICLES_2D_EDITOR_PLUGIN_H
 
-#include "editor/editor_plugin.h"
-#include "scene/2d/collision_polygon_2d.h"
+#include "editor/plugins/editor_plugin.h"
 #include "scene/2d/gpu_particles_2d.h"
+#include "scene/2d/physics/collision_polygon_2d.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/spin_box.h"
 
@@ -68,8 +68,6 @@ class GPUParticles2DEditorPlugin : public EditorPlugin {
 	HBoxContainer *toolbar = nullptr;
 	MenuButton *menu = nullptr;
 
-	SpinBox *epoints = nullptr;
-
 	ConfirmationDialog *generate_visibility_rect = nullptr;
 	SpinBox *generate_seconds = nullptr;
 
@@ -88,7 +86,6 @@ class GPUParticles2DEditorPlugin : public EditorPlugin {
 
 protected:
 	void _notification(int p_what);
-	static void _bind_methods();
 
 public:
 	virtual String get_name() const override { return "GPUParticles2D"; }

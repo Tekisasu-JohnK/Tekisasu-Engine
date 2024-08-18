@@ -31,9 +31,9 @@
 #ifndef CPU_PARTICLES_2D_EDITOR_PLUGIN_H
 #define CPU_PARTICLES_2D_EDITOR_PLUGIN_H
 
-#include "editor/editor_plugin.h"
-#include "scene/2d/collision_polygon_2d.h"
+#include "editor/plugins/editor_plugin.h"
 #include "scene/2d/cpu_particles_2d.h"
+#include "scene/2d/physics/collision_polygon_2d.h"
 #include "scene/gui/box_container.h"
 
 class CheckBox;
@@ -66,8 +66,6 @@ class CPUParticles2DEditorPlugin : public EditorPlugin {
 	HBoxContainer *toolbar = nullptr;
 	MenuButton *menu = nullptr;
 
-	SpinBox *epoints = nullptr;
-
 	ConfirmationDialog *emission_mask = nullptr;
 	OptionButton *emission_mask_mode = nullptr;
 	CheckBox *emission_mask_centered = nullptr;
@@ -81,7 +79,6 @@ class CPUParticles2DEditorPlugin : public EditorPlugin {
 
 protected:
 	void _notification(int p_what);
-	static void _bind_methods();
 
 public:
 	virtual String get_name() const override { return "CPUParticles2D"; }

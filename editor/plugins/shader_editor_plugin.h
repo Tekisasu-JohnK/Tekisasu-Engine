@@ -31,12 +31,13 @@
 #ifndef SHADER_EDITOR_PLUGIN_H
 #define SHADER_EDITOR_PLUGIN_H
 
-#include "editor/editor_plugin.h"
+#include "editor/plugins/editor_plugin.h"
 
 class HSplitContainer;
 class ItemList;
 class MenuButton;
 class ShaderCreateDialog;
+class ShaderEditor;
 class TabContainer;
 class TextShaderEditor;
 class VisualShaderEditor;
@@ -52,9 +53,9 @@ class ShaderEditorPlugin : public EditorPlugin {
 	struct EditedShader {
 		Ref<Shader> shader;
 		Ref<ShaderInclude> shader_inc;
-		TextShaderEditor *shader_editor = nullptr;
-		VisualShaderEditor *visual_shader_editor = nullptr;
+		ShaderEditor *shader_editor = nullptr;
 		String path;
+		String name;
 	};
 
 	LocalVector<EditedShader> edited_shaders;
@@ -85,6 +86,8 @@ class ShaderEditorPlugin : public EditorPlugin {
 
 	ShaderCreateDialog *shader_create_dialog = nullptr;
 
+	float text_shader_zoom_factor = 1.0f;
+
 	void _update_shader_list();
 	void _shader_selected(int p_index);
 	void _shader_list_clicked(int p_item, Vector2 p_local_mouse_pos, MouseButton p_mouse_button_index);
@@ -93,6 +96,7 @@ class ShaderEditorPlugin : public EditorPlugin {
 	void _close_shader(int p_index);
 	void _close_builtin_shaders_from_scene(const String &p_scene);
 	void _file_removed(const String &p_removed_file);
+	void _res_saved_callback(const Ref<Resource> &p_res);
 
 	void _shader_created(Ref<Shader> p_shader);
 	void _shader_include_created(Ref<ShaderInclude> p_shader_inc);
@@ -105,6 +109,8 @@ class ShaderEditorPlugin : public EditorPlugin {
 
 	void _window_changed(bool p_visible);
 
+	void _set_text_shader_zoom_factor(float p_zoom_factor);
+
 protected:
 	void _notification(int p_what);
 
@@ -115,8 +121,7 @@ public:
 	virtual void make_visible(bool p_visible) override;
 	virtual void selected_notify() override;
 
-	TextShaderEditor *get_shader_editor(const Ref<Shader> &p_for_shader);
-	VisualShaderEditor *get_visual_shader_editor(const Ref<Shader> &p_for_shader);
+	ShaderEditor *get_shader_editor(const Ref<Shader> &p_for_shader);
 
 	virtual void set_window_layout(Ref<ConfigFile> p_layout) override;
 	virtual void get_window_layout(Ref<ConfigFile> p_layout) override;
