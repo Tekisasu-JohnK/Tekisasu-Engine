@@ -33,9 +33,10 @@
 #include "editor/editor_file_system.h"
 #include "editor/editor_log.h"
 #include "editor/editor_node.h"
+#include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 #include "editor/gui/editor_toaster.h"
-#include "editor/themes/editor_scale.h"
+#include "scene/scene_string_names.h"
 #include "servers/rendering_server.h"
 
 SurfaceUpgradeTool *SurfaceUpgradeTool::singleton = nullptr;
@@ -105,7 +106,7 @@ void SurfaceUpgradeTool::prepare_upgrade() {
 	EditorSettings::get_singleton()->set_project_metadata("surface_upgrade_tool", "resave_paths", resave_paths);
 
 	// Delay to avoid deadlocks, since this dialog can be triggered by loading a scene.
-	callable_mp(EditorNode::get_singleton(), &EditorNode::restart_editor).call_deferred();
+	MessageQueue::get_singleton()->push_callable(callable_mp(EditorNode::get_singleton(), &EditorNode::restart_editor));
 }
 
 // Ensure that the warnings and popups are skipped.
@@ -190,7 +191,7 @@ void SurfaceUpgradeDialog::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY:
 			// Can't do it in the constructor because it doesn't know that the signal exists.
-			connect(SceneStringName(confirmed), callable_mp(SurfaceUpgradeTool::get_singleton(), &SurfaceUpgradeTool::prepare_upgrade));
+			connect("confirmed", callable_mp(SurfaceUpgradeTool::get_singleton(), &SurfaceUpgradeTool::prepare_upgrade));
 			break;
 	}
 }

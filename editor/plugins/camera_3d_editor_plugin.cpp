@@ -46,6 +46,9 @@ void Camera3DEditor::_pressed() {
 	Node3DEditor::get_singleton()->set_custom_camera(sn);
 }
 
+void Camera3DEditor::_bind_methods() {
+}
+
 void Camera3DEditor::edit(Node *p_camera) {
 	node = p_camera;
 
@@ -73,7 +76,7 @@ Camera3DEditor::Camera3DEditor() {
 	preview->set_offset(SIDE_RIGHT, 0);
 	preview->set_offset(SIDE_TOP, 0);
 	preview->set_offset(SIDE_BOTTOM, 10);
-	preview->connect(SceneStringName(pressed), callable_mp(this, &Camera3DEditor::_pressed));
+	preview->connect("pressed", callable_mp(this, &Camera3DEditor::_pressed));
 }
 
 void Camera3DEditorPlugin::edit(Object *p_object) {

@@ -142,13 +142,11 @@ class EditorFeatureProfileManager : public AcceptDialog {
 
 	void _profile_action(int p_action);
 	void _profile_selected(int p_what);
-	void _hide_requested();
 
 	String current_profile;
 	void _update_profile_list(const String &p_select_profile = String());
 	void _update_selected_profile();
-	void _update_profile_tree_from(TreeItem *p_edited);
-	void _fill_classes_from(TreeItem *p_parent, const String &p_class, const String &p_selected, int p_class_insert_index = -1);
+	void _fill_classes_from(TreeItem *p_parent, const String &p_class, const String &p_selected);
 
 	Ref<EditorFeatureProfile> current;
 	Ref<EditorFeatureProfile> edited;

@@ -72,9 +72,6 @@ class EditorSpinSlider : public Range {
 	bool hide_slider = false;
 	bool flat = false;
 
-	void _grab_start();
-	void _grab_end();
-
 	void _grabber_gui_input(const Ref<InputEvent> &p_event);
 	void _value_input_closed();
 	void _value_input_submitted(const String &);
@@ -96,8 +93,6 @@ protected:
 	void _focus_entered();
 
 public:
-	virtual bool is_text_field() const override;
-
 	String get_tooltip(const Point2 &p_pos) const override;
 
 	String get_text_value() const;

@@ -93,8 +93,8 @@ void EditorTranslationParser::get_recognized_extensions(List<String> *r_extensio
 		custom_parsers[i]->get_recognized_extensions(&temp);
 	}
 	// Remove duplicates.
-	for (const String &E : temp) {
-		extensions.insert(E);
+	for (int i = 0; i < temp.size(); i++) {
+		extensions.insert(temp[i]);
 	}
 	for (const String &E : extensions) {
 		r_extensions->push_back(E);
@@ -104,8 +104,8 @@ void EditorTranslationParser::get_recognized_extensions(List<String> *r_extensio
 bool EditorTranslationParser::can_parse(const String &p_extension) const {
 	List<String> extensions;
 	get_recognized_extensions(&extensions);
-	for (const String &extension : extensions) {
-		if (p_extension == extension) {
+	for (int i = 0; i < extensions.size(); i++) {
+		if (p_extension == extensions[i]) {
 			return true;
 		}
 	}
@@ -117,8 +117,8 @@ Ref<EditorTranslationParserPlugin> EditorTranslationParser::get_parser(const Str
 	for (int i = 0; i < custom_parsers.size(); i++) {
 		List<String> temp;
 		custom_parsers[i]->get_recognized_extensions(&temp);
-		for (const String &E : temp) {
-			if (E == p_extension) {
+		for (int j = 0; j < temp.size(); j++) {
+			if (temp[j] == p_extension) {
 				return custom_parsers[i];
 			}
 		}
@@ -127,8 +127,8 @@ Ref<EditorTranslationParserPlugin> EditorTranslationParser::get_parser(const Str
 	for (int i = 0; i < standard_parsers.size(); i++) {
 		List<String> temp;
 		standard_parsers[i]->get_recognized_extensions(&temp);
-		for (const String &E : temp) {
-			if (E == p_extension) {
+		for (int j = 0; j < temp.size(); j++) {
+			if (temp[j] == p_extension) {
 				return standard_parsers[i];
 			}
 		}
