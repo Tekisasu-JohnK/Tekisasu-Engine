@@ -62,10 +62,6 @@
 #define _EXT_DEBUG_SEVERITY_LOW_ARB 0x9148
 #define _EXT_DEBUG_OUTPUT 0x92E0
 
-#ifndef GL_FRAMEBUFFER_SRGB
-#define GL_FRAMEBUFFER_SRGB 0x8DB9
-#endif
-
 #ifndef GLAPIENTRY
 #if defined(WINDOWS_ENABLED)
 #define GLAPIENTRY APIENTRY
@@ -76,7 +72,7 @@
 
 #if !defined(IOS_ENABLED) && !defined(WEB_ENABLED)
 // We include EGL below to get debug callback on GLES2 platforms,
-// but EGL is not available on iOS or the web.
+// but EGL is not available on iOS.
 #define CAN_DEBUG
 #endif
 
@@ -107,11 +103,6 @@ void RasterizerGLES3::begin_frame(double frame_step) {
 }
 
 void RasterizerGLES3::end_frame(bool p_swap_buffers) {
-	GLES3::Utilities *utils = GLES3::Utilities::get_singleton();
-	utils->capture_timestamps_end();
-}
-
-void RasterizerGLES3::gl_end_frame(bool p_swap_buffers) {
 	if (p_swap_buffers) {
 		DisplayServer::get_singleton()->swap_buffers();
 	} else {
@@ -134,9 +125,12 @@ void RasterizerGLES3::clear_depth(float p_depth) {
 
 #ifdef CAN_DEBUG
 static void GLAPIENTRY _gl_debug_print(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const GLvoid *userParam) {
-	// These are ultimately annoying, so removing for now.
-	if (type == _EXT_DEBUG_TYPE_OTHER_ARB || type == _EXT_DEBUG_TYPE_PERFORMANCE_ARB) {
+	if (type == _EXT_DEBUG_TYPE_OTHER_ARB) {
 		return;
+	}
+
+	if (type == _EXT_DEBUG_TYPE_PERFORMANCE_ARB) {
+		return; //these are ultimately annoying, so removing for now
 	}
 
 	char debSource[256], debType[256], debSev[256];
@@ -153,8 +147,6 @@ static void GLAPIENTRY _gl_debug_print(GLenum source, GLenum type, GLuint id, GL
 		strcpy(debSource, "Application");
 	} else if (source == _EXT_DEBUG_SOURCE_OTHER_ARB) {
 		strcpy(debSource, "Other");
-	} else {
-		ERR_FAIL_MSG(vformat("GL ERROR: Invalid or unhandled source '%d' in debug callback.", source));
 	}
 
 	if (type == _EXT_DEBUG_TYPE_ERROR_ARB) {
@@ -165,8 +157,10 @@ static void GLAPIENTRY _gl_debug_print(GLenum source, GLenum type, GLuint id, GL
 		strcpy(debType, "Undefined behavior");
 	} else if (type == _EXT_DEBUG_TYPE_PORTABILITY_ARB) {
 		strcpy(debType, "Portability");
-	} else {
-		ERR_FAIL_MSG(vformat("GL ERROR: Invalid or unhandled type '%d' in debug callback.", type));
+	} else if (type == _EXT_DEBUG_TYPE_PERFORMANCE_ARB) {
+		strcpy(debType, "Performance");
+	} else if (type == _EXT_DEBUG_TYPE_OTHER_ARB) {
+		strcpy(debType, "Other");
 	}
 
 	if (severity == _EXT_DEBUG_SEVERITY_HIGH_ARB) {
@@ -175,8 +169,6 @@ static void GLAPIENTRY _gl_debug_print(GLenum source, GLenum type, GLuint id, GL
 		strcpy(debSev, "Medium");
 	} else if (severity == _EXT_DEBUG_SEVERITY_LOW_ARB) {
 		strcpy(debSev, "Low");
-	} else {
-		ERR_FAIL_MSG(vformat("GL ERROR: Invalid or unhandled severity '%d' in debug callback.", severity));
 	}
 
 	String output = String() + "GL ERROR: Source: " + debSource + "\tType: " + debType + "\tID: " + itos(id) + "\tSeverity: " + debSev + "\tMessage: " + message;
@@ -196,12 +188,7 @@ typedef void(GLAPIENTRY *DEBUGPROCARB)(GLenum source,
 typedef void(GLAPIENTRY *DebugMessageCallbackARB)(DEBUGPROCARB callback, const void *userParam);
 
 void RasterizerGLES3::initialize() {
-	Engine::get_singleton()->print_header(vformat("OpenGL API %s - Compatibility - Using Device: %s - %s", RS::get_singleton()->get_video_adapter_api_version(), RS::get_singleton()->get_video_adapter_vendor(), RS::get_singleton()->get_video_adapter_name()));
-
-	// FLIP XY Bug: Are more devices affected?
-	// Confirmed so far: all Adreno 3xx with old driver (until 2018)
-	// ok on some tested Adreno devices: 4xx, 5xx and 6xx
-	flip_xy_workaround = GLES3::Config::get_singleton()->flip_xy_workaround;
+	print_line(vformat("OpenGL API %s - Compatibility - Using Device: %s - %s", RS::get_singleton()->get_video_adapter_api_version(), RS::get_singleton()->get_video_adapter_vendor(), RS::get_singleton()->get_video_adapter_name()));
 }
 
 void RasterizerGLES3::finalize() {
@@ -209,9 +196,6 @@ void RasterizerGLES3::finalize() {
 	memdelete(canvas);
 	memdelete(gi);
 	memdelete(fog);
-	memdelete(post_effects);
-	memdelete(glow);
-	memdelete(cubemap_filter);
 	memdelete(copy_effects);
 	memdelete(light_storage);
 	memdelete(particles_storage);
@@ -311,7 +295,7 @@ RasterizerGLES3::RasterizerGLES3() {
 			if (callback) {
 				print_line("godot: ENABLING GL DEBUG");
 				glEnable(_EXT_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
-				callback((DEBUGPROCARB)_gl_debug_print, nullptr);
+				callback((DEBUGPROCARB)_gl_debug_print, NULL);
 				glEnable(_EXT_DEBUG_OUTPUT);
 			}
 		}
@@ -349,9 +333,6 @@ RasterizerGLES3::RasterizerGLES3() {
 		}
 	}
 
-	// Disable OpenGL linear to sRGB conversion, because Godot will always do this conversion itself.
-	glDisable(GL_FRAMEBUFFER_SRGB);
-
 	// OpenGL needs to be initialized before initializing the Rasterizers
 	config = memnew(GLES3::Config);
 	utilities = memnew(GLES3::Utilities);
@@ -361,9 +342,6 @@ RasterizerGLES3::RasterizerGLES3() {
 	particles_storage = memnew(GLES3::ParticlesStorage);
 	light_storage = memnew(GLES3::LightStorage);
 	copy_effects = memnew(GLES3::CopyEffects);
-	cubemap_filter = memnew(GLES3::CubemapFilter);
-	glow = memnew(GLES3::Glow);
-	post_effects = memnew(GLES3::PostEffects);
 	gi = memnew(GLES3::GI);
 	fog = memnew(GLES3::Fog);
 	canvas = memnew(RasterizerCanvasGLES3());
@@ -371,6 +349,16 @@ RasterizerGLES3::RasterizerGLES3() {
 }
 
 RasterizerGLES3::~RasterizerGLES3() {
+}
+
+void RasterizerGLES3::prepare_for_blitting_render_targets() {
+	// This is a hack, but this function is called one time after all viewports have been updated.
+	// So it marks the end of the frame for all viewports
+	// In the OpenGL renderer we have to call end_frame for each viewport so we can swap the
+	// buffers for each window before proceeding to the next.
+	// This allows us to only increment the frame after all viewports are done.
+	GLES3::Utilities *utils = GLES3::Utilities::get_singleton();
+	utils->capture_timestamps_end();
 }
 
 void RasterizerGLES3::_blit_render_target_to_screen(RID p_render_target, DisplayServer::WindowID p_screen, const Rect2 &p_screen_rect, uint32_t p_layer, bool p_first) {
@@ -401,34 +389,22 @@ void RasterizerGLES3::_blit_render_target_to_screen(RID p_render_target, Display
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, GLES3::TextureStorage::system_fbo);
 
 	if (p_first) {
+		Size2i win_size = DisplayServer::get_singleton()->window_get_size();
 		if (p_screen_rect.position != Vector2() || p_screen_rect.size != rt->size) {
 			// Viewport doesn't cover entire window so clear window to black before blitting.
-			// Querying the actual window size from the DisplayServer would deadlock in separate render thread mode,
-			// so let's set the biggest viewport the implementation supports, to be sure the window is fully covered.
-			Size2i max_vp = GLES3::Utilities::get_singleton()->get_maximum_viewport_size();
-			glViewport(0, 0, max_vp[0], max_vp[1]);
+			glViewport(0, 0, win_size.width, win_size.height);
 			glClearColor(0.0, 0.0, 0.0, 1.0);
 			glClear(GL_COLOR_BUFFER_BIT);
 		}
 	}
 
 	Vector2i screen_rect_end = p_screen_rect.get_end();
-
-	// Adreno (TM) 3xx devices have a bug that create wrong Landscape rotation of 180 degree
-	// Reversing both the X and Y axis is equivalent to rotating 180 degrees
-	bool flip_x = false;
-	if (flip_xy_workaround && screen_rect_end.x > screen_rect_end.y) {
-		flip_y = !flip_y;
-		flip_x = !flip_x;
-	}
-
 	glBlitFramebuffer(0, 0, rt->size.x, rt->size.y,
-			flip_x ? screen_rect_end.x : p_screen_rect.position.x, flip_y ? screen_rect_end.y : p_screen_rect.position.y,
-			flip_x ? p_screen_rect.position.x : screen_rect_end.x, flip_y ? p_screen_rect.position.y : screen_rect_end.y,
+			p_screen_rect.position.x, flip_y ? screen_rect_end.y : p_screen_rect.position.y, screen_rect_end.x, flip_y ? p_screen_rect.position.y : screen_rect_end.y,
 			GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
 	if (read_fbo != 0) {
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, GLES3::TextureStorage::system_fbo);
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 		glDeleteFramebuffers(1, &read_fbo);
 	}
 }
@@ -452,7 +428,7 @@ void RasterizerGLES3::set_boot_image(const Ref<Image> &p_image, const Color &p_c
 
 	Size2i win_size = DisplayServer::get_singleton()->window_get_size();
 
-	glBindFramebuffer(GL_FRAMEBUFFER, GLES3::TextureStorage::system_fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, win_size.width, win_size.height);
 	glEnable(GL_BLEND);
 	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
@@ -498,7 +474,7 @@ void RasterizerGLES3::set_boot_image(const Ref<Image> &p_image, const Color &p_c
 	copy_effects->copy_to_rect(screenrect);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	gl_end_frame(true);
+	end_frame(true);
 
 	texture_storage->texture_free(texture);
 }
