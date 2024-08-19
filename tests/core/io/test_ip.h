@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  test_utils.h                                                          */
+/*  test_ip.h                                                             */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,16 +28,24 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef TEST_UTILS_H
-#define TEST_UTILS_H
+#ifndef TEST_IP_H
+#define TEST_IP_H
 
-class String;
+#include "core/io/ip.h"
 
-namespace TestUtils {
+#include "tests/test_macros.h"
 
-String get_data_path(const String &p_file);
-String get_executable_dir();
-String get_temp_path(const String &p_suffix);
-} // namespace TestUtils
+namespace TestIP {
 
-#endif // TEST_UTILS_H
+TEST_CASE("[IP] resolve_hostname") {
+	for (int x = 0; x < 1000; x++) {
+		IPAddress IPV4 = IP::get_singleton()->resolve_hostname("localhost", IP::TYPE_IPV4);
+		CHECK("127.0.0.1" == String(IPV4));
+		IPAddress IPV6 = IP::get_singleton()->resolve_hostname("localhost", IP::TYPE_IPV6);
+		CHECK("0:0:0:0:0:0:0:1" == String(IPV6));
+	}
+}
+
+} // namespace TestIP
+
+#endif // TEST_IP_H
