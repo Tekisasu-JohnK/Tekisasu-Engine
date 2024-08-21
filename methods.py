@@ -1048,7 +1048,7 @@ def dump(env):
 #
 # To generate AND build from the command line:
 #   scons vsproj=yes vsproj_gen_only=no
-def generate_vs_project(env, original_args, project_name="godot"):
+def generate_vs_project(env, original_args, project_name="tekisasu-engine"):
     # Augmented glob_recursive that also fills the dirs argument with traversed directories that have content.
     def glob_recursive_2(pattern, dirs, node="."):
         from SCons import Node
