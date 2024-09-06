@@ -43,7 +43,7 @@ def detect_arch():
 def get_build_version(short):
     import version
 
-    name = "p1"
+    name = "tekisasu"
     if os.getenv("BUILD_NAME") is not None:
         name = os.getenv("BUILD_NAME")
     v = "%d.%d" % (version.major, version.minor)
