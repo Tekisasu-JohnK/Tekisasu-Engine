@@ -22,11 +22,11 @@ name is available.
 
 ## Lead Developer
 
-    Juan Linietsky (reduz)
+    Tekisasu
 
 ## Project Manager
 
-    Rémi Verschelde (akien-mga)
+    Tekisasu
 
 ## Developers
 
