@@ -290,7 +290,7 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 				preset_contrast = config.default_contrast;
 			} else if (config.preset == "Tekisasu Engine") {
 				preset_accent_color = Color(0.37, 0.54, 0.91);
-				preset_base_color = Color(0.21, 0.24, 0.29);
+				preset_base_color = Color(0.24, 0.25, 0.28);
 				preset_contrast = config.default_contrast;
 			} else if (config.preset == "Godot 2") {
 				preset_accent_color = Color(0.53, 0.67, 0.89);
@@ -322,7 +322,7 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 				preset_draw_extra_borders = true;
 			} else { // Default
 				preset_accent_color = Color(0.37, 0.54, 0.91);
-				preset_base_color = Color(0.21, 0.24, 0.29);
+				preset_base_color = Color(0.24, 0.25, 0.28);
 				preset_contrast = config.default_contrast;
 			}
 
