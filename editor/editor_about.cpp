@@ -236,13 +236,13 @@ EditorAbout::EditorAbout() {
 	// Authors.
 
 	List<String> dev_sections;
-	dev_sections.push_back(TTR("Developers"));
+	dev_sections.push_back(TTR("Developer"));
 	dev_sections.push_back(TTR("Project Founders"));
 	const char *const *dev_src[] = {
-		AUTHORS_DEVELOPERS,
+		AUTHORS_DEVELOPER,
 		AUTHORS_FOUNDERS,
 	};
-	tc->add_child(_populate_list(TTR("Developers"), dev_sections, dev_src, 0b1)); // First section (Project Founders) is always one column.
+	tc->add_child(_populate_list(TTR("Developer"), dev_sections, dev_src, 0b1)); // First section (Developer) is always one column.
 
 	// License.
 

@@ -1,14 +1,10 @@
 # Tekisasu Engine authors
 
-## Developers
+## Developer
 
-    Tekisasu
-    Redot Engine
-    Godot & the Godot Engine community
+    Tekisasu (dev.tekisasu.com)
 
 ## Project Founders
 
-    Juan Linietsky (reduz)
-    Ariel Manzur (punto-)
-
-
+    Juan Linietsky
+    Ariel Manzur
