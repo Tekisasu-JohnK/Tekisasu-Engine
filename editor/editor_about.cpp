@@ -31,7 +31,6 @@
 #include "editor_about.h"
 
 #include "core/authors.gen.h"
-#include "core/donors.gen.h"
 #include "core/license.gen.h"
 #include "core/os/time.h"
 #include "core/version.h"
@@ -250,29 +249,6 @@ EditorAbout::EditorAbout() {
 	};
 	tc->add_child(_populate_list(TTR("Authors"), dev_sections, dev_src, 0b1)); // First section (Project Founders) is always one column.
 
-	// Donors.
-
-	List<String> donor_sections;
-	donor_sections.push_back(TTR("Patrons"));
-	donor_sections.push_back(TTR("Platinum Sponsors"));
-	donor_sections.push_back(TTR("Gold Sponsors"));
-	donor_sections.push_back(TTR("Silver Sponsors"));
-	donor_sections.push_back(TTR("Diamond Members"));
-	donor_sections.push_back(TTR("Titanium Members"));
-	donor_sections.push_back(TTR("Platinum Members"));
-	donor_sections.push_back(TTR("Gold Members"));
-	const char *const *donor_src[] = {
-		DONORS_PATRONS,
-		DONORS_SPONSORS_PLATINUM,
-		DONORS_SPONSORS_GOLD,
-		DONORS_SPONSORS_SILVER,
-		DONORS_MEMBERS_DIAMOND,
-		DONORS_MEMBERS_TITANIUM,
-		DONORS_MEMBERS_PLATINUM,
-		DONORS_MEMBERS_GOLD,
-	};
-	tc->add_child(_populate_list(TTR("Donors"), donor_sections, donor_src, 0b1, true)); // First section (Patron) is one column.
-
 	// License.
 
 	license_text_label = memnew(RichTextLabel);
@@ -280,7 +256,7 @@ EditorAbout::EditorAbout() {
 	license_text_label->set_name(TTR("License"));
 	license_text_label->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	license_text_label->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	license_text_label->set_text(String::utf8(GODOT_LICENSE_TEXT));
+	license_text_label->set_text(String::utf8(TEKISASUENGINE_LICENSE_TEXT));
 	tc->add_child(license_text_label);
 
 	// Thirdparty License.

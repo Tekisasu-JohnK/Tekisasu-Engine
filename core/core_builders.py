@@ -101,35 +101,10 @@ def make_authors_header(target, source, env):
 
         g.write("#endif // AUTHORS_GEN_H\n")
 
-
-def make_donors_header(target, source, env):
-    sections = [
-        "Patrons",
-        "Platinum sponsors",
-        "Gold sponsors",
-        "Silver sponsors",
-        "Diamond members",
-        "Titanium members",
-        "Platinum members",
-        "Gold members",
-    ]
-    sections_id = [
-        "DONORS_PATRONS",
-        "DONORS_SPONSORS_PLATINUM",
-        "DONORS_SPONSORS_GOLD",
-        "DONORS_SPONSORS_SILVER",
-        "DONORS_MEMBERS_DIAMOND",
-        "DONORS_MEMBERS_TITANIUM",
-        "DONORS_MEMBERS_PLATINUM",
-        "DONORS_MEMBERS_GOLD",
-    ]
-
     src = str(source[0])
     dst = str(target[0])
     with open(src, "r", encoding="utf-8") as f, open(dst, "w", encoding="utf-8", newline="\n") as g:
         g.write("/* THIS FILE IS GENERATED DO NOT EDIT */\n")
-        g.write("#ifndef DONORS_GEN_H\n")
-        g.write("#define DONORS_GEN_H\n")
 
         reading = False
 
@@ -155,8 +130,6 @@ def make_donors_header(target, source, env):
 
         if reading:
             close_section()
-
-        g.write("#endif // DONORS_GEN_H\n")
 
 
 def make_license_header(target, source, env):
@@ -224,7 +197,7 @@ def make_license_header(target, source, env):
         f.write("/* THIS FILE IS GENERATED DO NOT EDIT */\n")
         f.write("#ifndef LICENSE_GEN_H\n")
         f.write("#define LICENSE_GEN_H\n")
-        f.write("const char *const GODOT_LICENSE_TEXT =")
+        f.write("const char *const TEKISASUENGINE_LICENSE_TEXT =")
 
         with open(src_license, "r", encoding="utf-8") as license_file:
             for line in license_file:

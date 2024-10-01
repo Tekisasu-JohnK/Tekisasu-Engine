@@ -32,7 +32,6 @@
 
 #include "core/authors.gen.h"
 #include "core/config/project_settings.h"
-#include "core/donors.gen.h"
 #include "core/license.gen.h"
 #include "core/variant/typed_array.h"
 #include "core/version.h"
@@ -186,19 +185,6 @@ TypedArray<Dictionary> Engine::get_copyright_info() const {
 	return components;
 }
 
-Dictionary Engine::get_donor_info() const {
-	Dictionary donors;
-	donors["patrons"] = array_from_info(DONORS_PATRONS);
-	donors["platinum_sponsors"] = array_from_info(DONORS_SPONSORS_PLATINUM);
-	donors["gold_sponsors"] = array_from_info(DONORS_SPONSORS_GOLD);
-	donors["silver_sponsors"] = array_from_info(DONORS_SPONSORS_SILVER);
-	donors["diamond_members"] = array_from_info(DONORS_MEMBERS_DIAMOND);
-	donors["titanium_members"] = array_from_info(DONORS_MEMBERS_TITANIUM);
-	donors["platinum_members"] = array_from_info(DONORS_MEMBERS_PLATINUM);
-	donors["gold_members"] = array_from_info(DONORS_MEMBERS_GOLD);
-	return donors;
-}
-
 Dictionary Engine::get_license_info() const {
 	Dictionary licenses;
 	for (int i = 0; i < LICENSE_COUNT; i++) {
@@ -208,7 +194,7 @@ Dictionary Engine::get_license_info() const {
 }
 
 String Engine::get_license_text() const {
-	return String(GODOT_LICENSE_TEXT);
+	return String(TEKISASUENGINE_LICENSE_TEXT);
 }
 
 String Engine::get_architecture_name() const {
