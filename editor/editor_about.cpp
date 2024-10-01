@@ -236,18 +236,13 @@ EditorAbout::EditorAbout() {
 	// Authors.
 
 	List<String> dev_sections;
-	dev_sections.push_back(TTR("Project Founders"));
-	dev_sections.push_back(TTR("Lead Developer"));
-	// TRANSLATORS: This refers to a job title.
-	dev_sections.push_back(TTR("Project Manager", "Job Title"));
 	dev_sections.push_back(TTR("Developers"));
+	dev_sections.push_back(TTR("Project Founders"));
 	const char *const *dev_src[] = {
-		AUTHORS_FOUNDERS,
-		AUTHORS_LEAD_DEVELOPERS,
-		AUTHORS_PROJECT_MANAGERS,
 		AUTHORS_DEVELOPERS,
+		AUTHORS_FOUNDERS,
 	};
-	tc->add_child(_populate_list(TTR("Authors"), dev_sections, dev_src, 0b1)); // First section (Project Founders) is always one column.
+	tc->add_child(_populate_list(TTR("Developers"), dev_sections, dev_src, 0b1)); // First section (Project Founders) is always one column.
 
 	// License.
 
