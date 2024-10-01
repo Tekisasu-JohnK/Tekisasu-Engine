@@ -47,13 +47,6 @@
 				- [code]license[/code] - The license applied to this component (such as "[url=https://en.wikipedia.org/wiki/MIT_License#Ambiguity_and_variants]Expat[/url]" or "[url=https://creativecommons.org/licenses/by/4.0/]CC-BY-4.0[/url]").
 			</description>
 		</method>
-		<method name="get_donor_info" qualifiers="const">
-			<return type="Dictionary" />
-			<description>
-				Returns a [Dictionary] of categorized donor names. Each entry is an [Array] of strings:
-				{[code]platinum_sponsors[/code], [code]gold_sponsors[/code], [code]silver_sponsors[/code], [code]bronze_sponsors[/code], [code]mini_sponsors[/code], [code]gold_donors[/code], [code]silver_donors[/code], [code]bronze_donors[/code]}
-			</description>
-		</method>
 		<method name="get_frames_drawn">
 			<return type="int" />
 			<description>
