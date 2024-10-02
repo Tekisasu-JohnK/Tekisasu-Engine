@@ -18,6 +18,3 @@ thirdparty/* linguist-vendored
 *.png binary
 *.ttf binary
 *.tza binary
-
-* text=auto
-* text eol=lf
