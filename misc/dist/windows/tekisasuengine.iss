@@ -18,13 +18,13 @@ AppUpdatesURL={#MyAppURL}
 AppComments=Tekisasu Engine editor
 ChangesEnvironment=yes
 DefaultDirName={localappdata}\Tekisasu-Engine
-DefaultGroupName=Godot Engine
+DefaultGroupName=Tekisasu Engine
 AllowNoIcons=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 #ifdef App32Bit
-  OutputBaseFilename=godot-setup-x86
+  OutputBaseFilename=tekisasu-setup-x86
 #else
-  OutputBaseFilename=godot-setup-x86_64
+  OutputBaseFilename=tekisasu-setup-x86_64
   ArchitecturesAllowed=x64
   ArchitecturesInstallIn64BitMode=x64
 #endif
@@ -37,7 +37,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "modifypath"; Description: "Add Godot to PATH environment variable"
+Name: "modifypath"; Description: "Add Tekisasuengine to PATH environment variable"
 
 [Files]
 Source: "{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
